@@ -93,8 +93,8 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
         img.set({
           left: (canvasWidth - imgWidth * scale) / 2,
           top: (canvasHeight - imgHeight * scale) / 2,
-          selectable: true,
-          evented: true,
+          selectable: false,
+          evented: false,
         });
 
         fabricCanvas.clear();
