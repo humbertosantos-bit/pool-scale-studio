@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Canvas as FabricCanvas, FabricImage, Line, Ellipse, Rect, Circle } from 'fabric';
+import { Canvas as FabricCanvas, FabricImage, Line, Ellipse, Rect, Circle, Point } from 'fabric';
 import { cn } from '@/lib/utils';
 
 interface PoolCanvasProps {
@@ -12,6 +12,8 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
   const [fabricCanvas, setFabricCanvas] = useState<FabricCanvas | null>(null);
   const [scaleReference, setScaleReference] = useState<{ length: number; pixelLength: number } | null>(null);
   const [isSettingScale, setIsSettingScale] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [lastPos, setLastPos] = useState<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -20,6 +22,47 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
       width: 800,
       height: 600,
       backgroundColor: '#f8fafc',
+    });
+
+    // Enable zoom functionality
+    canvas.on('mouse:wheel', (opt) => {
+      const delta = opt.e.deltaY;
+      let zoom = canvas.getZoom();
+      zoom *= 0.999 ** delta;
+      if (zoom > 20) zoom = 20;
+      if (zoom < 0.01) zoom = 0.01;
+      canvas.zoomToPoint(new Point(opt.e.offsetX, opt.e.offsetY), zoom);
+      opt.e.preventDefault();
+      opt.e.stopPropagation();
+    });
+
+    // Enable panning when zoomed (Alt + drag)
+    canvas.on('mouse:down', (opt) => {
+      const evt = opt.e as MouseEvent;
+      if (evt.altKey === true) {
+        setIsDragging(true);
+        canvas.selection = false;
+        setLastPos({ x: evt.clientX, y: evt.clientY });
+      }
+    });
+
+    canvas.on('mouse:move', (opt) => {
+      if (isDragging && lastPos) {
+        const e = opt.e as MouseEvent;
+        const vpt = canvas.viewportTransform;
+        if (vpt) {
+          vpt[4] += e.clientX - lastPos.x;
+          vpt[5] += e.clientY - lastPos.y;
+          canvas.requestRenderAll();
+          setLastPos({ x: e.clientX, y: e.clientY });
+        }
+      }
+    });
+
+    canvas.on('mouse:up', () => {
+      setIsDragging(false);
+      canvas.selection = true;
+      setLastPos(null);
     });
 
     setFabricCanvas(canvas);
@@ -206,6 +249,10 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
           Scale: 1 pixel = {(scaleReference.length / scaleReference.pixelLength).toFixed(4)} feet
         </div>
       )}
+      
+      <div className="text-xs text-muted-foreground">
+        💡 Use mouse wheel to zoom, Alt + drag to pan
+      </div>
       
       <div className="border rounded-lg shadow-elegant overflow-hidden bg-white">
         <canvas ref={canvasRef} className="max-w-full" />
