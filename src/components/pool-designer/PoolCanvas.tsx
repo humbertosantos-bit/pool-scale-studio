@@ -175,7 +175,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
       
       line = new Line([startPoint.x, startPoint.y, pointer.x, pointer.y], {
         stroke: '#ef4444',
-        strokeWidth: 3,
+        strokeWidth: 1,
         selectable: false,
         evented: false,
       });
@@ -198,6 +198,8 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
           pixelLength: pixelLength,
         });
         setIsSettingScale(false);
+        // Remove the scale line after setting
+        fabricCanvas.remove(line);
       } else {
         fabricCanvas.remove(line);
       }
@@ -224,6 +226,18 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
     }
   };
 
+  const handleUnitChange = (newUnit: 'feet' | 'meters') => {
+    if (scaleReference && newUnit !== scaleUnit) {
+      // Convert the scale reference to the new unit
+      const conversionFactor = newUnit === 'meters' ? 0.3048 : 3.28084;
+      setScaleReference({
+        ...scaleReference,
+        length: scaleReference.length * conversionFactor,
+      });
+    }
+    setScaleUnit(newUnit);
+  };
+
   return (
     <div className={cn("flex flex-col gap-4", className)}>
       <div className="flex gap-2 flex-wrap items-center">
@@ -231,7 +245,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
           <label className="text-sm font-medium">Units:</label>
           <select 
             value={scaleUnit} 
-            onChange={(e) => setScaleUnit(e.target.value as 'feet' | 'meters')}
+            onChange={(e) => handleUnitChange(e.target.value as 'feet' | 'meters')}
             className="px-2 py-1 border rounded text-sm"
           >
             <option value="feet">Feet</option>
