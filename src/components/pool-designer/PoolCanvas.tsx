@@ -14,6 +14,8 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
   const [isSettingScale, setIsSettingScale] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [lastPos, setLastPos] = useState<{ x: number; y: number } | null>(null);
+  const [scaleUnit, setScaleUnit] = useState<'feet' | 'meters'>('feet');
+  const [pools, setPools] = useState<any[]>([]);
 
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -91,8 +93,8 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
         img.set({
           left: (canvasWidth - imgWidth * scale) / 2,
           top: (canvasHeight - imgHeight * scale) / 2,
-          selectable: false,
-          evented: false,
+          selectable: true,
+          evented: true,
         });
 
         fabricCanvas.clear();
@@ -143,7 +145,9 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
     }
 
     if (pool) {
+      (pool as any).poolId = `pool-${Date.now()}`;
       fabricCanvas.add(pool);
+      setPools(prev => [...prev, pool]);
       fabricCanvas.renderAll();
     }
   };
@@ -187,7 +191,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
         Math.pow(line.x2! - line.x1!, 2) + Math.pow(line.y2! - line.y1!, 2)
       );
       
-      const realLength = prompt('Enter the real-world length of this measurement (in feet):');
+      const realLength = prompt(`Enter the real-world length of this measurement (in ${scaleUnit}):`);
       if (realLength && !isNaN(Number(realLength))) {
         setScaleReference({
           length: Number(realLength),
@@ -209,9 +213,32 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
     fabricCanvas.on('mouse:up', handleMouseUp);
   };
 
+  const deleteSelectedPool = () => {
+    if (!fabricCanvas) return;
+    
+    const activeObject = fabricCanvas.getActiveObject();
+    if (activeObject && (activeObject as any).poolId && (activeObject as any).poolId.startsWith('pool-')) {
+      fabricCanvas.remove(activeObject);
+      setPools(prev => prev.filter(pool => pool !== activeObject));
+      fabricCanvas.renderAll();
+    }
+  };
+
   return (
     <div className={cn("flex flex-col gap-4", className)}>
-      <div className="flex gap-2 flex-wrap">
+      <div className="flex gap-2 flex-wrap items-center">
+        <div className="flex items-center gap-2">
+          <label className="text-sm font-medium">Units:</label>
+          <select 
+            value={scaleUnit} 
+            onChange={(e) => setScaleUnit(e.target.value as 'feet' | 'meters')}
+            className="px-2 py-1 border rounded text-sm"
+          >
+            <option value="feet">Feet</option>
+            <option value="meters">Meters</option>
+          </select>
+        </div>
+        
         <button
           onClick={startScaleReference}
           disabled={!imageFile || isSettingScale}
@@ -223,22 +250,28 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
         {scaleReference && (
           <>
             <button
-              onClick={() => addPool('rectangular', 20)}
+              onClick={() => addPool('rectangular', scaleUnit === 'feet' ? 20 : 6)}
               className="px-4 py-2 bg-pool-light text-pool-dark rounded-md hover:bg-pool-light/80"
             >
-              Add 20x10ft Pool
+              Add {scaleUnit === 'feet' ? '20×10ft' : '6×3m'} Pool
             </button>
             <button
-              onClick={() => addPool('oval', 24)}
+              onClick={() => addPool('oval', scaleUnit === 'feet' ? 24 : 7)}
               className="px-4 py-2 bg-pool-light text-pool-dark rounded-md hover:bg-pool-light/80"
             >
-              Add 24x14ft Oval
+              Add {scaleUnit === 'feet' ? '24×14ft' : '7×4m'} Oval
             </button>
             <button
-              onClick={() => addPool('round', 18)}
+              onClick={() => addPool('round', scaleUnit === 'feet' ? 18 : 5)}
               className="px-4 py-2 bg-pool-light text-pool-dark rounded-md hover:bg-pool-light/80"
             >
-              Add 18ft Round
+              Add {scaleUnit === 'feet' ? '18ft' : '5m'} Round
+            </button>
+            <button
+              onClick={deleteSelectedPool}
+              className="px-4 py-2 bg-destructive text-destructive-foreground rounded-md hover:bg-destructive/90"
+            >
+              Delete Selected Pool
             </button>
           </>
         )}
@@ -246,12 +279,12 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
       
       {scaleReference && (
         <div className="text-sm text-muted-foreground">
-          Scale: 1 pixel = {(scaleReference.length / scaleReference.pixelLength).toFixed(4)} feet
+          Scale: 1 pixel = {(scaleReference.length / scaleReference.pixelLength).toFixed(4)} {scaleUnit}
         </div>
       )}
       
       <div className="text-xs text-muted-foreground">
-        💡 Use mouse wheel to zoom, Alt + drag to pan
+        💡 Use mouse wheel to zoom, Alt + drag to pan, drag image to reposition
       </div>
       
       <div className="border rounded-lg shadow-elegant overflow-hidden bg-white">
