@@ -105,51 +105,37 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
     reader.readAsDataURL(imageFile);
   }, [fabricCanvas, imageFile]);
 
-  const addPool = (type: 'rectangular' | 'oval' | 'round', size: number = 20) => {
+  const addPool = () => {
     if (!fabricCanvas || !scaleReference) return;
 
-    const pixelSize = size * scaleReference.pixelLength / scaleReference.length;
+    // Fixed pool size: 12ft x 20ft (or 3.66m x 6.10m)
+    const width = scaleUnit === 'feet' ? 20 : 6.10;
+    const height = scaleUnit === 'feet' ? 12 : 3.66;
     
-    let pool;
+    const pixelWidth = width * scaleReference.pixelLength / scaleReference.length;
+    const pixelHeight = height * scaleReference.pixelLength / scaleReference.length;
+    
     const poolColor = '#3b82f6';
-    const poolOptions = {
+    const pool = new Rect({
       left: fabricCanvas.width! / 2,
       top: fabricCanvas.height! / 2,
       fill: poolColor + '80',
       stroke: poolColor,
       strokeWidth: 2,
       opacity: 0.8,
-    };
+      width: pixelWidth,
+      height: pixelHeight,
+      lockScalingX: true,
+      lockScalingY: true,
+      lockRotation: true,
+      hasControls: false,
+      hasBorders: true,
+    });
 
-    switch (type) {
-      case 'rectangular':
-        pool = new Rect({
-          ...poolOptions,
-          width: pixelSize * 2,
-          height: pixelSize,
-        });
-        break;
-      case 'oval':
-        pool = new Ellipse({
-          ...poolOptions,
-          rx: pixelSize,
-          ry: pixelSize * 0.6,
-        });
-        break;
-      case 'round':
-        pool = new Circle({
-          ...poolOptions,
-          radius: pixelSize / 2,
-        });
-        break;
-    }
-
-    if (pool) {
-      (pool as any).poolId = `pool-${Date.now()}`;
-      fabricCanvas.add(pool);
-      setPools(prev => [...prev, pool]);
-      fabricCanvas.renderAll();
-    }
+    (pool as any).poolId = `pool-${Date.now()}`;
+    fabricCanvas.add(pool);
+    setPools(prev => [...prev, pool]);
+    fabricCanvas.renderAll();
   };
 
   const startScaleReference = () => {
@@ -264,22 +250,10 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
         {scaleReference && (
           <>
             <button
-              onClick={() => addPool('rectangular', scaleUnit === 'feet' ? 20 : 6)}
+              onClick={addPool}
               className="px-4 py-2 bg-pool-light text-pool-dark rounded-md hover:bg-pool-light/80"
             >
-              Add {scaleUnit === 'feet' ? '20×10ft' : '6×3m'} Pool
-            </button>
-            <button
-              onClick={() => addPool('oval', scaleUnit === 'feet' ? 24 : 7)}
-              className="px-4 py-2 bg-pool-light text-pool-dark rounded-md hover:bg-pool-light/80"
-            >
-              Add {scaleUnit === 'feet' ? '24×14ft' : '7×4m'} Oval
-            </button>
-            <button
-              onClick={() => addPool('round', scaleUnit === 'feet' ? 18 : 5)}
-              className="px-4 py-2 bg-pool-light text-pool-dark rounded-md hover:bg-pool-light/80"
-            >
-              Add {scaleUnit === 'feet' ? '18ft' : '5m'} Round
+              Add {scaleUnit === 'feet' ? '12×20 ft' : '3.66×6.10 m'} Pool
             </button>
             <button
               onClick={deleteSelectedPool}
