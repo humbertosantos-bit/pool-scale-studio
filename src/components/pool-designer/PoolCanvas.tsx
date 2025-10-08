@@ -1081,9 +1081,10 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
     let lastClickPos: Point | null = null;
     
     const handleClick = (e: any) => {
+      if (!isDrawingFenceRef.current) return;
       const mouseEvent = e.e as MouseEvent;
       if (mouseEvent.button !== 0) return; // Only handle left clicks for adding points
-      
+
       const pointer = fabricCanvas.getScenePoint(e.e);
       let newPoint = new Point(pointer.x, pointer.y);
       
@@ -1152,8 +1153,9 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
     };
     
     const handleMouseMove = (e: any) => {
+      if (!isDrawingFenceRef.current) return;
       if (fencePoints.length === 0) return;
-      
+
       const pointer = fabricCanvas.getScenePoint(e.e);
       let previewPoint = new Point(pointer.x, pointer.y);
       
@@ -1200,7 +1202,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
     // Function to properly stop fence drawing and clean up all state
     const stopFenceDrawing = () => {
       // Remove all event listeners immediately to stop any further drawing
-      fabricCanvas.off('mouse:down', handleClick);
+      fabricCanvas.off('mouse:down', onMouseDownFence);
       fabricCanvas.off('mouse:move', handleMouseMove);
       fabricCanvas.off('mouse:dblclick', handleFinish);
       window.removeEventListener('keydown', handleKeyPress);
@@ -1238,8 +1240,9 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
     };
     
     const handleFinish = (e?: any) => {
+      if (!isDrawingFenceRef.current) return;
       if (e?.e) e.e.preventDefault();
-      
+
       // If we have enough points, create the fence
       if (fencePoints.length >= 2) {
         // Calculate total fence length in feet
@@ -1314,6 +1317,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
     };
     
     const handleRightClick = (e: any) => {
+      if (!isDrawingFenceRef.current) return;
       e.e.preventDefault();
       handleFinish();
     };
@@ -1328,14 +1332,16 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
       e.preventDefault();
     };
     
-    fabricCanvas.on('mouse:down', (e) => {
+    const onMouseDownFence = (e: any) => {
+      if (!isDrawingFenceRef.current) return;
       const mouseEvent = e.e as MouseEvent;
       if (mouseEvent.button === 0) {
         handleClick(e);
       } else if (mouseEvent.button === 2) {
         handleRightClick(e);
       }
-    });
+    };
+    fabricCanvas.on('mouse:down', onMouseDownFence);
     fabricCanvas.on('mouse:move', handleMouseMove);
     fabricCanvas.on('mouse:dblclick', handleFinish);
     
