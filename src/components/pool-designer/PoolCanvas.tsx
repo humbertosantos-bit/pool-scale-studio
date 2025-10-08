@@ -12,6 +12,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
   const [fabricCanvas, setFabricCanvas] = useState<FabricCanvas | null>(null);
   const [scaleReference, setScaleReference] = useState<{ length: number; pixelLength: number } | null>(null);
   const [isSettingScale, setIsSettingScale] = useState(false);
+  const isSettingScaleRef = useRef(false);
   const isDraggingRef = useRef(false);
   const lastPosRef = useRef<{ x: number; y: number } | null>(null);
   const [scaleUnit, setScaleUnit] = useState<'feet' | 'meters'>('feet');
@@ -44,7 +45,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
       const target = opt.target;
       
       // Don't enable panning if we're setting scale
-      if (isSettingScale) return;
+      if (isSettingScaleRef.current) return;
       
       // Enable panning if Alt key is pressed OR clicking on empty space (no target object)
       if (evt.altKey === true || !target) {
@@ -111,7 +112,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
       window.removeEventListener('keydown', handleKeyDown);
       canvas.dispose();
     };
-  }, [isSettingScale]);
+  }, []);
 
   useEffect(() => {
     if (!fabricCanvas || !imageFile) return;
@@ -192,6 +193,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
     if (!fabricCanvas) return;
     
     setIsSettingScale(true);
+    isSettingScaleRef.current = true;
     let firstPoint: { x: number; y: number } | null = null;
     let tempCircle: Circle | null = null;
     let line: Line | null = null;
@@ -245,6 +247,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
         if (line) fabricCanvas.remove(line);
         
         setIsSettingScale(false);
+        isSettingScaleRef.current = false;
         fabricCanvas.off('mouse:down', handleMouseDown);
         fabricCanvas.renderAll();
       }
