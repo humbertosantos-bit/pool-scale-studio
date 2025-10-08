@@ -1405,14 +1405,20 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
               );
               pt.x = localPoint.x + polyline.pathOffset!.x;
               pt.y = localPoint.y + polyline.pathOffset!.y;
+              
+              // Update the polyline's coordinates and render
+              polyline.setCoords();
+              fabricCanvas.requestRenderAll();
+              updateFenceMarkers(polyline);
+              
               return true;
             },
             cursorStyle: 'pointer',
             render: (ctx, left, top, styleOverride, fabricObject) => {
-              const size = 8;
+              const size = 10;
               ctx.save();
-              ctx.fillStyle = '#666666';
-              ctx.strokeStyle = '#ffffff';
+              ctx.fillStyle = '#ffffff';
+              ctx.strokeStyle = '#3b82f6';
               ctx.lineWidth = 2;
               ctx.beginPath();
               ctx.arc(left, top, size / 2, 0, 2 * Math.PI);
@@ -1435,21 +1441,20 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
           );
           existingMarkers.forEach(marker => fabricCanvas.remove(marker));
           
-          // Get fence transformation
-          const fenceCenter = fenceObj.getCenterPoint();
-          const fenceAngle = fenceObj.angle || 0;
-          const fenceScaleX = fenceObj.scaleX || 1;
-          const fenceScaleY = fenceObj.scaleY || 1;
-          
           const points = fenceObj.points as any[];
+          const fenceLeft = fenceObj.left || 0;
+          const fenceTop = fenceObj.top || 0;
+          
           let accumulatedDistance = 0;
           const markerInterval = 5; // 5 feet
           
           for (let i = 0; i < points.length - 1; i++) {
             const p1 = points[i];
             const p2 = points[i + 1];
-            const dx = (p2.x - p1.x) * fenceScaleX;
-            const dy = (p2.y - p1.y) * fenceScaleY;
+            
+            // Calculate pixel distance between points
+            const dx = p2.x - p1.x;
+            const dy = p2.y - p1.y;
             const pixelDistance = Math.sqrt(dx * dx + dy * dy);
             const feetDistance = (pixelDistance * scaleReference.length) / scaleReference.pixelLength;
             
@@ -1462,21 +1467,16 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
               const distanceIntoSegment = nextMarkerAt - segmentStart;
               const ratio = distanceIntoSegment / feetDistance;
               
-              // Calculate marker position in local coordinates
-              const localMarkerX = (p1.x + (p2.x - p1.x) * ratio) * fenceScaleX;
-              const localMarkerY = (p1.y + (p2.y - p1.y) * ratio) * fenceScaleY;
-              
-              // Transform to global coordinates
-              const angleRad = (fenceAngle * Math.PI) / 180;
-              const globalMarkerX = fenceCenter.x + (localMarkerX * Math.cos(angleRad) - localMarkerY * Math.sin(angleRad));
-              const globalMarkerY = fenceCenter.y + (localMarkerX * Math.sin(angleRad) + localMarkerY * Math.cos(angleRad));
+              // Calculate marker position relative to fence position
+              const markerX = fenceLeft + p1.x + (p2.x - p1.x) * ratio;
+              const markerY = fenceTop + p1.y + (p2.y - p1.y) * ratio;
               
               const markerSize = 3;
               const line1 = new Line([
-                globalMarkerX - markerSize, 
-                globalMarkerY - markerSize, 
-                globalMarkerX + markerSize, 
-                globalMarkerY + markerSize
+                markerX - markerSize, 
+                markerY - markerSize, 
+                markerX + markerSize, 
+                markerY + markerSize
               ], {
                 stroke: '#666666',
                 strokeWidth: 1.5,
@@ -1484,10 +1484,10 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
                 evented: false,
               });
               const line2 = new Line([
-                globalMarkerX - markerSize, 
-                globalMarkerY + markerSize, 
-                globalMarkerX + markerSize, 
-                globalMarkerY - markerSize
+                markerX - markerSize, 
+                markerY + markerSize, 
+                markerX + markerSize, 
+                markerY - markerSize
               ], {
                 stroke: '#666666',
                 strokeWidth: 1.5,
@@ -1511,13 +1511,9 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         fabricCanvas.add(fence);
         updateFenceMarkers(fence);
         
-        // Update markers when fence is modified, moved, scaled, or rotated
+        // Update markers when fence is modified or moved
         fence.on('modified', () => updateFenceMarkers(fence));
         fence.on('moving', () => updateFenceMarkers(fence));
-        fence.on('scaling', () => updateFenceMarkers(fence));
-        fence.on('rotating', () => updateFenceMarkers(fence));
-        
-        setFences(prev => [...prev, fence]);
         
         setFences(prev => [...prev, fence]);
       }
