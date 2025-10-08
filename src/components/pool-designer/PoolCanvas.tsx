@@ -20,6 +20,8 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
   const [isMeasuring, setIsMeasuring] = useState(false);
   const isMeasuringRef = useRef(false);
   const [measurementLines, setMeasurementLines] = useState<any[]>([]);
+  const [measurementMode, setMeasurementMode] = useState<'draw' | 'type'>('draw');
+  const [typedDistance, setTypedDistance] = useState('');
 
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -302,8 +304,9 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
           if (data && data.pixelLength) {
             const realLength = (data.pixelLength * scaleReference.length * conversionFactor) / scaleReference.pixelLength;
             const textObj = measurement.getObjects().find(obj => obj instanceof Text) as Text;
+            const unitLabel = newUnit === 'feet' ? 'FT' : 'M';
             if (textObj) {
-              textObj.set({ text: `${realLength.toFixed(2)} ${newUnit}` });
+              textObj.set({ text: `${realLength.toFixed(2)} ${unitLabel}` });
             }
             (measurement as any).measurementData.unit = newUnit;
           }
@@ -312,6 +315,92 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
       }
     }
     setScaleUnit(newUnit);
+  };
+
+  const addTypedMeasurement = () => {
+    if (!fabricCanvas || !scaleReference || !typedDistance) return;
+    
+    const distance = parseFloat(typedDistance);
+    if (isNaN(distance) || distance <= 0) {
+      alert('Please enter a valid positive number for the distance.');
+      return;
+    }
+    
+    const pixelLength = (distance * scaleReference.pixelLength) / scaleReference.length;
+    const canvasCenterX = fabricCanvas.width! / 2;
+    const canvasCenterY = fabricCanvas.height! / 2;
+    
+    const startPoint = { x: canvasCenterX - pixelLength / 2, y: canvasCenterY };
+    const endPoint = { x: canvasCenterX + pixelLength / 2, y: canvasCenterY };
+    
+    const createFinalArrowHead = (x: number, y: number, arrowAngle: number) => {
+      const capSize = 4;
+      
+      const cap = new Line([0, -capSize, 0, capSize], {
+        stroke: '#4169e1',
+        strokeWidth: 0.5,
+        strokeUniform: true,
+      });
+      
+      return new Group([cap], {
+        left: x,
+        top: y,
+        angle: arrowAngle,
+        originX: 'center',
+        originY: 'center',
+        selectable: false,
+        evented: false,
+      });
+    };
+    
+    const finalLine = new Line([startPoint.x, startPoint.y, endPoint.x, endPoint.y], {
+      stroke: '#4169e1',
+      strokeWidth: 0.5,
+      strokeUniform: true,
+      selectable: false,
+      evented: false,
+    });
+    
+    const finalArrow1 = createFinalArrowHead(startPoint.x, startPoint.y, 0);
+    const finalArrow2 = createFinalArrowHead(endPoint.x, endPoint.y, 180);
+    
+    const midX = (startPoint.x + endPoint.x) / 2;
+    const midY = (startPoint.y + endPoint.y) / 2;
+    const offset = 8;
+    const unitLabel = scaleUnit === 'feet' ? 'FT' : 'M';
+    
+    const finalText = new Text(`${distance.toFixed(2)} ${unitLabel}`, {
+      left: midX,
+      top: midY - offset,
+      fontSize: 6,
+      fontFamily: 'Inter, Arial, sans-serif',
+      fill: '#4169e1',
+      selectable: false,
+      evented: false,
+      originX: 'center',
+      originY: 'center',
+      angle: 0,
+    });
+    
+    const measurementGroup = new Group([finalLine, finalArrow1, finalArrow2, finalText], {
+      selectable: true,
+      evented: true,
+      lockScalingX: true,
+      lockScalingY: true,
+      lockRotation: false,
+      hasControls: true,
+      hasBorders: true,
+    });
+    
+    (measurementGroup as any).measurementId = `measurement-${Date.now()}`;
+    (measurementGroup as any).measurementData = {
+      pixelLength: pixelLength,
+      unit: scaleUnit,
+    };
+    fabricCanvas.add(measurementGroup);
+    setMeasurementLines(prev => [...prev, measurementGroup]);
+    setTypedDistance('');
+    fabricCanvas.renderAll();
   };
 
   const startMeasurement = () => {
@@ -363,7 +452,8 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
       tempArrow2Group = createArrowHead(pointer.x, pointer.y, 0);
       
       // Create temporary text
-      tempText = new Text('0.00 ' + scaleUnit, {
+      const unitLabel = scaleUnit === 'feet' ? 'FT' : 'M';
+      tempText = new Text('0.00 ' + unitLabel, {
         left: pointer.x,
         top: pointer.y,
         fontSize: 6,
@@ -441,10 +531,11 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
       const offsetX = Math.cos(perpAngle) * offset;
       const offsetY = Math.sin(perpAngle) * offset;
       
+      const unitLabel = scaleUnit === 'feet' ? 'FT' : 'M';
       tempText.set({
         left: midX + offsetX,
         top: midY + offsetY,
-        text: `${realLength.toFixed(2)} ${scaleUnit}`,
+        text: `${realLength.toFixed(2)} ${unitLabel}`,
         angle: textAngle,
       });
       
@@ -532,7 +623,8 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
         const offsetX = Math.cos(perpAngle) * offset;
         const offsetY = Math.sin(perpAngle) * offset;
         
-        const finalText = new Text(`${realLength.toFixed(2)} ${scaleUnit}`, {
+        const unitLabel = scaleUnit === 'feet' ? 'FT' : 'M';
+        const finalText = new Text(`${realLength.toFixed(2)} ${unitLabel}`, {
           left: midX + offsetX,
           top: midY + offsetY,
           fontSize: 6,
@@ -625,13 +717,47 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
             >
               Delete Selected Pool
             </button>
-            <button
-              onClick={startMeasurement}
-              disabled={isMeasuring}
-              className="px-4 py-2 bg-foreground text-background rounded-md hover:bg-foreground/90 disabled:opacity-50"
-            >
-              {isMeasuring ? 'Click and drag to measure...' : 'Measure Distance'}
-            </button>
+            
+            <div className="flex items-center gap-2 border-l pl-2">
+              <label className="text-sm font-medium">Measure:</label>
+              <select 
+                value={measurementMode} 
+                onChange={(e) => setMeasurementMode(e.target.value as 'draw' | 'type')}
+                className="px-2 py-1 border rounded text-sm"
+              >
+                <option value="draw">Draw</option>
+                <option value="type">Type</option>
+              </select>
+              
+              {measurementMode === 'draw' ? (
+                <button
+                  onClick={startMeasurement}
+                  disabled={isMeasuring}
+                  className="px-4 py-2 bg-foreground text-background rounded-md hover:bg-foreground/90 disabled:opacity-50"
+                >
+                  {isMeasuring ? 'Click and drag to measure...' : 'Draw Measurement'}
+                </button>
+              ) : (
+                <>
+                  <input
+                    type="number"
+                    value={typedDistance}
+                    onChange={(e) => setTypedDistance(e.target.value)}
+                    placeholder={`Distance in ${scaleUnit === 'feet' ? 'FT' : 'M'}`}
+                    className="px-2 py-1 border rounded text-sm w-32"
+                    step="0.01"
+                    min="0"
+                  />
+                  <button
+                    onClick={addTypedMeasurement}
+                    className="px-4 py-2 bg-foreground text-background rounded-md hover:bg-foreground/90"
+                  >
+                    Add Measurement
+                  </button>
+                </>
+              )}
+            </div>
+            
             <button
               onClick={deleteSelectedMeasurement}
               className="px-4 py-2 bg-destructive text-destructive-foreground rounded-md hover:bg-destructive/90"
@@ -644,7 +770,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
       
       {scaleReference && (
         <div className="text-sm text-muted-foreground">
-          Scale: 1 pixel = {(scaleReference.length / scaleReference.pixelLength).toFixed(4)} {scaleUnit}
+          Scale: 1 pixel = {(scaleReference.length / scaleReference.pixelLength).toFixed(4)} {scaleUnit === 'feet' ? 'FT' : 'M'}
         </div>
       )}
       
