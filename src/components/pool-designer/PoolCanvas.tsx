@@ -691,10 +691,27 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
           Math.pow(secondPoint.x - firstPoint.x, 2) + Math.pow(secondPoint.y - firstPoint.y, 2)
         );
         
-        const realLength = prompt(`Enter the real-world length of this measurement (in ${scaleUnit}):`);
-        if (realLength && !isNaN(Number(realLength))) {
+        let realLength: number | null = null;
+        
+        if (scaleUnit === 'feet') {
+          const feet = prompt('Enter feet:');
+          const inches = prompt('Enter inches:');
+          
+          if (feet !== null && inches !== null) {
+            const feetNum = parseFloat(feet) || 0;
+            const inchesNum = parseFloat(inches) || 0;
+            realLength = feetNum + inchesNum / 12;
+          }
+        } else {
+          const meters = prompt('Enter the real-world length (in meters):');
+          if (meters && !isNaN(Number(meters))) {
+            realLength = Number(meters);
+          }
+        }
+        
+        if (realLength !== null && realLength > 0) {
           setScaleReference({
-            length: Number(realLength),
+            length: realLength,
             pixelLength: pixelLength,
           });
         }
