@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { FileUpload } from '@/components/ui/file-upload';
 import { PoolCanvas } from './PoolCanvas';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import logo from '@/assets/piscineriviera-logo.png';
 
 export const PoolDesigner: React.FC = () => {
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
@@ -13,13 +14,11 @@ export const PoolDesigner: React.FC = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-background to-pool-light/20 p-6">
       <div className="max-w-7xl mx-auto space-y-6">
-        <div className="text-center space-y-4">
+        <div className="flex items-center justify-center gap-6">
+          <img src={logo} alt="Piscine Riviera" className="h-20 w-auto" />
           <h1 className="text-4xl font-bold bg-gradient-hero bg-clip-text text-transparent">
-            Pool Design Visualizer
+            Piscine Riviera Design Tool
           </h1>
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Upload your property image, set the scale, and visualize different pool sizes and shapes
-          </p>
         </div>
 
         <div className="grid lg:grid-cols-3 gap-6">
