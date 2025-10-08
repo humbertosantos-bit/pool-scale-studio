@@ -1047,7 +1047,9 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
     let fencePoints: Point[] = [];
     let tempLines: Line[] = [];
     let tempCircles: Circle[] = [];
-    let previewLine: Line | null = null;
+      let previewLine: Line | null = null;
+      let lastClickTime = 0;
+      let lastClickPos: Point | null = null;
     
     const handleClick = (e: any) => {
       const mouseEvent = e.e as MouseEvent;
@@ -1073,7 +1075,19 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         );
       }
       
+      // If this is a rapid second click near the last point, treat as part of a double-click and don't add a new point
+      const now = Date.now();
+      if (lastClickPos && now - lastClickTime < 300) {
+        const dxi = newPoint.x - lastClickPos.x;
+        const dyi = newPoint.y - lastClickPos.y;
+        if (Math.hypot(dxi, dyi) < 5) {
+          return;
+        }
+      }
+      
       fencePoints.push(newPoint);
+      lastClickTime = now;
+      lastClickPos = newPoint;
       
       // Add visual marker at this point
       const marker = new Circle({
@@ -1151,8 +1165,8 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
       fabricCanvas.renderAll();
     };
     
-    const handleRightClick = (e: any) => {
-      e.e.preventDefault();
+    const handleFinish = (e: any) => {
+      if (e?.e) e.e.preventDefault();
       
       // Finish drawing
       if (fencePoints.length >= 2) {
@@ -1199,7 +1213,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
       // Clean up event listeners
       fabricCanvas.off('mouse:down', handleClick);
       fabricCanvas.off('mouse:move', handleMouseMove);
-      fabricCanvas.off('mouse:down', handleRightClick);
+      fabricCanvas.off('mouse:dblclick', handleFinish);
       
       setIsDrawingFence(false);
       isDrawingFenceRef.current = false;
@@ -1217,13 +1231,12 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
     
     fabricCanvas.on('mouse:down', (e) => {
       const mouseEvent = e.e as MouseEvent;
-      if (mouseEvent.button === 1) {
-        handleRightClick(e);
-      } else if (mouseEvent.button === 0) {
+      if (mouseEvent.button === 0) {
         handleClick(e);
       }
     });
     fabricCanvas.on('mouse:move', handleMouseMove);
+    fabricCanvas.on('mouse:dblclick', handleFinish);
     
     // Enable right-click context menu prevention
     const canvasElement = fabricCanvas.getElement();

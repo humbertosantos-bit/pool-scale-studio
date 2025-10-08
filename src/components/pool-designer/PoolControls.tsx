@@ -232,7 +232,7 @@ export const PoolControls: React.FC<PoolControlsProps> = ({
               {isDrawingFence && (
                 <p className="text-xs text-muted-foreground">
                   💡 Hold Shift for 90° & 45° angles<br/>
-                  💡 Middle-click to finish
+                  💡 Double-click to finish
                 </p>
               )}
               <button
