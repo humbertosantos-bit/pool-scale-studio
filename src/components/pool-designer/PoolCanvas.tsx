@@ -2,7 +2,6 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Canvas as FabricCanvas, FabricImage, Line, Ellipse, Rect, Circle, Point, Text, Group, Triangle, Pattern } from 'fabric';
 import { cn } from '@/lib/utils';
 import poolWaterTexture from '@/assets/pool-water.png';
-import copingTexture from '@/assets/coping-texture.jpg';
 
 interface PoolCanvasProps {
   imageFile: File | null;
@@ -400,8 +399,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
     // Load textures
     Promise.all([
       FabricImage.fromURL(poolWaterTexture),
-      copingSize ? FabricImage.fromURL(copingTexture) : Promise.resolve(null)
-    ]).then(([waterImg, copingImg]) => {
+    ]).then(([waterImg]) => {
       // Scale water texture to 50% of original size
       waterImg.scaleToWidth(waterImg.width! * 0.5);
       waterImg.scaleToHeight(waterImg.height! * 0.5);
@@ -416,28 +414,16 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
       const centerY = fabricCanvas.height! / 2;
       
       // Add coping if selected
-      if (copingSize && copingImg) {
+      if (copingSize) {
         // Convert coping size from inches to feet, then to pixels
         const copingSizeInFeet = copingSize / 12; // Convert inches to feet
         const copingPixelWidth = copingSizeInFeet * scaleReference.pixelLength / scaleReference.length;
         
-        // Calculate texture scale: texture is 32 inches (2.67 feet) square
-        const textureRealSize = 32 / 12; // 32 inches in feet
-        const texturePixelSize = textureRealSize * scaleReference.pixelLength / scaleReference.length;
-        const textureScale = texturePixelSize / copingImg.width!;
-        
-        copingImg.scale(textureScale);
-        
-        const copingPattern = new Pattern({
-          source: copingImg.getElement() as HTMLImageElement,
-          repeat: 'repeat',
-        });
-        
-        // Create coping rectangle that extends copingPixelWidth on all sides
+        // Create coping rectangle with charcoal color
         const coping = new Rect({
           left: centerX,
           top: centerY,
-          fill: copingPattern,
+          fill: '#36454F', // Charcoal color
           stroke: '#000000',
           strokeWidth: 0.5,
           width: pixelWidth + (copingPixelWidth * 2), // Add coping width to left and right
