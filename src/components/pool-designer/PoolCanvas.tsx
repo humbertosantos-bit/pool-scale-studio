@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Canvas as FabricCanvas, FabricImage, Line, Ellipse, Rect, Circle, Point, Text, Group, Triangle, Pattern, Polyline } from 'fabric';
+import { Canvas as FabricCanvas, FabricImage, Line, Ellipse, Rect, Circle, Point, Text, Group, Triangle, Pattern, Polyline, Control, util } from 'fabric';
 import { cn } from '@/lib/utils';
 import poolWaterTexture from '@/assets/pool-water.png';
 import pool12x24Image from '@/assets/pool-12x24.png';
@@ -1373,11 +1373,54 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
           cornerColor: '#666666',
           cornerSize: 8,
           transparentCorners: false,
-          lockScalingX: false,
-          lockScalingY: false,
-          lockRotation: false,
+          lockScalingX: true,
+          lockScalingY: true,
+          lockRotation: true,
           hasControls: true,
           hasBorders: true,
+        });
+        
+        // Enable polyline point editing - show a control for each point
+        fence.points?.forEach((point, index) => {
+          fence.controls[`p${index}`] = new Control({
+            positionHandler: (dim, finalMatrix, fabricObject) => {
+              const polyline = fabricObject as Polyline;
+              const pt = polyline.points![index] as any;
+              const x = pt.x - polyline.pathOffset!.x;
+              const y = pt.y - polyline.pathOffset!.y;
+              return util.transformPoint(
+                { x, y },
+                util.multiplyTransformMatrices(
+                  finalMatrix,
+                  polyline.calcTransformMatrix()
+                )
+              );
+            },
+            actionHandler: (eventData, transform, x, y) => {
+              const polyline = transform.target as Polyline;
+              const pt = polyline.points![index] as any;
+              const localPoint = util.transformPoint(
+                { x, y },
+                util.invertTransform(polyline.calcTransformMatrix())
+              );
+              pt.x = localPoint.x + polyline.pathOffset!.x;
+              pt.y = localPoint.y + polyline.pathOffset!.y;
+              return true;
+            },
+            cursorStyle: 'pointer',
+            render: (ctx, left, top, styleOverride, fabricObject) => {
+              const size = 8;
+              ctx.save();
+              ctx.fillStyle = '#666666';
+              ctx.strokeStyle = '#ffffff';
+              ctx.lineWidth = 2;
+              ctx.beginPath();
+              ctx.arc(left, top, size / 2, 0, 2 * Math.PI);
+              ctx.fill();
+              ctx.stroke();
+              ctx.restore();
+            },
+          });
         });
         
         (fence as any).fenceId = fenceId;
