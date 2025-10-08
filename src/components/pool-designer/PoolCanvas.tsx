@@ -220,12 +220,13 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
     if (!fabricCanvas || !bgImageRef.current) return;
     const img = bgImageRef.current;
     const interactive = !isImageLocked;
-    img.set({
-      selectable: interactive,
-      evented: interactive,
-      hasControls: interactive,
-      hasBorders: interactive,
-    });
+    
+    // Only update interactivity properties, preserve transformation (rotation, position, scale)
+    img.selectable = interactive;
+    img.evented = interactive;
+    img.hasControls = interactive;
+    img.hasBorders = interactive;
+    
     (img as any).setControlsVisibility?.({
       mt: false,
       mb: false,
