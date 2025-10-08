@@ -28,16 +28,32 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
   const [poolLength, setPoolLength] = useState('20');
   const [poolWidth, setPoolWidth] = useState('12');
   const bgImageRef = useRef<FabricImage | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!canvasRef.current) return;
+    if (!canvasRef.current || !containerRef.current) return;
+
+    // Get container dimensions
+    const container = containerRef.current;
+    const containerWidth = container.clientWidth;
+    const containerHeight = container.clientHeight;
 
     const canvas = new FabricCanvas(canvasRef.current, {
-      width: 800,
-      height: 600,
+      width: containerWidth,
+      height: containerHeight,
       backgroundColor: '#f8fafc',
       preserveObjectStacking: true, // Prevent objects from jumping to front on selection
     });
+
+    // Handle window resize
+    const handleResize = () => {
+      const newWidth = container.clientWidth;
+      const newHeight = container.clientHeight;
+      canvas.setDimensions({ width: newWidth, height: newHeight });
+      canvas.renderAll();
+    };
+
+    window.addEventListener('resize', handleResize);
 
     // Enable zoom functionality
     canvas.on('mouse:wheel', (opt) => {
@@ -197,6 +213,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
 
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('resize', handleResize);
       canvas.dispose();
     };
   }, []);
@@ -1018,8 +1035,8 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
       </>
       )}
       
-      <div className="flex-1 overflow-hidden">
-        <canvas ref={canvasRef} className="w-full h-full" />
+      <div ref={containerRef} className="flex-1 w-full h-full">
+        <canvas ref={canvasRef} className="block" style={{ width: '100%', height: '100%' }} />
       </div>
     </div>
   );
