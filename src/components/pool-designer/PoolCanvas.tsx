@@ -28,6 +28,9 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
   const [poolLength, setPoolLength] = useState('20');
   const [poolWidth, setPoolWidth] = useState('12');
   const [copingSize, setCopingSize] = useState<number | null>(null);
+  const [isDrawingFence, setIsDrawingFence] = useState(false);
+  const isDrawingFenceRef = useRef(false);
+  const [fences, setFences] = useState<any[]>([]);
   const bgImageRef = useRef<FabricImage | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -73,8 +76,8 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
       const evt = opt.e as MouseEvent;
       const target = opt.target;
       
-      // Don't enable panning if we're setting scale or measuring
-      if (isSettingScaleRef.current || isMeasuringRef.current) return;
+      // Don't enable panning if we're setting scale, measuring, or drawing fence
+      if (isSettingScaleRef.current || isMeasuringRef.current || isDrawingFenceRef.current) return;
       
       // Enable panning if Alt key is pressed OR clicking on empty space (no target object)
       if (evt.altKey === true || !target) {
@@ -1027,6 +1030,217 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
     }
   };
 
+  const startFenceDrawing = () => {
+    if (!fabricCanvas || !scaleReference) return;
+    
+    setIsDrawingFence(true);
+    isDrawingFenceRef.current = true;
+    
+    // Make background image non-interactive during fence drawing
+    if (bgImageRef.current) {
+      bgImageRef.current.set({
+        selectable: false,
+        evented: false,
+      });
+    }
+    
+    let fencePoints: Point[] = [];
+    let tempLines: Line[] = [];
+    let tempCircles: Circle[] = [];
+    let previewLine: Line | null = null;
+    
+    const handleClick = (e: any) => {
+      const mouseEvent = e.e as MouseEvent;
+      if (mouseEvent.button !== 0) return; // Only handle left clicks for adding points
+      
+      const pointer = fabricCanvas.getScenePoint(e.e);
+      let newPoint = new Point(pointer.x, pointer.y);
+      
+      // Snap to angles if Shift is pressed and there's a previous point
+      if (e.e.shiftKey && fencePoints.length > 0) {
+        const lastPoint = fencePoints[fencePoints.length - 1];
+        const dx = newPoint.x - lastPoint.x;
+        const dy = newPoint.y - lastPoint.y;
+        const angle = Math.atan2(dy, dx);
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        // Snap to nearest 45-degree increment
+        const snapAngle = Math.round(angle / (Math.PI / 4)) * (Math.PI / 4);
+        
+        newPoint = new Point(
+          lastPoint.x + distance * Math.cos(snapAngle),
+          lastPoint.y + distance * Math.sin(snapAngle)
+        );
+      }
+      
+      fencePoints.push(newPoint);
+      
+      // Add visual marker at this point
+      const marker = new Circle({
+        left: newPoint.x,
+        top: newPoint.y,
+        radius: 2,
+        fill: '#8B4513',
+        selectable: false,
+        evented: false,
+        originX: 'center',
+        originY: 'center',
+      });
+      tempCircles.push(marker);
+      fabricCanvas.add(marker);
+      
+      // If there's a previous point, draw a line
+      if (fencePoints.length > 1) {
+        const prevPoint = fencePoints[fencePoints.length - 2];
+        const line = new Line([prevPoint.x, prevPoint.y, newPoint.x, newPoint.y], {
+          stroke: '#8B4513',
+          strokeWidth: 2,
+          selectable: false,
+          evented: false,
+        });
+        tempLines.push(line);
+        fabricCanvas.add(line);
+      }
+      
+      fabricCanvas.renderAll();
+    };
+    
+    const handleMouseMove = (e: any) => {
+      if (fencePoints.length === 0) return;
+      
+      const pointer = fabricCanvas.getScenePoint(e.e);
+      let previewPoint = new Point(pointer.x, pointer.y);
+      
+      // Snap preview to angles if Shift is pressed
+      if (e.e.shiftKey) {
+        const lastPoint = fencePoints[fencePoints.length - 1];
+        const dx = previewPoint.x - lastPoint.x;
+        const dy = previewPoint.y - lastPoint.y;
+        const angle = Math.atan2(dy, dx);
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        // Snap to nearest 45-degree increment
+        const snapAngle = Math.round(angle / (Math.PI / 4)) * (Math.PI / 4);
+        
+        previewPoint = new Point(
+          lastPoint.x + distance * Math.cos(snapAngle),
+          lastPoint.y + distance * Math.sin(snapAngle)
+        );
+      }
+      
+      // Update or create preview line
+      const lastPoint = fencePoints[fencePoints.length - 1];
+      if (previewLine) {
+        previewLine.set({
+          x1: lastPoint.x,
+          y1: lastPoint.y,
+          x2: previewPoint.x,
+          y2: previewPoint.y,
+        });
+      } else {
+        previewLine = new Line([lastPoint.x, lastPoint.y, previewPoint.x, previewPoint.y], {
+          stroke: '#8B4513',
+          strokeWidth: 2,
+          strokeDashArray: [5, 5],
+          selectable: false,
+          evented: false,
+        });
+        fabricCanvas.add(previewLine);
+      }
+      
+      fabricCanvas.renderAll();
+    };
+    
+    const handleRightClick = (e: any) => {
+      e.e.preventDefault();
+      
+      // Finish drawing
+      if (fencePoints.length >= 2) {
+        // Remove temporary elements
+        tempLines.forEach(line => fabricCanvas.remove(line));
+        tempCircles.forEach(circle => fabricCanvas.remove(circle));
+        if (previewLine) fabricCanvas.remove(previewLine);
+        
+        // Create final fence as a group
+        const finalLines: Line[] = [];
+        for (let i = 0; i < fencePoints.length - 1; i++) {
+          const line = new Line(
+            [fencePoints[i].x, fencePoints[i].y, fencePoints[i + 1].x, fencePoints[i + 1].y],
+            {
+              stroke: '#8B4513',
+              strokeWidth: 2,
+              selectable: false,
+              evented: false,
+            }
+          );
+          finalLines.push(line);
+        }
+        
+        const fenceGroup = new Group(finalLines, {
+          selectable: true,
+          evented: true,
+          lockScalingX: true,
+          lockScalingY: true,
+          lockRotation: false,
+          hasControls: true,
+          hasBorders: true,
+        });
+        
+        (fenceGroup as any).fenceId = `fence-${Date.now()}`;
+        fabricCanvas.add(fenceGroup);
+        setFences(prev => [...prev, fenceGroup]);
+      } else {
+        // Clean up if not enough points
+        tempLines.forEach(line => fabricCanvas.remove(line));
+        tempCircles.forEach(circle => fabricCanvas.remove(circle));
+        if (previewLine) fabricCanvas.remove(previewLine);
+      }
+      
+      // Clean up event listeners
+      fabricCanvas.off('mouse:down', handleClick);
+      fabricCanvas.off('mouse:move', handleMouseMove);
+      fabricCanvas.off('mouse:down', handleRightClick);
+      
+      setIsDrawingFence(false);
+      isDrawingFenceRef.current = false;
+      
+      // Restore background image interactivity
+      if (bgImageRef.current) {
+        bgImageRef.current.set({
+          selectable: true,
+          evented: true,
+        });
+      }
+      
+      fabricCanvas.renderAll();
+    };
+    
+    fabricCanvas.on('mouse:down', (e) => {
+      const mouseEvent = e.e as MouseEvent;
+      if (mouseEvent.button === 2) {
+        handleRightClick(e);
+      } else {
+        handleClick(e);
+      }
+    });
+    fabricCanvas.on('mouse:move', handleMouseMove);
+    
+    // Enable right-click context menu prevention
+    const canvasElement = fabricCanvas.getElement();
+    canvasElement.addEventListener('contextmenu', (e) => e.preventDefault());
+  };
+
+  const deleteSelectedFence = () => {
+    if (!fabricCanvas) return;
+    
+    const activeObject = fabricCanvas.getActiveObject();
+    if (activeObject && (activeObject as any).fenceId) {
+      fabricCanvas.remove(activeObject);
+      setFences(prev => prev.filter(f => f !== activeObject));
+      fabricCanvas.renderAll();
+    }
+  };
+
   // Expose state to parent component
   useEffect(() => {
     if (onStateChange) {
@@ -1052,9 +1266,12 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         onDeleteSelectedMeasurement: deleteSelectedMeasurement,
         copingSize,
         onCopingSizeChange: setCopingSize,
+        isDrawingFence,
+        onStartFenceDrawing: startFenceDrawing,
+        onDeleteSelectedFence: deleteSelectedFence,
       });
     }
-  }, [scaleUnit, isSettingScale, scaleReference, poolLength, poolWidth, measurementMode, isMeasuring, typedDistance, copingSize]);
+  }, [scaleUnit, isSettingScale, scaleReference, poolLength, poolWidth, measurementMode, isMeasuring, typedDistance, copingSize, isDrawingFence]);
 
   return (
     <div className={cn("flex flex-col h-full", className)}>

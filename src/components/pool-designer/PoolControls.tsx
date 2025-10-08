@@ -22,6 +22,9 @@ interface PoolControlsProps {
   onDeleteSelectedMeasurement: () => void;
   copingSize: number | null;
   onCopingSizeChange: (size: number | null) => void;
+  isDrawingFence: boolean;
+  onStartFenceDrawing: () => void;
+  onDeleteSelectedFence: () => void;
 }
 
 export const PoolControls: React.FC<PoolControlsProps> = ({
@@ -46,6 +49,9 @@ export const PoolControls: React.FC<PoolControlsProps> = ({
   onDeleteSelectedMeasurement,
   copingSize,
   onCopingSizeChange,
+  isDrawingFence,
+  onStartFenceDrawing,
+  onDeleteSelectedFence,
 }) => {
   return (
     <div className="space-y-6">
@@ -208,6 +214,32 @@ export const PoolControls: React.FC<PoolControlsProps> = ({
                 className="w-full px-4 py-2 bg-destructive text-destructive-foreground rounded-md hover:bg-destructive/90 text-sm"
               >
                 Delete Selected Measurement
+              </button>
+            </div>
+          </div>
+
+          {/* Fence */}
+          <div>
+            <label className="text-sm font-semibold mb-2 block">Fence</label>
+            <div className="space-y-2">
+              <button
+                onClick={onStartFenceDrawing}
+                disabled={isDrawingFence}
+                className="w-full px-4 py-2 bg-foreground text-background rounded-md hover:bg-foreground/90 disabled:opacity-50 text-sm"
+              >
+                {isDrawingFence ? 'Click to add corners...' : 'Draw Fence'}
+              </button>
+              {isDrawingFence && (
+                <p className="text-xs text-muted-foreground">
+                  💡 Hold Shift for 90° & 45° angles<br/>
+                  💡 Right-click to finish
+                </p>
+              )}
+              <button
+                onClick={onDeleteSelectedFence}
+                className="w-full px-4 py-2 bg-destructive text-destructive-foreground rounded-md hover:bg-destructive/90 text-sm"
+              >
+                Delete Selected Fence
               </button>
             </div>
           </div>
