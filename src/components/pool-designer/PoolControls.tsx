@@ -32,6 +32,14 @@ interface PoolControlsProps {
   onDeleteSelectedMeasurement: () => void;
   copingSize: number | null;
   onCopingSizeChange: (size: number | null) => void;
+  paverLeftFeet: string;
+  paverRightFeet: string;
+  paverTopFeet: string;
+  paverBottomFeet: string;
+  onPaverLeftFeetChange: (value: string) => void;
+  onPaverRightFeetChange: (value: string) => void;
+  onPaverTopFeetChange: (value: string) => void;
+  onPaverBottomFeetChange: (value: string) => void;
   isDrawingFence: boolean;
   onStartFenceDrawing: () => void;
   onDeleteSelectedFence: () => void;
@@ -72,6 +80,14 @@ export const PoolControls: React.FC<PoolControlsProps> = ({
   onDeleteSelectedMeasurement,
   copingSize,
   onCopingSizeChange,
+  paverLeftFeet,
+  paverRightFeet,
+  paverTopFeet,
+  paverBottomFeet,
+  onPaverLeftFeetChange,
+  onPaverRightFeetChange,
+  onPaverTopFeetChange,
+  onPaverBottomFeetChange,
   isDrawingFence,
   onStartFenceDrawing,
   onDeleteSelectedFence,
@@ -183,6 +199,60 @@ export const PoolControls: React.FC<PoolControlsProps> = ({
                   >
                     16"
                   </button>
+                </div>
+              </div>
+              
+              <div className="pt-3 border-t">
+                <label className="text-sm font-semibold mb-2 block">Pavers Around Pool (FT)</label>
+                <div className="grid grid-cols-2 gap-2 mb-2">
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Left</label>
+                    <input
+                      type="number"
+                      value={paverLeftFeet}
+                      onChange={(e) => onPaverLeftFeetChange(e.target.value)}
+                      placeholder="0"
+                      className="w-full px-2 py-2 border rounded-md text-sm"
+                      min="0"
+                      step="0.5"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Right</label>
+                    <input
+                      type="number"
+                      value={paverRightFeet}
+                      onChange={(e) => onPaverRightFeetChange(e.target.value)}
+                      placeholder="0"
+                      className="w-full px-2 py-2 border rounded-md text-sm"
+                      min="0"
+                      step="0.5"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Top</label>
+                    <input
+                      type="number"
+                      value={paverTopFeet}
+                      onChange={(e) => onPaverTopFeetChange(e.target.value)}
+                      placeholder="0"
+                      className="w-full px-2 py-2 border rounded-md text-sm"
+                      min="0"
+                      step="0.5"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Bottom</label>
+                    <input
+                      type="number"
+                      value={paverBottomFeet}
+                      onChange={(e) => onPaverBottomFeetChange(e.target.value)}
+                      placeholder="0"
+                      className="w-full px-2 py-2 border rounded-md text-sm"
+                      min="0"
+                      step="0.5"
+                    />
+                  </div>
                 </div>
               </div>
               

@@ -32,6 +32,10 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
   const [poolWidthFeet, setPoolWidthFeet] = useState('12');
   const [poolWidthInches, setPoolWidthInches] = useState('0');
   const [copingSize, setCopingSize] = useState<number | null>(null);
+  const [paverLeftFeet, setPaverLeftFeet] = useState('0');
+  const [paverRightFeet, setPaverRightFeet] = useState('0');
+  const [paverTopFeet, setPaverTopFeet] = useState('0');
+  const [paverBottomFeet, setPaverBottomFeet] = useState('0');
   const [isDrawingFence, setIsDrawingFence] = useState(false);
   const isDrawingFenceRef = useRef(false);
   const [fences, setFences] = useState<any[]>([]);
@@ -234,6 +238,56 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
           });
           coping.setCoords();
         }
+        
+        // Sync pavers that belong to this pool
+        const poolPavers = objects.filter(obj => {
+          const paverId = (obj as any).paverId;
+          return paverId && typeof paverId === 'string' && paverId.includes(`-${poolId}`);
+        });
+        
+        poolPavers.forEach(paver => {
+          const centerPoint = target.getCenterPoint();
+          const paverId = (paver as any).paverId;
+          
+          // Get the paver's initial offset if stored
+          if (!(paver as any).initialOffset) {
+            // Store initial offset relative to pool
+            const poolCenter = target.getCenterPoint();
+            const paverCenter = paver.getCenterPoint();
+            (paver as any).initialOffset = {
+              x: paverCenter.x - poolCenter.x,
+              y: paverCenter.y - poolCenter.y,
+            };
+          }
+          
+          const offset = (paver as any).initialOffset;
+          const angle = (target.angle || 0) * Math.PI / 180;
+          
+          // Rotate the offset around the pool center
+          const rotatedX = offset.x * Math.cos(angle) - offset.y * Math.sin(angle);
+          const rotatedY = offset.x * Math.sin(angle) + offset.y * Math.cos(angle);
+          
+          paver.set({
+            left: centerPoint.x + rotatedX,
+            top: centerPoint.y + rotatedY,
+            angle: target.angle || 0,
+          });
+          paver.setCoords();
+          
+          // Sync paver area text
+          const paverText = objects.find(obj => 
+            (obj as any).paverId === paverId && (obj as any).isPaverArea
+          );
+          if (paverText) {
+            const paverCenter = paver.getCenterPoint();
+            paverText.set({
+              left: paverCenter.x,
+              top: paverCenter.y,
+              angle: paver.angle || 0,
+            });
+            paverText.setCoords();
+          }
+        });
       }
       
     };
@@ -513,6 +567,222 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
       
       fabricCanvas.add(pool);
       fabricCanvas.add(dimensionText);
+      
+      // Create pavers around the pool if specified
+      const paverLeft = parseFloat(paverLeftFeet) || 0;
+      const paverRight = parseFloat(paverRightFeet) || 0;
+      const paverTop = parseFloat(paverTopFeet) || 0;
+      const paverBottom = parseFloat(paverBottomFeet) || 0;
+      
+      // Calculate the outer edge of the coping (or pool if no coping)
+      const copingSizeInFeet = copingSize ? copingSize / 12 : 0;
+      const copingPixelWidth = copingSizeInFeet * scaleReference.pixelLength / scaleReference.length;
+      const outerWidth = pixelWidth + (copingPixelWidth * 2);
+      const outerHeight = pixelHeight + (copingPixelWidth * 2);
+      
+      // Create paver areas around the pool
+      if (paverLeft > 0) {
+        const paverPixelWidth = paverLeft * scaleReference.pixelLength / scaleReference.length;
+        const leftPaver = new Rect({
+          left: centerX - outerWidth / 2 - paverPixelWidth / 2,
+          top: centerY,
+          fill: 'rgba(34, 197, 94, 0.2)',
+          stroke: '#22c55e',
+          strokeWidth: 1,
+          width: paverPixelWidth,
+          height: outerHeight,
+          originX: 'center',
+          originY: 'center',
+          selectable: true,
+          evented: true,
+          lockScalingX: true,
+          lockScalingY: true,
+          lockRotation: true,
+        });
+        (leftPaver as any).paverId = `paver-left-${poolId}`;
+        (leftPaver as any).paverArea = paverLeft * (outerHeight * scaleReference.length / scaleReference.pixelLength);
+        fabricCanvas.add(leftPaver);
+        
+        // Position paver behind pool
+        const bgImage = fabricCanvas.getObjects().find(obj => (obj as any).isBackgroundImage);
+        if (bgImage) {
+          const bgIndex = fabricCanvas.getObjects().indexOf(bgImage);
+          fabricCanvas.remove(leftPaver);
+          fabricCanvas.insertAt(bgIndex + 1, leftPaver);
+        }
+        
+        const leftText = new Text(`${(leftPaver as any).paverArea.toFixed(2)} sq ft`, {
+          left: leftPaver.left,
+          top: leftPaver.top,
+          fontSize: 12,
+          fontFamily: 'Inter, Arial, sans-serif',
+          fill: '#22c55e',
+          fontWeight: 'bold',
+          selectable: false,
+          evented: false,
+          originX: 'center',
+          originY: 'center',
+          backgroundColor: 'rgba(255, 255, 255, 0.9)',
+          padding: 4,
+        });
+        (leftText as any).paverId = `paver-left-${poolId}`;
+        (leftText as any).isPaverArea = true;
+        fabricCanvas.add(leftText);
+        fabricCanvas.bringObjectToFront(leftText);
+        setPavers(prev => [...prev, leftPaver]);
+      }
+      
+      if (paverRight > 0) {
+        const paverPixelWidth = paverRight * scaleReference.pixelLength / scaleReference.length;
+        const rightPaver = new Rect({
+          left: centerX + outerWidth / 2 + paverPixelWidth / 2,
+          top: centerY,
+          fill: 'rgba(34, 197, 94, 0.2)',
+          stroke: '#22c55e',
+          strokeWidth: 1,
+          width: paverPixelWidth,
+          height: outerHeight,
+          originX: 'center',
+          originY: 'center',
+          selectable: true,
+          evented: true,
+          lockScalingX: true,
+          lockScalingY: true,
+          lockRotation: true,
+        });
+        (rightPaver as any).paverId = `paver-right-${poolId}`;
+        (rightPaver as any).paverArea = paverRight * (outerHeight * scaleReference.length / scaleReference.pixelLength);
+        fabricCanvas.add(rightPaver);
+        
+        const bgImage = fabricCanvas.getObjects().find(obj => (obj as any).isBackgroundImage);
+        if (bgImage) {
+          const bgIndex = fabricCanvas.getObjects().indexOf(bgImage);
+          fabricCanvas.remove(rightPaver);
+          fabricCanvas.insertAt(bgIndex + 1, rightPaver);
+        }
+        
+        const rightText = new Text(`${(rightPaver as any).paverArea.toFixed(2)} sq ft`, {
+          left: rightPaver.left,
+          top: rightPaver.top,
+          fontSize: 12,
+          fontFamily: 'Inter, Arial, sans-serif',
+          fill: '#22c55e',
+          fontWeight: 'bold',
+          selectable: false,
+          evented: false,
+          originX: 'center',
+          originY: 'center',
+          backgroundColor: 'rgba(255, 255, 255, 0.9)',
+          padding: 4,
+        });
+        (rightText as any).paverId = `paver-right-${poolId}`;
+        (rightText as any).isPaverArea = true;
+        fabricCanvas.add(rightText);
+        fabricCanvas.bringObjectToFront(rightText);
+        setPavers(prev => [...prev, rightPaver]);
+      }
+      
+      if (paverTop > 0) {
+        const paverPixelHeight = paverTop * scaleReference.pixelLength / scaleReference.length;
+        const totalWidth = outerWidth + (paverLeft > 0 ? paverLeft * scaleReference.pixelLength / scaleReference.length : 0) + (paverRight > 0 ? paverRight * scaleReference.pixelLength / scaleReference.length : 0);
+        const topPaver = new Rect({
+          left: centerX,
+          top: centerY - outerHeight / 2 - paverPixelHeight / 2,
+          fill: 'rgba(34, 197, 94, 0.2)',
+          stroke: '#22c55e',
+          strokeWidth: 1,
+          width: totalWidth,
+          height: paverPixelHeight,
+          originX: 'center',
+          originY: 'center',
+          selectable: true,
+          evented: true,
+          lockScalingX: true,
+          lockScalingY: true,
+          lockRotation: true,
+        });
+        (topPaver as any).paverId = `paver-top-${poolId}`;
+        (topPaver as any).paverArea = paverTop * (totalWidth * scaleReference.length / scaleReference.pixelLength);
+        fabricCanvas.add(topPaver);
+        
+        const bgImage = fabricCanvas.getObjects().find(obj => (obj as any).isBackgroundImage);
+        if (bgImage) {
+          const bgIndex = fabricCanvas.getObjects().indexOf(bgImage);
+          fabricCanvas.remove(topPaver);
+          fabricCanvas.insertAt(bgIndex + 1, topPaver);
+        }
+        
+        const topText = new Text(`${(topPaver as any).paverArea.toFixed(2)} sq ft`, {
+          left: topPaver.left,
+          top: topPaver.top,
+          fontSize: 12,
+          fontFamily: 'Inter, Arial, sans-serif',
+          fill: '#22c55e',
+          fontWeight: 'bold',
+          selectable: false,
+          evented: false,
+          originX: 'center',
+          originY: 'center',
+          backgroundColor: 'rgba(255, 255, 255, 0.9)',
+          padding: 4,
+        });
+        (topText as any).paverId = `paver-top-${poolId}`;
+        (topText as any).isPaverArea = true;
+        fabricCanvas.add(topText);
+        fabricCanvas.bringObjectToFront(topText);
+        setPavers(prev => [...prev, topPaver]);
+      }
+      
+      if (paverBottom > 0) {
+        const paverPixelHeight = paverBottom * scaleReference.pixelLength / scaleReference.length;
+        const totalWidth = outerWidth + (paverLeft > 0 ? paverLeft * scaleReference.pixelLength / scaleReference.length : 0) + (paverRight > 0 ? paverRight * scaleReference.pixelLength / scaleReference.length : 0);
+        const bottomPaver = new Rect({
+          left: centerX,
+          top: centerY + outerHeight / 2 + paverPixelHeight / 2,
+          fill: 'rgba(34, 197, 94, 0.2)',
+          stroke: '#22c55e',
+          strokeWidth: 1,
+          width: totalWidth,
+          height: paverPixelHeight,
+          originX: 'center',
+          originY: 'center',
+          selectable: true,
+          evented: true,
+          lockScalingX: true,
+          lockScalingY: true,
+          lockRotation: true,
+        });
+        (bottomPaver as any).paverId = `paver-bottom-${poolId}`;
+        (bottomPaver as any).paverArea = paverBottom * (totalWidth * scaleReference.length / scaleReference.pixelLength);
+        fabricCanvas.add(bottomPaver);
+        
+        const bgImage = fabricCanvas.getObjects().find(obj => (obj as any).isBackgroundImage);
+        if (bgImage) {
+          const bgIndex = fabricCanvas.getObjects().indexOf(bgImage);
+          fabricCanvas.remove(bottomPaver);
+          fabricCanvas.insertAt(bgIndex + 1, bottomPaver);
+        }
+        
+        const bottomText = new Text(`${(bottomPaver as any).paverArea.toFixed(2)} sq ft`, {
+          left: bottomPaver.left,
+          top: bottomPaver.top,
+          fontSize: 12,
+          fontFamily: 'Inter, Arial, sans-serif',
+          fill: '#22c55e',
+          fontWeight: 'bold',
+          selectable: false,
+          evented: false,
+          originX: 'center',
+          originY: 'center',
+          backgroundColor: 'rgba(255, 255, 255, 0.9)',
+          padding: 4,
+        });
+        (bottomText as any).paverId = `paver-bottom-${poolId}`;
+        (bottomText as any).isPaverArea = true;
+        fabricCanvas.add(bottomText);
+        fabricCanvas.bringObjectToFront(bottomText);
+        setPavers(prev => [...prev, bottomPaver]);
+      }
       
       // Ensure proper layering: image at back, pool above image, measurements on top
       fabricCanvas.getObjects().forEach((obj) => {
@@ -2171,6 +2441,14 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         onDeleteSelectedMeasurement: deleteSelectedMeasurement,
         copingSize,
         onCopingSizeChange: setCopingSize,
+        paverLeftFeet,
+        paverRightFeet,
+        paverTopFeet,
+        paverBottomFeet,
+        onPaverLeftFeetChange: setPaverLeftFeet,
+        onPaverRightFeetChange: setPaverRightFeet,
+        onPaverTopFeetChange: setPaverTopFeet,
+        onPaverBottomFeetChange: setPaverBottomFeet,
         isDrawingFence,
         onStartFenceDrawing: startFenceDrawing,
         onDeleteSelectedFence: deleteSelectedFence,
@@ -2180,7 +2458,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         onAddRectangularPaver: addRectangularPaver,
       });
     }
-  }, [scaleUnit, isSettingScale, scaleReference, poolLengthFeet, poolLengthInches, poolWidthFeet, poolWidthInches, measurementMode, isMeasuring, typedDistanceFeet, typedDistanceInches, copingSize, isDrawingFence, isDrawingPaver]);
+  }, [scaleUnit, isSettingScale, scaleReference, poolLengthFeet, poolLengthInches, poolWidthFeet, poolWidthInches, measurementMode, isMeasuring, typedDistanceFeet, typedDistanceInches, copingSize, paverLeftFeet, paverRightFeet, paverTopFeet, paverBottomFeet, isDrawingFence, isDrawingPaver]);
 
   return (
     <div className={cn("flex flex-col h-full", className)}>
