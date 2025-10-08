@@ -122,7 +122,7 @@ export const PoolControls: React.FC<PoolControlsProps> = ({
 
       {scaleReference && (
         <>
-          {/* Pool Size Section */}
+          {/* Pool Size & Coping Section */}
           <div className="border rounded-lg overflow-hidden">
             <div className="bg-primary px-4 py-3">
               <h2 className="text-sm font-semibold text-primary-foreground">Pool Size</h2>
@@ -164,46 +164,41 @@ export const PoolControls: React.FC<PoolControlsProps> = ({
               >
                 Delete Selected Pool
               </button>
-            </div>
-          </div>
-
-          {/* Coping Section */}
-          <div className="border rounded-lg overflow-hidden">
-            <div className="bg-primary px-4 py-3">
-              <h2 className="text-sm font-semibold text-primary-foreground">Coping</h2>
-            </div>
-            <div className="p-4">
-              <div className="flex gap-2">
-                <button
-                  onClick={() => onCopingSizeChange(null)}
-                  className={`flex-1 px-3 py-2 border rounded-md text-sm transition-colors ${
-                    copingSize === null 
-                      ? 'bg-foreground text-background' 
-                      : 'bg-background hover:bg-muted'
-                  }`}
-                >
-                  None
-                </button>
-                <button
-                  onClick={() => onCopingSizeChange(12)}
-                  className={`flex-1 px-3 py-2 border rounded-md text-sm transition-colors ${
-                    copingSize === 12 
-                      ? 'bg-foreground text-background' 
-                      : 'bg-background hover:bg-muted'
-                  }`}
-                >
-                  12"
-                </button>
-                <button
-                  onClick={() => onCopingSizeChange(16)}
-                  className={`flex-1 px-3 py-2 border rounded-md text-sm transition-colors ${
-                    copingSize === 16 
-                      ? 'bg-foreground text-background' 
-                      : 'bg-background hover:bg-muted'
-                  }`}
-                >
-                  16"
-                </button>
+              
+              <div className="pt-4 border-t">
+                <label className="text-sm font-semibold mb-2 block">Coping</label>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => onCopingSizeChange(null)}
+                    className={`flex-1 px-3 py-2 border rounded-md text-sm transition-colors ${
+                      copingSize === null 
+                        ? 'bg-foreground text-background' 
+                        : 'bg-background hover:bg-muted'
+                    }`}
+                  >
+                    None
+                  </button>
+                  <button
+                    onClick={() => onCopingSizeChange(12)}
+                    className={`flex-1 px-3 py-2 border rounded-md text-sm transition-colors ${
+                      copingSize === 12 
+                        ? 'bg-foreground text-background' 
+                        : 'bg-background hover:bg-muted'
+                    }`}
+                  >
+                    12"
+                  </button>
+                  <button
+                    onClick={() => onCopingSizeChange(16)}
+                    className={`flex-1 px-3 py-2 border rounded-md text-sm transition-colors ${
+                      copingSize === 16 
+                        ? 'bg-foreground text-background' 
+                        : 'bg-background hover:bg-muted'
+                    }`}
+                  >
+                    16"
+                  </button>
+                </div>
               </div>
             </div>
           </div>
