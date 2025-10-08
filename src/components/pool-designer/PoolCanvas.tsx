@@ -161,10 +161,27 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
         img.set({
           left: (canvasWidth - imgWidth * scale) / 2,
           top: (canvasHeight - imgHeight * scale) / 2,
-          selectable: false,
-          evented: false,
+          selectable: true,
+          evented: true,
+          lockScalingX: true,
+          lockScalingY: true,
+          lockRotation: false,
+          hasControls: true,
+          hasBorders: true,
+          setControlsVisibility: {
+            mt: false,
+            mb: false,
+            ml: false,
+            mr: false,
+            bl: false,
+            br: false,
+            tl: false,
+            tr: false,
+            mtr: true, // rotation control only
+          },
         });
 
+        (img as any).isBackgroundImage = true;
         fabricCanvas.clear();
         fabricCanvas.add(img);
         fabricCanvas.renderAll();
