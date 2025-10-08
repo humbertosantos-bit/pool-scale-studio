@@ -120,7 +120,15 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
         const currentAngle = target.angle || 0;
         // Snap to 45-degree increments
         const snapAngle = Math.round(currentAngle / 45) * 45;
+        
+        // Store the center point before changing angle
+        const centerPoint = target.getCenterPoint();
+        
         target.set({ angle: snapAngle });
+        
+        // Restore the center point to prevent movement
+        target.setPositionByOrigin(centerPoint, 'center', 'center');
+        target.setCoords();
       }
     });
 
