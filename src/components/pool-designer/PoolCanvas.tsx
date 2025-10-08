@@ -34,6 +34,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
       width: 800,
       height: 600,
       backgroundColor: '#f8fafc',
+      preserveObjectStacking: true, // Prevent objects from jumping to front on selection
     });
 
     // Enable zoom functionality
@@ -135,19 +136,31 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
       }
     });
 
-    // Keep background image always at the back
+    // Keep background image always at the back and measurements always at the front
     const ensureBackgroundAtBack = () => {
       const objects = canvas.getObjects();
       const bgImage = objects.find(obj => (obj as any).isBackgroundImage);
+      
+      // Send background to back
       if (bgImage) {
         canvas.sendObjectToBack(bgImage);
       }
+      
+      // Bring all measurements to front
+      objects.forEach(obj => {
+        if ((obj as any).measurementId) {
+          canvas.bringObjectToFront(obj);
+        }
+      });
     };
 
     canvas.on('object:added', ensureBackgroundAtBack);
     canvas.on('object:modified', ensureBackgroundAtBack);
     canvas.on('object:rotating', ensureBackgroundAtBack);
     canvas.on('object:scaling', ensureBackgroundAtBack);
+    canvas.on('selection:created', ensureBackgroundAtBack);
+    canvas.on('selection:updated', ensureBackgroundAtBack);
+    canvas.on('mouse:up', ensureBackgroundAtBack);
     canvas.on('after:render', ensureBackgroundAtBack);
 
     window.addEventListener('keydown', handleKeyDown);
