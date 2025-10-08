@@ -419,11 +419,11 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         const copingSizeInFeet = copingSize / 12; // Convert inches to feet
         const copingPixelWidth = copingSizeInFeet * scaleReference.pixelLength / scaleReference.length;
         
-        // Create coping rectangle with charcoal color
+        // Create coping rectangle with light grey color
         const coping = new Rect({
           left: centerX,
           top: centerY,
-          fill: '#36454F', // Charcoal color
+          fill: '#D3D3D3', // Light grey color
           stroke: '#000000',
           strokeWidth: 0.5,
           width: pixelWidth + (copingPixelWidth * 2), // Add coping width to left and right
