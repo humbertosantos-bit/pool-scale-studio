@@ -294,6 +294,22 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
         ...scaleReference,
         length: scaleReference.length * conversionFactor,
       });
+      
+      // Update all existing measurements
+      if (fabricCanvas) {
+        measurementLines.forEach((measurement) => {
+          const data = (measurement as any).measurementData;
+          if (data && data.pixelLength) {
+            const realLength = (data.pixelLength * scaleReference.length * conversionFactor) / scaleReference.pixelLength;
+            const textObj = measurement.getObjects().find(obj => obj instanceof Text) as Text;
+            if (textObj) {
+              textObj.set({ text: `${realLength.toFixed(2)} ${newUnit}` });
+            }
+            (measurement as any).measurementData.unit = newUnit;
+          }
+        });
+        fabricCanvas.renderAll();
+      }
     }
     setScaleUnit(newUnit);
   };
@@ -316,7 +332,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
       // Create temporary line
       tempLine = new Line([pointer.x, pointer.y, pointer.x, pointer.y], {
         stroke: '#10b981',
-        strokeWidth: 2,
+        strokeWidth: 1,
         strokeUniform: true,
         selectable: false,
         evented: false,
@@ -326,25 +342,25 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
       tempArrow1 = new Triangle({
         left: pointer.x,
         top: pointer.y,
-        width: 8,
-        height: 8,
+        width: 6,
+        height: 6,
         fill: '#10b981',
         selectable: false,
         evented: false,
         originX: 'center',
-        originY: 'center',
+        originY: 'top',
       });
       
       tempArrow2 = new Triangle({
         left: pointer.x,
         top: pointer.y,
-        width: 8,
-        height: 8,
+        width: 6,
+        height: 6,
         fill: '#10b981',
         selectable: false,
         evented: false,
         originX: 'center',
-        originY: 'center',
+        originY: 'top',
       });
       
       // Create temporary text
@@ -356,7 +372,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
         selectable: false,
         evented: false,
         originX: 'center',
-        originY: 'center',
+        originY: 'bottom',
       });
       
       fabricCanvas.add(tempLine, tempArrow1, tempArrow2, tempText);
@@ -376,30 +392,31 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
       const dy = pointer.y - startPoint.y;
       const angle = Math.atan2(dy, dx) * 180 / Math.PI;
       
-      // Update arrows (pointing OUTWARDS)
+      // Update arrows (pointing OUTWARDS at line tips)
       tempArrow1.set({
         left: startPoint.x,
         top: startPoint.y,
-        angle: angle - 90,
+        angle: angle + 180,
       });
       
       tempArrow2.set({
         left: pointer.x,
         top: pointer.y,
-        angle: angle + 90,
+        angle: angle,
       });
       
       // Calculate measurement
       const pixelLength = Math.sqrt(dx * dx + dy * dy);
       const realLength = (pixelLength * scaleReference.length) / scaleReference.pixelLength;
       
-      // Update text
+      // Update text (parallel to line)
       const midX = (startPoint.x + pointer.x) / 2;
       const midY = (startPoint.y + pointer.y) / 2;
       tempText.set({
         left: midX,
-        top: midY - 6,
+        top: midY,
         text: `${realLength.toFixed(2)} ${scaleUnit}`,
+        angle: angle,
       });
       
       fabricCanvas.renderAll();
@@ -428,7 +445,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
         // Create final objects
         const finalLine = new Line([startPoint.x, startPoint.y, pointer.x, pointer.y], {
           stroke: '#10b981',
-          strokeWidth: 2,
+          strokeWidth: 1,
           strokeUniform: true,
           selectable: false,
           evented: false,
@@ -437,38 +454,39 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
         const finalArrow1 = new Triangle({
           left: startPoint.x,
           top: startPoint.y,
-          width: 8,
-          height: 8,
+          width: 6,
+          height: 6,
           fill: '#10b981',
           selectable: false,
           evented: false,
           originX: 'center',
-          originY: 'center',
-          angle: angle - 90,
+          originY: 'top',
+          angle: angle + 180,
         });
         
         const finalArrow2 = new Triangle({
           left: pointer.x,
           top: pointer.y,
-          width: 8,
-          height: 8,
+          width: 6,
+          height: 6,
           fill: '#10b981',
           selectable: false,
           evented: false,
           originX: 'center',
-          originY: 'center',
-          angle: angle + 90,
+          originY: 'top',
+          angle: angle,
         });
         
         const finalText = new Text(`${realLength.toFixed(2)} ${scaleUnit}`, {
           left: midX,
-          top: midY - 6,
+          top: midY,
           fontSize: 5,
           fill: '#10b981',
           selectable: false,
           evented: false,
           originX: 'center',
-          originY: 'center',
+          originY: 'bottom',
+          angle: angle,
         });
         
         // Group all elements together
@@ -483,6 +501,10 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
         });
         
         (measurementGroup as any).measurementId = `measurement-${Date.now()}`;
+        (measurementGroup as any).measurementData = {
+          pixelLength: pixelLength,
+          unit: scaleUnit,
+        };
         fabricCanvas.add(measurementGroup);
         setMeasurementLines(prev => [...prev, measurementGroup]);
       }
