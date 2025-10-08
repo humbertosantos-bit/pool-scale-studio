@@ -417,12 +417,11 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
       
       // Add coping if selected
       if (copingSize && copingImg) {
-        // Convert coping size from inches to pixels
-        // Coping texture is 32 inches, we need to scale it to canvas scale
-        const copingSizeInUnits = copingSize / 12; // Convert inches to feet
-        const copingPixelWidth = copingSizeInUnits * scaleReference.pixelLength / scaleReference.length;
+        // Convert coping size from inches to feet, then to pixels
+        const copingSizeInFeet = copingSize / 12; // Convert inches to feet
+        const copingPixelWidth = copingSizeInFeet * scaleReference.pixelLength / scaleReference.length;
         
-        // Calculate texture scale: texture is 32 inches (2.67 feet)
+        // Calculate texture scale: texture is 32 inches (2.67 feet) square
         const textureRealSize = 32 / 12; // 32 inches in feet
         const texturePixelSize = textureRealSize * scaleReference.pixelLength / scaleReference.length;
         const textureScale = texturePixelSize / copingImg.width!;
@@ -434,14 +433,17 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
           repeat: 'repeat',
         });
         
+        // Create coping rectangle that extends copingPixelWidth on all sides
         const coping = new Rect({
           left: centerX,
           top: centerY,
           fill: copingPattern,
           stroke: '#000000',
           strokeWidth: 0.5,
-          width: pixelWidth + (copingPixelWidth * 2),
-          height: pixelHeight + (copingPixelWidth * 2),
+          width: pixelWidth + (copingPixelWidth * 2), // Add coping width to left and right
+          height: pixelHeight + (copingPixelWidth * 2), // Add coping height to top and bottom
+          originX: 'center',
+          originY: 'center',
           selectable: false,
           evented: false,
         });
@@ -461,6 +463,8 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         opacity: 0.9,
         width: pixelWidth,
         height: pixelHeight,
+        originX: 'center',
+        originY: 'center',
         lockScalingX: true,
         lockScalingY: true,
         lockRotation: false,
