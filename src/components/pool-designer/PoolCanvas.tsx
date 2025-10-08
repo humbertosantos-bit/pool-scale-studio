@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Canvas as FabricCanvas, FabricImage, Line, Ellipse, Rect, Circle, Point, Text, Group, Triangle } from 'fabric';
+import { Canvas as FabricCanvas, FabricImage, Line, Ellipse, Rect, Circle, Point, Text, Group, Triangle, Pattern } from 'fabric';
 import { cn } from '@/lib/utils';
+import poolWaterTexture from '@/assets/pool-water.png';
 
 interface PoolCanvasProps {
   imageFile: File | null;
@@ -109,6 +110,20 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
       }
     };
 
+    // Rotation snapping with Shift key
+    canvas.on('object:rotating', (e) => {
+      if (!e.e) return;
+      const target = e.target;
+      if (!target) return;
+      
+      if ((e.e as MouseEvent).shiftKey) {
+        const currentAngle = target.angle || 0;
+        // Snap to 45-degree increments
+        const snapAngle = Math.round(currentAngle / 45) * 45;
+        target.set({ angle: snapAngle });
+      }
+    });
+
     window.addEventListener('keydown', handleKeyDown);
 
     setFabricCanvas(canvas);
@@ -160,38 +175,46 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
     const pixelWidth = width * scaleReference.pixelLength / scaleReference.length;
     const pixelHeight = height * scaleReference.pixelLength / scaleReference.length;
     
-    const poolColor = '#3b82f6';
-    const pool = new Rect({
-      left: fabricCanvas.width! / 2,
-      top: fabricCanvas.height! / 2,
-      fill: poolColor + '80',
-      stroke: poolColor,
-      strokeWidth: 2,
-      opacity: 0.8,
-      width: pixelWidth,
-      height: pixelHeight,
-      lockScalingX: true,
-      lockScalingY: true,
-      lockRotation: false,
-      hasControls: true,
-      hasBorders: true,
-      setControlsVisibility: {
-        mt: false, // middle top
-        mb: false, // middle bottom
-        ml: false, // middle left
-        mr: false, // middle right
-        bl: false, // bottom left
-        br: false, // bottom right
-        tl: false, // top left
-        tr: false, // top right
-        mtr: true, // rotation control
-      },
-    });
+    // Load water texture and create pattern
+    FabricImage.fromURL(poolWaterTexture).then((img) => {
+      const pattern = new Pattern({
+        source: img.getElement() as HTMLImageElement,
+        repeat: 'repeat',
+      });
+      
+      const poolColor = '#3b82f6';
+      const pool = new Rect({
+        left: fabricCanvas.width! / 2,
+        top: fabricCanvas.height! / 2,
+        fill: pattern,
+        stroke: poolColor,
+        strokeWidth: 2,
+        opacity: 0.9,
+        width: pixelWidth,
+        height: pixelHeight,
+        lockScalingX: true,
+        lockScalingY: true,
+        lockRotation: false,
+        hasControls: true,
+        hasBorders: true,
+        setControlsVisibility: {
+          mt: false, // middle top
+          mb: false, // middle bottom
+          ml: false, // middle left
+          mr: false, // middle right
+          bl: false, // bottom left
+          br: false, // bottom right
+          tl: false, // top left
+          tr: false, // top right
+          mtr: true, // rotation control
+        },
+      });
 
-    (pool as any).poolId = `pool-${Date.now()}`;
-    fabricCanvas.add(pool);
-    setPools(prev => [...prev, pool]);
-    fabricCanvas.renderAll();
+      (pool as any).poolId = `pool-${Date.now()}`;
+      fabricCanvas.add(pool);
+      setPools(prev => [...prev, pool]);
+      fabricCanvas.renderAll();
+    });
   };
 
   const startScaleReference = () => {
@@ -327,8 +350,12 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
     }
     
     const pixelLength = (distance * scaleReference.pixelLength) / scaleReference.length;
-    const canvasCenterX = fabricCanvas.width! / 2;
-    const canvasCenterY = fabricCanvas.height! / 2;
+    
+    // Get canvas center considering viewport transform
+    const vpt = fabricCanvas.viewportTransform || [1, 0, 0, 1, 0, 0];
+    const zoom = fabricCanvas.getZoom();
+    const canvasCenterX = (fabricCanvas.width! / 2 - vpt[4]) / zoom;
+    const canvasCenterY = (fabricCanvas.height! / 2 - vpt[5]) / zoom;
     
     const startPoint = { x: canvasCenterX - pixelLength / 2, y: canvasCenterY };
     const endPoint = { x: canvasCenterX + pixelLength / 2, y: canvasCenterY };
