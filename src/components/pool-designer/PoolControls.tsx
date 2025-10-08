@@ -131,6 +131,42 @@ export const PoolControls: React.FC<PoolControlsProps> = ({
             </div>
             <div className="p-4 space-y-2">
               <div className="mb-3">
+                <label className="text-sm font-semibold mb-2 block">Coping Size</label>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => onCopingSizeChange(null)}
+                    className={`flex-1 px-3 py-2 border rounded-md text-sm transition-colors ${
+                      copingSize === null 
+                        ? 'bg-foreground text-background' 
+                        : 'bg-background hover:bg-muted'
+                    }`}
+                  >
+                    None
+                  </button>
+                  <button
+                    onClick={() => onCopingSizeChange(12)}
+                    className={`flex-1 px-3 py-2 border rounded-md text-sm transition-colors ${
+                      copingSize === 12 
+                        ? 'bg-foreground text-background' 
+                        : 'bg-background hover:bg-muted'
+                    }`}
+                  >
+                    12"
+                  </button>
+                  <button
+                    onClick={() => onCopingSizeChange(16)}
+                    className={`flex-1 px-3 py-2 border rounded-md text-sm transition-colors ${
+                      copingSize === 16 
+                        ? 'bg-foreground text-background' 
+                        : 'bg-background hover:bg-muted'
+                    }`}
+                  >
+                    16"
+                  </button>
+                </div>
+              </div>
+              
+              <div className="pt-3 border-t">
                 <label className="text-sm font-semibold mb-2 block">Preset Pools</label>
                 <button
                   onClick={() => onAddPresetPool?.(24, 12)}
@@ -180,42 +216,6 @@ export const PoolControls: React.FC<PoolControlsProps> = ({
               >
                 Delete Selected Pool
               </button>
-              
-              <div className="pt-4 border-t">
-                <label className="text-sm font-semibold mb-2 block">Coping</label>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => onCopingSizeChange(null)}
-                    className={`flex-1 px-3 py-2 border rounded-md text-sm transition-colors ${
-                      copingSize === null 
-                        ? 'bg-foreground text-background' 
-                        : 'bg-background hover:bg-muted'
-                    }`}
-                  >
-                    None
-                  </button>
-                  <button
-                    onClick={() => onCopingSizeChange(12)}
-                    className={`flex-1 px-3 py-2 border rounded-md text-sm transition-colors ${
-                      copingSize === 12 
-                        ? 'bg-foreground text-background' 
-                        : 'bg-background hover:bg-muted'
-                    }`}
-                  >
-                    12"
-                  </button>
-                  <button
-                    onClick={() => onCopingSizeChange(16)}
-                    className={`flex-1 px-3 py-2 border rounded-md text-sm transition-colors ${
-                      copingSize === 16 
-                        ? 'bg-foreground text-background' 
-                        : 'bg-background hover:bg-muted'
-                    }`}
-                  >
-                    16"
-                  </button>
-                </div>
-              </div>
             </div>
           </div>
 
