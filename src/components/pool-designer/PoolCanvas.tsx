@@ -207,6 +207,86 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
     canvas.on('object:rotating', syncDimensionText);
     canvas.on('object:modified', syncDimensionText);
 
+    // Track background image transformations to move other elements
+    let bgLastPos: { x: number; y: number } | null = null;
+    let bgLastAngle: number | null = null;
+
+    canvas.on('object:moving', (e) => {
+      const target = e.target;
+      if (!target || !(target as any).isBackgroundImage) return;
+
+      const currentPos = target.getCenterPoint();
+      
+      if (bgLastPos) {
+        const deltaX = currentPos.x - bgLastPos.x;
+        const deltaY = currentPos.y - bgLastPos.y;
+
+        // Move all pools and measurements
+        canvas.getObjects().forEach(obj => {
+          if ((obj as any).poolId || (obj as any).measurementId) {
+            obj.set({
+              left: (obj.left || 0) + deltaX,
+              top: (obj.top || 0) + deltaY,
+            });
+            obj.setCoords();
+          }
+        });
+      }
+
+      bgLastPos = { x: currentPos.x, y: currentPos.y };
+      canvas.renderAll();
+    });
+
+    canvas.on('object:rotating', (e) => {
+      const target = e.target;
+      if (!target || !(target as any).isBackgroundImage) return;
+
+      const currentAngle = target.angle || 0;
+      
+      if (bgLastAngle !== null) {
+        const deltaAngle = currentAngle - bgLastAngle;
+        const centerPoint = target.getCenterPoint();
+
+        // Rotate all pools and measurements around the background center
+        canvas.getObjects().forEach(obj => {
+          if ((obj as any).poolId || (obj as any).measurementId) {
+            const objCenter = obj.getCenterPoint();
+            
+            // Calculate new position after rotation
+            const dx = objCenter.x - centerPoint.x;
+            const dy = objCenter.y - centerPoint.y;
+            const angleRad = (deltaAngle * Math.PI) / 180;
+            
+            const newX = centerPoint.x + (dx * Math.cos(angleRad) - dy * Math.sin(angleRad));
+            const newY = centerPoint.y + (dx * Math.sin(angleRad) + dy * Math.cos(angleRad));
+            
+            obj.set({
+              left: newX - (obj.width! * (obj.scaleX || 1)) / 2,
+              top: newY - (obj.height! * (obj.scaleY || 1)) / 2,
+              angle: (obj.angle || 0) + deltaAngle,
+            });
+            obj.setCoords();
+          }
+        });
+      }
+
+      bgLastAngle = currentAngle;
+      canvas.renderAll();
+    });
+
+    canvas.on('mouse:down', () => {
+      const activeObj = canvas.getActiveObject();
+      if (activeObj && (activeObj as any).isBackgroundImage) {
+        bgLastPos = activeObj.getCenterPoint();
+        bgLastAngle = activeObj.angle || 0;
+      }
+    });
+
+    canvas.on('mouse:up', () => {
+      bgLastPos = null;
+      bgLastAngle = null;
+    });
+
     window.addEventListener('keydown', handleKeyDown);
 
     setFabricCanvas(canvas);
