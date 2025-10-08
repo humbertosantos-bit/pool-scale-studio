@@ -25,7 +25,6 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
   const [typedDistance, setTypedDistance] = useState('');
   const [poolLength, setPoolLength] = useState('20');
   const [poolWidth, setPoolWidth] = useState('12');
-  const [isImageLocked, setIsImageLocked] = useState(true);
   const bgImageRef = useRef<FabricImage | null>(null);
 
   useEffect(() => {
@@ -145,13 +144,8 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
       }
     };
 
-    canvas.on('object:modified', ensureBackgroundAtBack);
-    canvas.on('object:moving', ensureBackgroundAtBack);
-    canvas.on('object:rotating', ensureBackgroundAtBack);
-    canvas.on('object:scaling', ensureBackgroundAtBack);
-    canvas.on('selection:created', ensureBackgroundAtBack);
-    canvas.on('selection:updated', ensureBackgroundAtBack);
-    canvas.on('before:render', ensureBackgroundAtBack);
+    canvas.on('object:added', ensureBackgroundAtBack);
+    canvas.on('after:render', ensureBackgroundAtBack);
 
     window.addEventListener('keydown', handleKeyDown);
 
@@ -178,30 +172,17 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
 
         const scale = Math.min(canvasWidth / imgWidth, canvasHeight / imgHeight) * 0.9;
         
-        const interactive = !isImageLocked;
         img.scale(scale);
         img.set({
           left: (canvasWidth - imgWidth * scale) / 2,
           top: (canvasHeight - imgHeight * scale) / 2,
-          selectable: interactive,
-          evented: interactive,
+          selectable: false,
+          evented: false,
           lockScalingX: true,
           lockScalingY: true,
-          lockRotation: false,
-          hasControls: interactive,
-          hasBorders: interactive,
-        });
-        // Control visibility (rotation only when unlocked)
-        (img as any).setControlsVisibility?.({
-          mt: false,
-          mb: false,
-          ml: false,
-          mr: false,
-          bl: false,
-          br: false,
-          tl: false,
-          tr: false,
-          mtr: interactive,
+          lockRotation: true,
+          hasControls: false,
+          hasBorders: false,
         });
 
         (img as any).isBackgroundImage = true;
@@ -213,36 +194,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
       });
     };
     reader.readAsDataURL(imageFile);
-  }, [fabricCanvas, imageFile, isImageLocked]);
-
-  // Toggle background image interactivity based on lock state
-  useEffect(() => {
-    if (!fabricCanvas || !bgImageRef.current) return;
-    const img = bgImageRef.current;
-    const interactive = !isImageLocked;
-    
-    // Only update interactivity properties, preserve transformation (rotation, position, scale)
-    img.selectable = interactive;
-    img.evented = interactive;
-    img.hasControls = interactive;
-    img.hasBorders = interactive;
-    
-    (img as any).setControlsVisibility?.({
-      mt: false,
-      mb: false,
-      ml: false,
-      mr: false,
-      bl: false,
-      br: false,
-      tl: false,
-      tr: false,
-      mtr: interactive,
-    });
-    fabricCanvas.discardActiveObject();
-    fabricCanvas.sendObjectToBack(img);
-    img.setCoords();
-    fabricCanvas.requestRenderAll();
-  }, [isImageLocked, fabricCanvas]);
+  }, [fabricCanvas, imageFile]);
 
   const addPool = () => {
     if (!fabricCanvas || !scaleReference) return;
@@ -824,13 +776,6 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
           className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50"
         >
           {isSettingScale ? 'Click two points to set scale...' : scaleReference ? 'Reset Scale Reference' : 'Set Scale Reference'}
-        </button>
-        <button
-          onClick={() => setIsImageLocked((v) => !v)}
-          disabled={!imageFile}
-          className="px-4 py-2 bg-foreground text-background rounded-md hover:bg-foreground/90 disabled:opacity-50"
-        >
-          {isImageLocked ? 'Unlock Image' : 'Lock Image'}
         </button>
         
         {scaleReference && (
