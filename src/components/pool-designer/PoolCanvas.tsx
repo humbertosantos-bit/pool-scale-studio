@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Canvas as FabricCanvas, FabricImage, Line, Ellipse, Rect, Circle, Point, Text, Group } from 'fabric';
+import { Canvas as FabricCanvas, FabricImage, Line, Ellipse, Rect, Circle, Point, Text, Group, Triangle } from 'fabric';
 import { cn } from '@/lib/utils';
 
 interface PoolCanvasProps {
@@ -210,12 +210,14 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
         
         // Add a visual indicator at the first point
         tempCircle = new Circle({
-          left: pointer.x - 0.5,
-          top: pointer.y - 0.5,
+          left: pointer.x,
+          top: pointer.y,
           radius: 0.5,
           fill: '#ef4444',
           selectable: false,
           evented: false,
+          originX: 'center',
+          originY: 'center',
         });
         fabricCanvas.add(tempCircle);
         fabricCanvas.renderAll();
@@ -225,12 +227,14 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
         
         // Add a visual indicator at the second point
         const secondCircle = new Circle({
-          left: pointer.x - 0.5,
-          top: pointer.y - 0.5,
+          left: pointer.x,
+          top: pointer.y,
           radius: 0.5,
           fill: '#ef4444',
           selectable: false,
           evented: false,
+          originX: 'center',
+          originY: 'center',
         });
         fabricCanvas.add(secondCircle);
         
@@ -313,7 +317,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
         // Create the line
         line = new Line([pointer.x, pointer.y, pointer.x, pointer.y], {
           stroke: '#10b981',
-          strokeWidth: 1,
+          strokeWidth: 2,
           selectable: false,
           evented: false,
         });
@@ -322,10 +326,8 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
         text = new Text('0.00 ' + scaleUnit, {
           left: pointer.x,
           top: pointer.y - 10,
-          fontSize: 10,
+          fontSize: 5,
           fill: '#10b981',
-          backgroundColor: 'rgba(255, 255, 255, 0.9)',
-          padding: 2,
           selectable: false,
           evented: false,
         });
@@ -348,10 +350,10 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
           // Remove temporary objects
           fabricCanvas.remove(line, text);
           
-          // Create final editable line with circles
+          // Create final editable line with arrows
           const finalLine = new Line([firstPoint.x, firstPoint.y, x2, y2], {
             stroke: '#10b981',
-            strokeWidth: 1,
+            strokeWidth: 2,
             selectable: true,
             evented: true,
             hasControls: false,
@@ -361,31 +363,36 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
             lockRotation: true,
           });
           
-          // Create circles at endpoints
-          const circle1 = new Circle({
+          // Calculate angle for arrows
+          const angle1 = Math.atan2(y2 - firstPoint.y, x2 - firstPoint.x) * 180 / Math.PI;
+          const angle2 = Math.atan2(firstPoint.y - y2, firstPoint.x - x2) * 180 / Math.PI;
+          
+          // Create arrow at first endpoint
+          const arrow1 = new Triangle({
             left: firstPoint.x,
             top: firstPoint.y,
-            radius: 3,
+            width: 8,
+            height: 8,
             fill: '#10b981',
-            stroke: '#fff',
-            strokeWidth: 1,
             selectable: false,
             evented: false,
             originX: 'center',
             originY: 'center',
+            angle: angle1 + 90,
           });
           
-          const circle2 = new Circle({
+          // Create arrow at second endpoint
+          const arrow2 = new Triangle({
             left: x2,
             top: y2,
-            radius: 3,
+            width: 8,
+            height: 8,
             fill: '#10b981',
-            stroke: '#fff',
-            strokeWidth: 1,
             selectable: false,
             evented: false,
             originX: 'center',
             originY: 'center',
+            angle: angle2 + 90,
           });
           
           // Create final text
@@ -393,11 +400,9 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
           const midY = (firstPoint.y + y2) / 2;
           const finalText = new Text(`${realLength.toFixed(2)} ${scaleUnit}`, {
             left: midX,
-            top: midY - 8,
-            fontSize: 10,
+            top: midY - 6,
+            fontSize: 5,
             fill: '#10b981',
-            backgroundColor: 'rgba(255, 255, 255, 0.9)',
-            padding: 2,
             selectable: false,
             evented: false,
             originX: 'center',
@@ -405,7 +410,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
           });
           
           // Group everything together
-          const measurementGroup = new Group([finalLine, circle1, circle2, finalText], {
+          const measurementGroup = new Group([finalLine, arrow1, arrow2, finalText], {
             selectable: true,
             evented: true,
             lockScalingX: true,
