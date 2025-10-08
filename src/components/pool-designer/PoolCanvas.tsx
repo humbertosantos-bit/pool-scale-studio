@@ -1398,7 +1398,21 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
             actionHandler: (eventData, transform, x, y) => {
               const polyline = transform.target as Polyline;
               const pt = polyline.points![index] as any;
-              // Convert pointer (viewport coords) to object local coords using inverse(viewport * object)
+              
+              // Store initial position on first call
+              if (!transform.offsetX) {
+                const invMatrix = util.invertTransform(
+                  util.multiplyTransformMatrices(
+                    fabricCanvas.viewportTransform,
+                    polyline.calcTransformMatrix()
+                  )
+                );
+                const currentPoint = util.transformPoint({ x, y }, invMatrix);
+                transform.offsetX = (pt.x - polyline.pathOffset!.x) - currentPoint.x;
+                transform.offsetY = (pt.y - polyline.pathOffset!.y) - currentPoint.y;
+              }
+              
+              // Convert pointer to object local coords and apply offset
               const invMatrix = util.invertTransform(
                 util.multiplyTransformMatrices(
                   fabricCanvas.viewportTransform,
@@ -1406,8 +1420,8 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
                 )
               );
               const localPoint = util.transformPoint({ x, y }, invMatrix);
-              pt.x = localPoint.x + polyline.pathOffset!.x;
-              pt.y = localPoint.y + polyline.pathOffset!.y;
+              pt.x = localPoint.x + transform.offsetX + polyline.pathOffset!.x;
+              pt.y = localPoint.y + transform.offsetY + polyline.pathOffset!.y;
               
               // Update the polyline's coordinates and render
               polyline.setCoords();
