@@ -303,164 +303,197 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
     
     setIsMeasuring(true);
     isMeasuringRef.current = true;
-    let firstPoint: { x: number; y: number } | null = null;
-    let line: Line | null = null;
-    let text: Text | null = null;
+    let startPoint: { x: number; y: number } | null = null;
+    let tempLine: Line | null = null;
+    let tempArrow1: Triangle | null = null;
+    let tempArrow2: Triangle | null = null;
+    let tempText: Text | null = null;
 
     const handleMouseDown = (e: any) => {
       const pointer = fabricCanvas.getScenePoint(e.e);
+      startPoint = { x: pointer.x, y: pointer.y };
       
-      if (!firstPoint) {
-        // First click - start the line
-        firstPoint = { x: pointer.x, y: pointer.y };
+      // Create temporary line
+      tempLine = new Line([pointer.x, pointer.y, pointer.x, pointer.y], {
+        stroke: '#10b981',
+        strokeWidth: 2,
+        selectable: false,
+        evented: false,
+      });
+      
+      // Create temporary arrows
+      tempArrow1 = new Triangle({
+        left: pointer.x,
+        top: pointer.y,
+        width: 8,
+        height: 8,
+        fill: '#10b981',
+        selectable: false,
+        evented: false,
+        originX: 'center',
+        originY: 'center',
+      });
+      
+      tempArrow2 = new Triangle({
+        left: pointer.x,
+        top: pointer.y,
+        width: 8,
+        height: 8,
+        fill: '#10b981',
+        selectable: false,
+        evented: false,
+        originX: 'center',
+        originY: 'center',
+      });
+      
+      // Create temporary text
+      tempText = new Text('0.00 ' + scaleUnit, {
+        left: pointer.x,
+        top: pointer.y,
+        fontSize: 5,
+        fill: '#10b981',
+        selectable: false,
+        evented: false,
+        originX: 'center',
+        originY: 'center',
+      });
+      
+      fabricCanvas.add(tempLine, tempArrow1, tempArrow2, tempText);
+      fabricCanvas.on('mouse:move', handleMouseMove);
+    };
+    
+    const handleMouseMove = (e: any) => {
+      if (!startPoint || !tempLine || !tempArrow1 || !tempArrow2 || !tempText) return;
+      
+      const pointer = fabricCanvas.getScenePoint(e.e);
+      
+      // Update line
+      tempLine.set({ x2: pointer.x, y2: pointer.y });
+      
+      // Calculate angle
+      const dx = pointer.x - startPoint.x;
+      const dy = pointer.y - startPoint.y;
+      const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+      
+      // Update arrows
+      tempArrow1.set({
+        left: startPoint.x,
+        top: startPoint.y,
+        angle: angle + 90,
+      });
+      
+      tempArrow2.set({
+        left: pointer.x,
+        top: pointer.y,
+        angle: angle - 90,
+      });
+      
+      // Calculate measurement
+      const pixelLength = Math.sqrt(dx * dx + dy * dy);
+      const realLength = (pixelLength * scaleReference.length) / scaleReference.pixelLength;
+      
+      // Update text
+      const midX = (startPoint.x + pointer.x) / 2;
+      const midY = (startPoint.y + pointer.y) / 2;
+      tempText.set({
+        left: midX,
+        top: midY - 6,
+        text: `${realLength.toFixed(2)} ${scaleUnit}`,
+      });
+      
+      fabricCanvas.renderAll();
+    };
+    
+    const handleMouseUp = (e: any) => {
+      if (!startPoint || !tempLine || !tempArrow1 || !tempArrow2 || !tempText) return;
+      
+      const pointer = fabricCanvas.getScenePoint(e.e);
+      
+      // Remove temporary objects
+      fabricCanvas.remove(tempLine, tempArrow1, tempArrow2, tempText);
+      
+      // Calculate final values
+      const dx = pointer.x - startPoint.x;
+      const dy = pointer.y - startPoint.y;
+      const pixelLength = Math.sqrt(dx * dx + dy * dy);
+      
+      // Only create measurement if line has some length
+      if (pixelLength > 5) {
+        const realLength = (pixelLength * scaleReference.length) / scaleReference.pixelLength;
+        const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+        const midX = (startPoint.x + pointer.x) / 2;
+        const midY = (startPoint.y + pointer.y) / 2;
         
-        // Create the line
-        line = new Line([pointer.x, pointer.y, pointer.x, pointer.y], {
+        // Create final objects
+        const finalLine = new Line([startPoint.x, startPoint.y, pointer.x, pointer.y], {
           stroke: '#10b981',
           strokeWidth: 2,
           selectable: false,
           evented: false,
         });
         
-        // Create the text
-        text = new Text('0.00 ' + scaleUnit, {
+        const finalArrow1 = new Triangle({
+          left: startPoint.x,
+          top: startPoint.y,
+          width: 8,
+          height: 8,
+          fill: '#10b981',
+          selectable: false,
+          evented: false,
+          originX: 'center',
+          originY: 'center',
+          angle: angle + 90,
+        });
+        
+        const finalArrow2 = new Triangle({
           left: pointer.x,
-          top: pointer.y - 10,
+          top: pointer.y,
+          width: 8,
+          height: 8,
+          fill: '#10b981',
+          selectable: false,
+          evented: false,
+          originX: 'center',
+          originY: 'center',
+          angle: angle - 90,
+        });
+        
+        const finalText = new Text(`${realLength.toFixed(2)} ${scaleUnit}`, {
+          left: midX,
+          top: midY - 6,
           fontSize: 5,
           fill: '#10b981',
           selectable: false,
           evented: false,
+          originX: 'center',
+          originY: 'center',
         });
         
-        fabricCanvas.add(line, text);
-        fabricCanvas.on('mouse:move', handleMouseMove);
-      } else {
-        // Second click - finalize the measurement
-        fabricCanvas.off('mouse:move', handleMouseMove);
+        // Group all elements together
+        const measurementGroup = new Group([finalLine, finalArrow1, finalArrow2, finalText], {
+          selectable: true,
+          evented: true,
+          lockScalingX: true,
+          lockScalingY: true,
+          lockRotation: true,
+          hasControls: false,
+          hasBorders: true,
+        });
         
-        if (line && text) {
-          // Calculate final measurement
-          const x2 = line.x2!;
-          const y2 = line.y2!;
-          const pixelLength = Math.sqrt(
-            Math.pow(x2 - firstPoint.x, 2) + Math.pow(y2 - firstPoint.y, 2)
-          );
-          const realLength = (pixelLength * scaleReference.length) / scaleReference.pixelLength;
-          
-          // Remove temporary objects
-          fabricCanvas.remove(line, text);
-          
-          // Create final editable line with arrows
-          const finalLine = new Line([firstPoint.x, firstPoint.y, x2, y2], {
-            stroke: '#10b981',
-            strokeWidth: 2,
-            selectable: true,
-            evented: true,
-            hasControls: false,
-            hasBorders: true,
-            lockScalingX: true,
-            lockScalingY: true,
-            lockRotation: true,
-          });
-          
-          // Calculate angle for arrows
-          const angle1 = Math.atan2(y2 - firstPoint.y, x2 - firstPoint.x) * 180 / Math.PI;
-          const angle2 = Math.atan2(firstPoint.y - y2, firstPoint.x - x2) * 180 / Math.PI;
-          
-          // Create arrow at first endpoint
-          const arrow1 = new Triangle({
-            left: firstPoint.x,
-            top: firstPoint.y,
-            width: 8,
-            height: 8,
-            fill: '#10b981',
-            selectable: false,
-            evented: false,
-            originX: 'center',
-            originY: 'center',
-            angle: angle1 + 90,
-          });
-          
-          // Create arrow at second endpoint
-          const arrow2 = new Triangle({
-            left: x2,
-            top: y2,
-            width: 8,
-            height: 8,
-            fill: '#10b981',
-            selectable: false,
-            evented: false,
-            originX: 'center',
-            originY: 'center',
-            angle: angle2 + 90,
-          });
-          
-          // Create final text
-          const midX = (firstPoint.x + x2) / 2;
-          const midY = (firstPoint.y + y2) / 2;
-          const finalText = new Text(`${realLength.toFixed(2)} ${scaleUnit}`, {
-            left: midX,
-            top: midY - 6,
-            fontSize: 5,
-            fill: '#10b981',
-            selectable: false,
-            evented: false,
-            originX: 'center',
-            originY: 'center',
-          });
-          
-          // Group everything together
-          const measurementGroup = new Group([finalLine, arrow1, arrow2, finalText], {
-            selectable: true,
-            evented: true,
-            lockScalingX: true,
-            lockScalingY: true,
-            lockRotation: true,
-          });
-          
-          (measurementGroup as any).measurementId = `measurement-${Date.now()}`;
-          fabricCanvas.add(measurementGroup);
-          setMeasurementLines(prev => [...prev, measurementGroup]);
-        }
-        
-        fabricCanvas.renderAll();
-        
-        // Reset for next measurement
-        firstPoint = null;
-        line = null;
-        text = null;
-        
-        setIsMeasuring(false);
-        isMeasuringRef.current = false;
-        fabricCanvas.off('mouse:down', handleMouseDown);
+        (measurementGroup as any).measurementId = `measurement-${Date.now()}`;
+        fabricCanvas.add(measurementGroup);
+        setMeasurementLines(prev => [...prev, measurementGroup]);
       }
-    };
-    
-    const handleMouseMove = (e: any) => {
-      if (!firstPoint || !line || !text) return;
       
-      const pointer = fabricCanvas.getScenePoint(e.e);
-      line.set({ x2: pointer.x, y2: pointer.y });
-      
-      // Update measurement
-      const pixelLength = Math.sqrt(
-        Math.pow(pointer.x - firstPoint.x, 2) + Math.pow(pointer.y - firstPoint.y, 2)
-      );
-      const realLength = (pixelLength * scaleReference.length) / scaleReference.pixelLength;
-      
-      // Update text position and content
-      const midX = (firstPoint.x + pointer.x) / 2;
-      const midY = (firstPoint.y + pointer.y) / 2;
-      text.set({
-        left: midX,
-        top: midY - 10,
-        text: `${realLength.toFixed(2)} ${scaleUnit}`,
-      });
-      
-      fabricCanvas.renderAll();
+      // Clean up
+      fabricCanvas.off('mouse:move', handleMouseMove);
+      fabricCanvas.off('mouse:up', handleMouseUp);
+      setIsMeasuring(false);
+      isMeasuringRef.current = false;
     };
 
     fabricCanvas.on('mouse:down', handleMouseDown);
+    fabricCanvas.on('mouse:up', handleMouseUp);
   };
 
   const deleteSelectedMeasurement = () => {
