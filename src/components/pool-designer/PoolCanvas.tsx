@@ -191,7 +191,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
       if (!target) return;
       
       // Skip if the target is a dimension text or coping itself
-      if ((target as any).isDimensionText || (target as any).isCoping || (target as any).isFenceDimensionText) return;
+      if ((target as any).isDimensionText || (target as any).isCoping) return;
       
       // Sync pool elements
       if ((target as any).poolId) {
@@ -229,30 +229,6 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         }
       }
       
-      // Sync fence dimension text
-      if ((target as any).fenceId) {
-        const fenceId = (target as any).fenceId;
-        const objects = canvas.getObjects();
-        
-        const dimensionText = objects.find(obj => 
-          (obj as any).fenceId === fenceId && (obj as any).isFenceDimensionText
-        );
-        
-        if (dimensionText && target.points) {
-          // Recalculate center position based on fence points
-          const points = target.points as any[];
-          const centerX = points.reduce((sum: number, p: any) => sum + p.x, 0) / points.length;
-          const centerY = points.reduce((sum: number, p: any) => sum + p.y, 0) / points.length;
-          
-          const fenceCenter = target.getCenterPoint();
-          dimensionText.set({
-            left: fenceCenter.x + centerX - (target.width || 0) / 2,
-            top: fenceCenter.y + centerY - (target.height || 0) / 2,
-            angle: target.angle || 0,
-          });
-          dimensionText.setCoords();
-        }
-      }
     };
 
     canvas.on('object:moving', syncPoolElements);
@@ -272,9 +248,9 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
       const deltaX = currentCenter.x - bgInitialState.center.x;
       const deltaY = currentCenter.y - bgInitialState.center.y;
 
-      // Move all pools and measurements
+      // Move all pools, measurements, and fences
       canvas.getObjects().forEach(obj => {
-        if ((obj as any).poolId || (obj as any).measurementId) {
+        if ((obj as any).poolId || (obj as any).measurementId || (obj as any).fenceId) {
           const initial = bgInitialState!.objects.get(obj);
           if (initial) {
             const newCenter = new Point(
@@ -300,9 +276,9 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
       const currentAngle = target.angle || 0;
       const bgCenter = target.getCenterPoint();
 
-      // Rotate all pools and measurements around the background center
+      // Rotate all pools, measurements, and fences around the background center
       canvas.getObjects().forEach(obj => {
-        if ((obj as any).poolId || (obj as any).measurementId) {
+        if ((obj as any).poolId || (obj as any).measurementId || (obj as any).fenceId) {
           const initial = bgInitialState!.objects.get(obj);
           if (initial) {
             const angleRad = (currentAngle * Math.PI) / 180;
@@ -330,7 +306,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         
         const objectsMap = new Map();
         canvas.getObjects().forEach(obj => {
-          if ((obj as any).poolId || (obj as any).measurementId) {
+          if ((obj as any).poolId || (obj as any).measurementId || (obj as any).fenceId) {
             const objCenter = obj.getCenterPoint();
             objectsMap.set(obj, {
               relX: objCenter.x - bgCenter.x,
@@ -1231,7 +1207,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
       // Re-enable object selection and interaction
       fabricCanvas.selection = true;
       fabricCanvas.forEachObject(obj => {
-        if (!(obj as any).isDimensionText && !(obj as any).isCoping && !(obj as any).isFenceDimensionText) {
+        if (!(obj as any).isDimensionText && !(obj as any).isCoping) {
           obj.set({ selectable: true, evented: true });
         }
       });
@@ -1267,7 +1243,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         const fenceId = `fence-${Date.now()}`;
         const fence = new Polyline(polylinePoints, {
           stroke: '#666666',
-          strokeWidth: 3,
+          strokeWidth: 2,
           fill: 'transparent',
           selectable: true,
           evented: true,
@@ -1282,31 +1258,56 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         (fence as any).fenceId = fenceId;
         fabricCanvas.add(fence);
         
-        // Add dimension text showing total length
+        // Add "x" markers every 5 feet along the fence
         if (scaleReference && totalLength > 0) {
-          // Calculate center position of the fence
-          const centerX = fencePoints.reduce((sum, p) => sum + p.x, 0) / fencePoints.length;
-          const centerY = fencePoints.reduce((sum, p) => sum + p.y, 0) / fencePoints.length;
+          let accumulatedDistance = 0;
+          const markerInterval = 5; // 5 feet
           
-          const lengthStr = Number.isInteger(totalLength) ? totalLength.toString() : totalLength.toFixed(1);
-          const dimensionText = new Text(`Fence: ${lengthStr} ft`, {
-            left: centerX,
-            top: centerY,
-            fontSize: 10,
-            fontFamily: 'Arial',
-            fontWeight: 'bold',
-            fill: '#000000',
-            backgroundColor: 'rgba(255, 255, 255, 0.8)',
-            padding: 2,
-            originX: 'center',
-            originY: 'center',
-            selectable: false,
-            evented: false,
-          });
-          
-          (dimensionText as any).fenceId = fenceId;
-          (dimensionText as any).isFenceDimensionText = true;
-          fabricCanvas.add(dimensionText);
+          for (let i = 0; i < fencePoints.length - 1; i++) {
+            const p1 = fencePoints[i];
+            const p2 = fencePoints[i + 1];
+            const dx = p2.x - p1.x;
+            const dy = p2.y - p1.y;
+            const pixelDistance = Math.sqrt(dx * dx + dy * dy);
+            const feetDistance = (pixelDistance * scaleReference.length) / scaleReference.pixelLength;
+            
+            // Place markers at 5 ft intervals within this segment
+            const segmentStart = accumulatedDistance;
+            const segmentEnd = accumulatedDistance + feetDistance;
+            
+            let nextMarkerAt = Math.ceil(segmentStart / markerInterval) * markerInterval;
+            
+            while (nextMarkerAt < segmentEnd) {
+              const distanceIntoSegment = nextMarkerAt - segmentStart;
+              const ratio = distanceIntoSegment / feetDistance;
+              
+              const markerX = p1.x + dx * ratio;
+              const markerY = p1.y + dy * ratio;
+              
+              // Create "x" marker using two intersecting lines
+              const markerSize = 3;
+              const line1 = new Line([markerX - markerSize, markerY - markerSize, markerX + markerSize, markerY + markerSize], {
+                stroke: '#666666',
+                strokeWidth: 1.5,
+                selectable: false,
+                evented: false,
+              });
+              const line2 = new Line([markerX - markerSize, markerY + markerSize, markerX + markerSize, markerY - markerSize], {
+                stroke: '#666666',
+                strokeWidth: 1.5,
+                selectable: false,
+                evented: false,
+              });
+              
+              (line1 as any).fenceId = fenceId;
+              (line2 as any).fenceId = fenceId;
+              fabricCanvas.add(line1, line2);
+              
+              nextMarkerAt += markerInterval;
+            }
+            
+            accumulatedDistance += feetDistance;
+          }
         }
         
         setFences(prev => [...prev, fence]);
