@@ -186,6 +186,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
         (img as any).isBackgroundImage = true;
         fabricCanvas.clear();
         fabricCanvas.add(img);
+        fabricCanvas.sendObjectToBack(img); // Ensure image stays at the back
         fabricCanvas.renderAll();
       });
     };
@@ -244,6 +245,16 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
 
       (pool as any).poolId = `pool-${Date.now()}`;
       fabricCanvas.add(pool);
+      
+      // Ensure proper layering: image at back, pool above image, measurements on top
+      fabricCanvas.getObjects().forEach((obj) => {
+        if ((obj as any).isBackgroundImage) {
+          fabricCanvas.sendObjectToBack(obj);
+        } else if ((obj as any).measurementId) {
+          fabricCanvas.bringObjectToFront(obj);
+        }
+      });
+      
       setPools(prev => [...prev, pool]);
       fabricCanvas.renderAll();
     });
@@ -457,6 +468,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
       unit: scaleUnit,
     };
     fabricCanvas.add(measurementGroup);
+    fabricCanvas.bringObjectToFront(measurementGroup); // Ensure measurement is on top
     setMeasurementLines(prev => [...prev, measurementGroup]);
     setTypedDistance('');
     fabricCanvas.renderAll();
@@ -713,6 +725,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
           unit: scaleUnit,
         };
         fabricCanvas.add(measurementGroup);
+        fabricCanvas.bringObjectToFront(measurementGroup); // Ensure measurement is on top
         setMeasurementLines(prev => [...prev, measurementGroup]);
       }
       
