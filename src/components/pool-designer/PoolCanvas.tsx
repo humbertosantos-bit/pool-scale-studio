@@ -25,6 +25,8 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
   const [typedDistance, setTypedDistance] = useState('');
   const [poolLength, setPoolLength] = useState('20');
   const [poolWidth, setPoolWidth] = useState('12');
+  const [isImageLocked, setIsImageLocked] = useState(true);
+  const bgImageRef = useRef<FabricImage | null>(null);
 
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -176,31 +178,34 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
 
         const scale = Math.min(canvasWidth / imgWidth, canvasHeight / imgHeight) * 0.9;
         
+        const interactive = !isImageLocked;
         img.scale(scale);
         img.set({
           left: (canvasWidth - imgWidth * scale) / 2,
           top: (canvasHeight - imgHeight * scale) / 2,
-          selectable: true,
-          evented: true,
+          selectable: interactive,
+          evented: interactive,
           lockScalingX: true,
           lockScalingY: true,
           lockRotation: false,
-          hasControls: true,
-          hasBorders: true,
-          setControlsVisibility: {
-            mt: false,
-            mb: false,
-            ml: false,
-            mr: false,
-            bl: false,
-            br: false,
-            tl: false,
-            tr: false,
-            mtr: true, // rotation control only
-          },
+          hasControls: interactive,
+          hasBorders: interactive,
+        });
+        // Control visibility (rotation only when unlocked)
+        (img as any).setControlsVisibility?.({
+          mt: false,
+          mb: false,
+          ml: false,
+          mr: false,
+          bl: false,
+          br: false,
+          tl: false,
+          tr: false,
+          mtr: interactive,
         });
 
         (img as any).isBackgroundImage = true;
+        bgImageRef.current = img;
         fabricCanvas.clear();
         fabricCanvas.add(img);
         fabricCanvas.sendObjectToBack(img); // Ensure image stays at the back
@@ -208,7 +213,35 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
       });
     };
     reader.readAsDataURL(imageFile);
-  }, [fabricCanvas, imageFile]);
+  }, [fabricCanvas, imageFile, isImageLocked]);
+
+  // Toggle background image interactivity based on lock state
+  useEffect(() => {
+    if (!fabricCanvas || !bgImageRef.current) return;
+    const img = bgImageRef.current;
+    const interactive = !isImageLocked;
+    img.set({
+      selectable: interactive,
+      evented: interactive,
+      hasControls: interactive,
+      hasBorders: interactive,
+    });
+    (img as any).setControlsVisibility?.({
+      mt: false,
+      mb: false,
+      ml: false,
+      mr: false,
+      bl: false,
+      br: false,
+      tl: false,
+      tr: false,
+      mtr: interactive,
+    });
+    fabricCanvas.discardActiveObject();
+    fabricCanvas.sendObjectToBack(img);
+    img.setCoords();
+    fabricCanvas.requestRenderAll();
+  }, [isImageLocked, fabricCanvas]);
 
   const addPool = () => {
     if (!fabricCanvas || !scaleReference) return;
@@ -790,6 +823,13 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
           className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50"
         >
           {isSettingScale ? 'Click two points to set scale...' : scaleReference ? 'Reset Scale Reference' : 'Set Scale Reference'}
+        </button>
+        <button
+          onClick={() => setIsImageLocked((v) => !v)}
+          disabled={!imageFile}
+          className="px-4 py-2 bg-foreground text-background rounded-md hover:bg-foreground/90 disabled:opacity-50"
+        >
+          {isImageLocked ? 'Unlock Image' : 'Lock Image'}
         </button>
         
         {scaleReference && (
