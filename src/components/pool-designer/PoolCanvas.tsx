@@ -305,12 +305,14 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
       });
 
       // Add dimension text in the center of the pool
-      const unitLabel = scaleUnit === 'feet' ? 'FT' : 'M';
-      const dimensionText = new Text(`${length.toFixed(1)} x ${width.toFixed(1)} ${unitLabel}`, {
+      const lengthStr = Number.isInteger(length) ? length.toString() : length.toFixed(1);
+      const widthStr = Number.isInteger(width) ? width.toString() : width.toFixed(1);
+      const dimensionText = new Text(`${lengthStr} x ${widthStr}`, {
         left: fabricCanvas.width! / 2,
         top: fabricCanvas.height! / 2,
         fontSize: 6,
         fontFamily: 'Arial',
+        fontWeight: 'bold',
         fill: '#000000',
         originX: 'center',
         originY: 'center',
