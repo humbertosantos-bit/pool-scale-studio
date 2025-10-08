@@ -894,7 +894,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
   }, [scaleUnit, isSettingScale, scaleReference, poolLength, poolWidth, measurementMode, isMeasuring, typedDistance]);
 
   return (
-    <div className={cn("flex flex-col gap-4 h-full", className)}>
+    <div className={cn("flex flex-col h-full", className)}>
       {!canvasOnly && (
         <>
           <div className="flex gap-2 flex-wrap items-center">
@@ -1018,7 +1018,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
       </>
       )}
       
-      <div className="border rounded-lg shadow-elegant overflow-hidden bg-white flex-1">
+      <div className="flex-1 overflow-hidden">
         <canvas ref={canvasRef} className="w-full h-full" />
       </div>
     </div>

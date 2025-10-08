@@ -60,7 +60,7 @@ export const PoolDesigner: React.FC = () => {
         </div>
 
         {/* Right Canvas - 2/3 width */}
-        <div className="w-2/3 bg-gradient-to-br from-background to-pool-light/20 p-6 overflow-auto">
+        <div className="w-2/3 bg-gradient-to-br from-background to-pool-light/20 overflow-auto">
           {selectedImage ? (
             <PoolCanvas imageFile={selectedImage} canvasOnly onStateChange={handleStateChange} />
           ) : (
