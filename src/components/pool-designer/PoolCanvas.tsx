@@ -1420,11 +1420,22 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
                 )
               );
               const localPoint = util.transformPoint({ x, y }, invMatrix);
+              // Preserve center to prevent object shift when bounds change
+              const prevCenter = polyline.getCenterPoint();
+              // Apply point change
               pt.x = localPoint.x + transform.offsetX + polyline.pathOffset!.x;
               pt.y = localPoint.y + transform.offsetY + polyline.pathOffset!.y;
               
-              // Update the polyline's coordinates and render
+              // Recompute coords and compensate center shift
+              polyline.set({ dirty: true });
               polyline.setCoords();
+              const newCenter = polyline.getCenterPoint();
+              const dx = prevCenter.x - newCenter.x;
+              const dy = prevCenter.y - newCenter.y;
+              polyline.left += dx;
+              polyline.top += dy;
+              polyline.setCoords();
+              
               fabricCanvas.requestRenderAll();
               updateFenceMarkers(polyline);
               
