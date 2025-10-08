@@ -30,37 +30,34 @@ export const PoolDesigner: React.FC = () => {
 
       {/* Main Content */}
       <div className="flex h-[calc(100vh-88px)]">
-        {/* Left Sidebar - 1/3 width */}
-        <div className="w-1/3 border-r bg-white overflow-y-auto">
-          <div className="p-6 space-y-6">
-            {/* Upload Section */}
-            <div>
-              <h2 className="text-lg font-semibold mb-4">📁 Upload Property Image</h2>
-              <FileUpload onFileSelect={handleFileSelect} />
-              
-              {selectedImage && (
-                <div className="mt-4 p-3 bg-pool-light/20 rounded-lg">
-                  <p className="text-sm text-foreground font-medium">
-                    ✅ {selectedImage.name}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Ready for design
-                  </p>
-                </div>
-              )}
-            </div>
-
+        {/* Left Sidebar - 1/4 width */}
+        <div className="w-1/4 border-r bg-white overflow-y-auto">
+          <div className="p-6 space-y-4">
             {/* Tools Section - shown when image is uploaded */}
             {selectedImage && poolState && (
-              <div className="space-y-6 pt-6 border-t">
-                <PoolControls {...poolState} />
+              <PoolControls 
+                {...poolState} 
+                selectedImage={selectedImage}
+                onFileSelect={handleFileSelect}
+              />
+            )}
+            
+            {/* Upload only when no image */}
+            {!selectedImage && (
+              <div className="border rounded-lg overflow-hidden">
+                <div className="bg-primary px-4 py-3">
+                  <h2 className="text-sm font-semibold text-primary-foreground">📁 Upload Property Image</h2>
+                </div>
+                <div className="p-4">
+                  <FileUpload onFileSelect={handleFileSelect} />
+                </div>
               </div>
             )}
           </div>
         </div>
 
-        {/* Right Canvas - 2/3 width */}
-        <div className="w-2/3 bg-gradient-to-br from-background to-pool-light/20 overflow-auto">
+        {/* Right Canvas - 3/4 width */}
+        <div className="w-3/4 bg-gradient-to-br from-background to-pool-light/20 overflow-auto">
           {selectedImage ? (
             <PoolCanvas imageFile={selectedImage} canvasOnly onStateChange={handleStateChange} />
           ) : (

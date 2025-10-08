@@ -1,5 +1,8 @@
 import React from 'react';
 
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { FileUpload } from '@/components/ui/file-upload';
+
 interface PoolControlsProps {
   scaleUnit: 'feet' | 'meters';
   onUnitChange: (unit: 'feet' | 'meters') => void;
@@ -25,6 +28,8 @@ interface PoolControlsProps {
   isDrawingFence: boolean;
   onStartFenceDrawing: () => void;
   onDeleteSelectedFence: () => void;
+  selectedImage: File;
+  onFileSelect: (file: File) => void;
 }
 
 export const PoolControls: React.FC<PoolControlsProps> = ({
@@ -52,45 +57,77 @@ export const PoolControls: React.FC<PoolControlsProps> = ({
   isDrawingFence,
   onStartFenceDrawing,
   onDeleteSelectedFence,
+  selectedImage,
+  onFileSelect,
 }) => {
   return (
-    <div className="space-y-6">
-      {/* Units */}
-      <div>
-        <label className="text-sm font-semibold mb-2 block">Units</label>
-        <select 
-          value={scaleUnit} 
-          onChange={(e) => onUnitChange(e.target.value as 'feet' | 'meters')}
-          className="w-full px-3 py-2 border rounded-md text-sm"
-        >
-          <option value="feet">Feet</option>
-          <option value="meters">Meters</option>
-        </select>
+    <div className="space-y-4">
+      {/* Units Section */}
+      <div className="border rounded-lg overflow-hidden">
+        <div className="bg-primary px-4 py-3">
+          <h2 className="text-sm font-semibold text-primary-foreground">Units</h2>
+        </div>
+        <div className="p-4">
+          <select 
+            value={scaleUnit} 
+            onChange={(e) => onUnitChange(e.target.value as 'feet' | 'meters')}
+            className="w-full px-3 py-2 border rounded-md text-sm"
+          >
+            <option value="feet">Feet</option>
+            <option value="meters">Meters</option>
+          </select>
+        </div>
       </div>
 
-      {/* Scale Reference */}
-      <div>
-        <label className="text-sm font-semibold mb-2 block">Scale Reference</label>
-        <button
-          onClick={onStartScaleReference}
-          disabled={isSettingScale}
-          className="w-full px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 text-sm"
-        >
-          {isSettingScale ? 'Click two points...' : scaleReference ? 'Reset Scale' : 'Set Scale'}
-        </button>
-        {scaleReference && (
-          <p className="text-xs text-muted-foreground mt-2">
-            Scale: 1 px = {(scaleReference.length / scaleReference.pixelLength).toFixed(4)} {scaleUnit === 'feet' ? 'FT' : 'M'}
-          </p>
-        )}
+      {/* Upload & Scale Reference Section */}
+      <div className="border rounded-lg overflow-hidden">
+        <div className="bg-primary px-4 py-3">
+          <h2 className="text-sm font-semibold text-primary-foreground">📁 Upload Property Image</h2>
+        </div>
+        <div className="p-4 space-y-4">
+          <div>
+            <div className="p-3 bg-pool-light/20 rounded-lg">
+              <p className="text-sm text-foreground font-medium">
+                ✅ {selectedImage.name}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Ready for design
+              </p>
+            </div>
+            <button
+              onClick={() => document.querySelector<HTMLInputElement>('input[type="file"]')?.click()}
+              className="w-full mt-2 px-4 py-2 border rounded-md text-sm hover:bg-muted"
+            >
+              Change Image
+            </button>
+          </div>
+          
+          <div className="pt-4 border-t">
+            <label className="text-sm font-semibold mb-2 block">Scale Reference</label>
+            <button
+              onClick={onStartScaleReference}
+              disabled={isSettingScale}
+              className="w-full px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 text-sm"
+            >
+              {isSettingScale ? 'Click two points...' : scaleReference ? 'Reset Scale' : 'Set Scale'}
+            </button>
+            {scaleReference && (
+              <p className="text-xs text-muted-foreground mt-2">
+                Scale: 1 px = {(scaleReference.length / scaleReference.pixelLength).toFixed(4)} {scaleUnit === 'feet' ? 'FT' : 'M'}
+              </p>
+            )}
+          </div>
+        </div>
       </div>
 
       {scaleReference && (
         <>
-          {/* Pool Size */}
-          <div>
-            <label className="text-sm font-semibold mb-2 block">Pool Size</label>
-            <div className="space-y-2">
+          {/* Pool Size Section */}
+          <div className="border rounded-lg overflow-hidden">
+            <div className="bg-primary px-4 py-3">
+              <h2 className="text-sm font-semibold text-primary-foreground">Pool Size</h2>
+            </div>
+            <div className="p-4 space-y-2">
               <div className="flex items-center gap-2">
                 <input
                   type="number"
@@ -115,44 +152,6 @@ export const PoolControls: React.FC<PoolControlsProps> = ({
                 />
                 <span className="text-sm text-muted-foreground">{scaleUnit === 'feet' ? 'FT' : 'M'}</span>
               </div>
-              
-              {/* Coping Options */}
-              <div className="pt-2">
-                <label className="text-sm font-medium mb-2 block">Coping</label>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => onCopingSizeChange(null)}
-                    className={`flex-1 px-3 py-2 border rounded-md text-sm transition-colors ${
-                      copingSize === null 
-                        ? 'bg-foreground text-background' 
-                        : 'bg-background hover:bg-muted'
-                    }`}
-                  >
-                    None
-                  </button>
-                  <button
-                    onClick={() => onCopingSizeChange(12)}
-                    className={`flex-1 px-3 py-2 border rounded-md text-sm transition-colors ${
-                      copingSize === 12 
-                        ? 'bg-foreground text-background' 
-                        : 'bg-background hover:bg-muted'
-                    }`}
-                  >
-                    12"
-                  </button>
-                  <button
-                    onClick={() => onCopingSizeChange(16)}
-                    className={`flex-1 px-3 py-2 border rounded-md text-sm transition-colors ${
-                      copingSize === 16 
-                        ? 'bg-foreground text-background' 
-                        : 'bg-background hover:bg-muted'
-                    }`}
-                  >
-                    16"
-                  </button>
-                </div>
-              </div>
-              
               <button
                 onClick={onAddPool}
                 className="w-full px-4 py-2 bg-pool-light text-pool-dark rounded-md hover:bg-pool-light/80 text-sm"
@@ -168,10 +167,53 @@ export const PoolControls: React.FC<PoolControlsProps> = ({
             </div>
           </div>
 
-          {/* Measure */}
-          <div>
-            <label className="text-sm font-semibold mb-2 block">Measure</label>
-            <div className="space-y-2">
+          {/* Coping Section */}
+          <div className="border rounded-lg overflow-hidden">
+            <div className="bg-primary px-4 py-3">
+              <h2 className="text-sm font-semibold text-primary-foreground">Coping</h2>
+            </div>
+            <div className="p-4">
+              <div className="flex gap-2">
+                <button
+                  onClick={() => onCopingSizeChange(null)}
+                  className={`flex-1 px-3 py-2 border rounded-md text-sm transition-colors ${
+                    copingSize === null 
+                      ? 'bg-foreground text-background' 
+                      : 'bg-background hover:bg-muted'
+                  }`}
+                >
+                  None
+                </button>
+                <button
+                  onClick={() => onCopingSizeChange(12)}
+                  className={`flex-1 px-3 py-2 border rounded-md text-sm transition-colors ${
+                    copingSize === 12 
+                      ? 'bg-foreground text-background' 
+                      : 'bg-background hover:bg-muted'
+                  }`}
+                >
+                  12"
+                </button>
+                <button
+                  onClick={() => onCopingSizeChange(16)}
+                  className={`flex-1 px-3 py-2 border rounded-md text-sm transition-colors ${
+                    copingSize === 16 
+                      ? 'bg-foreground text-background' 
+                      : 'bg-background hover:bg-muted'
+                  }`}
+                >
+                  16"
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Measure Section */}
+          <div className="border rounded-lg overflow-hidden">
+            <div className="bg-primary px-4 py-3">
+              <h2 className="text-sm font-semibold text-primary-foreground">Measure</h2>
+            </div>
+            <div className="p-4 space-y-2">
               <select 
                 value={measurementMode} 
                 onChange={(e) => onMeasurementModeChange(e.target.value as 'draw' | 'type')}
@@ -218,10 +260,12 @@ export const PoolControls: React.FC<PoolControlsProps> = ({
             </div>
           </div>
 
-          {/* Fence */}
-          <div>
-            <label className="text-sm font-semibold mb-2 block">Fence</label>
-            <div className="space-y-2">
+          {/* Fence Section */}
+          <div className="border rounded-lg overflow-hidden">
+            <div className="bg-primary px-4 py-3">
+              <h2 className="text-sm font-semibold text-primary-foreground">Fence</h2>
+            </div>
+            <div className="p-4 space-y-2">
               <button
                 onClick={onStartFenceDrawing}
                 disabled={isDrawingFence}
@@ -245,10 +289,15 @@ export const PoolControls: React.FC<PoolControlsProps> = ({
           </div>
 
           {/* Tips */}
-          <div className="text-xs text-muted-foreground pt-4 border-t space-y-1">
-            <p>💡 Mouse wheel to zoom</p>
-            <p>💡 Click & drag to pan</p>
-            <p>💡 Rotate with corner handle</p>
+          <div className="border rounded-lg overflow-hidden">
+            <div className="bg-primary px-4 py-3">
+              <h2 className="text-sm font-semibold text-primary-foreground">💡 Tips</h2>
+            </div>
+            <div className="p-4 text-xs text-muted-foreground space-y-1">
+              <p>Mouse wheel to zoom</p>
+              <p>Click & drag to pan</p>
+              <p>Rotate with corner handle</p>
+            </div>
           </div>
         </>
       )}
