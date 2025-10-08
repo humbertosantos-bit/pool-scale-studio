@@ -9,10 +9,14 @@ interface PoolControlsProps {
   isSettingScale: boolean;
   scaleReference: { length: number; pixelLength: number } | null;
   onStartScaleReference: () => void;
-  poolLength: string;
-  poolWidth: string;
-  onPoolLengthChange: (value: string) => void;
-  onPoolWidthChange: (value: string) => void;
+  poolLengthFeet: string;
+  poolLengthInches: string;
+  poolWidthFeet: string;
+  poolWidthInches: string;
+  onPoolLengthFeetChange: (value: string) => void;
+  onPoolLengthInchesChange: (value: string) => void;
+  onPoolWidthFeetChange: (value: string) => void;
+  onPoolWidthInchesChange: (value: string) => void;
   onAddPool: () => void;
   onAddPresetPool?: (length: number, width: number) => void;
   onDeleteSelectedPool: () => void;
@@ -20,8 +24,10 @@ interface PoolControlsProps {
   onMeasurementModeChange: (mode: 'draw' | 'type') => void;
   isMeasuring: boolean;
   onStartMeasurement: () => void;
-  typedDistance: string;
-  onTypedDistanceChange: (value: string) => void;
+  typedDistanceFeet: string;
+  typedDistanceInches: string;
+  onTypedDistanceFeetChange: (value: string) => void;
+  onTypedDistanceInchesChange: (value: string) => void;
   onAddTypedMeasurement: () => void;
   onDeleteSelectedMeasurement: () => void;
   copingSize: number | null;
@@ -39,10 +45,14 @@ export const PoolControls: React.FC<PoolControlsProps> = ({
   isSettingScale,
   scaleReference,
   onStartScaleReference,
-  poolLength,
-  poolWidth,
-  onPoolLengthChange,
-  onPoolWidthChange,
+  poolLengthFeet,
+  poolLengthInches,
+  poolWidthFeet,
+  poolWidthInches,
+  onPoolLengthFeetChange,
+  onPoolLengthInchesChange,
+  onPoolWidthFeetChange,
+  onPoolWidthInchesChange,
   onAddPool,
   onAddPresetPool,
   onDeleteSelectedPool,
@@ -50,8 +60,10 @@ export const PoolControls: React.FC<PoolControlsProps> = ({
   onMeasurementModeChange,
   isMeasuring,
   onStartMeasurement,
-  typedDistance,
-  onTypedDistanceChange,
+  typedDistanceFeet,
+  typedDistanceInches,
+  onTypedDistanceFeetChange,
+  onTypedDistanceInchesChange,
   onAddTypedMeasurement,
   onDeleteSelectedMeasurement,
   copingSize,
@@ -178,29 +190,55 @@ export const PoolControls: React.FC<PoolControlsProps> = ({
               
               <div className="pt-3 border-t">
                 <label className="text-sm font-semibold mb-2 block">Custom Size</label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    value={poolLength}
-                    onChange={(e) => onPoolLengthChange(e.target.value)}
-                    placeholder="Length"
-                    className="flex-1 px-3 py-2 border rounded-md text-sm"
-                    step="0.1"
-                    min="0"
-                  />
-                  <span className="text-sm text-muted-foreground">{scaleUnit === 'feet' ? 'FT' : 'M'}</span>
-                </div>
-                <div className="flex items-center gap-2 mt-2">
-                  <input
-                    type="number"
-                    value={poolWidth}
-                    onChange={(e) => onPoolWidthChange(e.target.value)}
-                    placeholder="Width"
-                    className="flex-1 px-3 py-2 border rounded-md text-sm"
-                    step="0.1"
-                    min="0"
-                  />
-                  <span className="text-sm text-muted-foreground">{scaleUnit === 'feet' ? 'FT' : 'M'}</span>
+                <div className="space-y-2">
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Length</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        value={poolLengthFeet}
+                        onChange={(e) => onPoolLengthFeetChange(e.target.value)}
+                        placeholder="Feet"
+                        className="flex-1 px-3 py-2 border rounded-md text-sm"
+                        min="0"
+                      />
+                      <span className="text-sm text-muted-foreground min-w-[24px]">FT</span>
+                      <input
+                        type="number"
+                        value={poolLengthInches}
+                        onChange={(e) => onPoolLengthInchesChange(e.target.value)}
+                        placeholder="Inches"
+                        className="flex-1 px-3 py-2 border rounded-md text-sm"
+                        min="0"
+                        max="11"
+                      />
+                      <span className="text-sm text-muted-foreground min-w-[24px]">IN</span>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Width</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        value={poolWidthFeet}
+                        onChange={(e) => onPoolWidthFeetChange(e.target.value)}
+                        placeholder="Feet"
+                        className="flex-1 px-3 py-2 border rounded-md text-sm"
+                        min="0"
+                      />
+                      <span className="text-sm text-muted-foreground min-w-[24px]">FT</span>
+                      <input
+                        type="number"
+                        value={poolWidthInches}
+                        onChange={(e) => onPoolWidthInchesChange(e.target.value)}
+                        placeholder="Inches"
+                        className="flex-1 px-3 py-2 border rounded-md text-sm"
+                        min="0"
+                        max="11"
+                      />
+                      <span className="text-sm text-muted-foreground min-w-[24px]">IN</span>
+                    </div>
+                  </div>
                 </div>
                 <button
                   onClick={onAddPool}
@@ -244,15 +282,27 @@ export const PoolControls: React.FC<PoolControlsProps> = ({
                 </button>
               ) : (
                 <>
-                  <input
-                    type="number"
-                    value={typedDistance}
-                    onChange={(e) => onTypedDistanceChange(e.target.value)}
-                    placeholder={`Distance in ${scaleUnit === 'feet' ? 'FT' : 'M'}`}
-                    className="w-full px-3 py-2 border rounded-md text-sm"
-                    step="0.01"
-                    min="0"
-                  />
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      value={typedDistanceFeet}
+                      onChange={(e) => onTypedDistanceFeetChange(e.target.value)}
+                      placeholder="Feet"
+                      className="flex-1 px-3 py-2 border rounded-md text-sm"
+                      min="0"
+                    />
+                    <span className="text-sm text-muted-foreground min-w-[24px]">FT</span>
+                    <input
+                      type="number"
+                      value={typedDistanceInches}
+                      onChange={(e) => onTypedDistanceInchesChange(e.target.value)}
+                      placeholder="Inches"
+                      className="flex-1 px-3 py-2 border rounded-md text-sm"
+                      min="0"
+                      max="11"
+                    />
+                    <span className="text-sm text-muted-foreground min-w-[24px]">IN</span>
+                  </div>
                   <button
                     onClick={onAddTypedMeasurement}
                     className="w-full px-4 py-2 bg-foreground text-background rounded-md hover:bg-foreground/90 text-sm"

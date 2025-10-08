@@ -25,9 +25,12 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
   const isMeasuringRef = useRef(false);
   const [measurementLines, setMeasurementLines] = useState<any[]>([]);
   const [measurementMode, setMeasurementMode] = useState<'draw' | 'type'>('draw');
-  const [typedDistance, setTypedDistance] = useState('');
-  const [poolLength, setPoolLength] = useState('20');
-  const [poolWidth, setPoolWidth] = useState('12');
+  const [typedDistanceFeet, setTypedDistanceFeet] = useState('');
+  const [typedDistanceInches, setTypedDistanceInches] = useState('');
+  const [poolLengthFeet, setPoolLengthFeet] = useState('20');
+  const [poolLengthInches, setPoolLengthInches] = useState('0');
+  const [poolWidthFeet, setPoolWidthFeet] = useState('12');
+  const [poolWidthInches, setPoolWidthInches] = useState('0');
   const [copingSize, setCopingSize] = useState<number | null>(null);
   const [isDrawingFence, setIsDrawingFence] = useState(false);
   const isDrawingFenceRef = useRef(false);
@@ -395,11 +398,16 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
   const addPool = () => {
     if (!fabricCanvas || !scaleReference) return;
 
-    // Parse user input dimensions
-    const length = parseFloat(poolLength);
-    const width = parseFloat(poolWidth);
+    // Parse user input dimensions (feet + inches)
+    const lengthFt = parseFloat(poolLengthFeet) || 0;
+    const lengthIn = parseFloat(poolLengthInches) || 0;
+    const widthFt = parseFloat(poolWidthFeet) || 0;
+    const widthIn = parseFloat(poolWidthInches) || 0;
     
-    if (isNaN(length) || isNaN(width) || length <= 0 || width <= 0) {
+    const length = lengthFt + lengthIn / 12;
+    const width = widthFt + widthIn / 12;
+    
+    if (length <= 0 || width <= 0) {
       alert('Please enter valid positive numbers for pool dimensions.');
       return;
     }
@@ -759,10 +767,13 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
   };
 
   const addTypedMeasurement = () => {
-    if (!fabricCanvas || !scaleReference || !typedDistance) return;
+    if (!fabricCanvas || !scaleReference) return;
     
-    const distance = parseFloat(typedDistance);
-    if (isNaN(distance) || distance <= 0) {
+    const distanceFt = parseFloat(typedDistanceFeet) || 0;
+    const distanceIn = parseFloat(typedDistanceInches) || 0;
+    const distance = distanceFt + distanceIn / 12;
+    
+    if (distance <= 0) {
       alert('Please enter a valid positive number for the distance.');
       return;
     }
@@ -845,7 +856,8 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
     fabricCanvas.add(measurementGroup);
     fabricCanvas.bringObjectToFront(measurementGroup); // Ensure measurement is on top
     setMeasurementLines(prev => [...prev, measurementGroup]);
-    setTypedDistance('');
+    setTypedDistanceFeet('');
+    setTypedDistanceInches('');
     fabricCanvas.renderAll();
   };
 
@@ -1536,10 +1548,14 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         isSettingScale,
         scaleReference,
         onStartScaleReference: startScaleReference,
-        poolLength,
-        poolWidth,
-        onPoolLengthChange: setPoolLength,
-        onPoolWidthChange: setPoolWidth,
+        poolLengthFeet,
+        poolLengthInches,
+        poolWidthFeet,
+        poolWidthInches,
+        onPoolLengthFeetChange: setPoolLengthFeet,
+        onPoolLengthInchesChange: setPoolLengthInches,
+        onPoolWidthFeetChange: setPoolWidthFeet,
+        onPoolWidthInchesChange: setPoolWidthInches,
         onAddPool: addPool,
         onAddPresetPool: addPresetPool,
         onDeleteSelectedPool: deleteSelectedPool,
@@ -1547,8 +1563,10 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         onMeasurementModeChange: setMeasurementMode,
         isMeasuring,
         onStartMeasurement: startMeasurement,
-        typedDistance,
-        onTypedDistanceChange: setTypedDistance,
+        typedDistanceFeet,
+        typedDistanceInches,
+        onTypedDistanceFeetChange: setTypedDistanceFeet,
+        onTypedDistanceInchesChange: setTypedDistanceInches,
         onAddTypedMeasurement: addTypedMeasurement,
         onDeleteSelectedMeasurement: deleteSelectedMeasurement,
         copingSize,
@@ -1558,7 +1576,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         onDeleteSelectedFence: deleteSelectedFence,
       });
     }
-  }, [scaleUnit, isSettingScale, scaleReference, poolLength, poolWidth, measurementMode, isMeasuring, typedDistance, copingSize, isDrawingFence]);
+  }, [scaleUnit, isSettingScale, scaleReference, poolLengthFeet, poolLengthInches, poolWidthFeet, poolWidthInches, measurementMode, isMeasuring, typedDistanceFeet, typedDistanceInches, copingSize, isDrawingFence]);
 
   return (
     <div className={cn("flex flex-col h-full", className)}>
@@ -1591,24 +1609,43 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
               <label className="text-sm font-medium">Pool Size:</label>
               <input
                 type="number"
-                value={poolLength}
-                onChange={(e) => setPoolLength(e.target.value)}
-                placeholder="Length"
-                className="px-2 py-1 border rounded text-sm w-20"
-                step="0.1"
+                value={poolLengthFeet}
+                onChange={(e) => setPoolLengthFeet(e.target.value)}
+                placeholder="Feet"
+                className="px-2 py-1 border rounded text-sm w-16"
                 min="0"
               />
+              <span className="text-xs">FT</span>
+              <input
+                type="number"
+                value={poolLengthInches}
+                onChange={(e) => setPoolLengthInches(e.target.value)}
+                placeholder="In"
+                className="px-2 py-1 border rounded text-sm w-16"
+                min="0"
+                max="11"
+              />
+              <span className="text-xs">IN</span>
               <span className="text-sm">×</span>
               <input
                 type="number"
-                value={poolWidth}
-                onChange={(e) => setPoolWidth(e.target.value)}
-                placeholder="Width"
-                className="px-2 py-1 border rounded text-sm w-20"
-                step="0.1"
+                value={poolWidthFeet}
+                onChange={(e) => setPoolWidthFeet(e.target.value)}
+                placeholder="Feet"
+                className="px-2 py-1 border rounded text-sm w-16"
                 min="0"
               />
-              <span className="text-sm">{scaleUnit === 'feet' ? 'FT' : 'M'}</span>
+              <span className="text-xs">FT</span>
+              <input
+                type="number"
+                value={poolWidthInches}
+                onChange={(e) => setPoolWidthInches(e.target.value)}
+                placeholder="In"
+                className="px-2 py-1 border rounded text-sm w-16"
+                min="0"
+                max="11"
+              />
+              <span className="text-xs">IN</span>
               <button
                 onClick={addPool}
                 className="px-4 py-2 bg-pool-light text-pool-dark rounded-md hover:bg-pool-light/80"
@@ -1646,13 +1683,23 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
                 <>
                   <input
                     type="number"
-                    value={typedDistance}
-                    onChange={(e) => setTypedDistance(e.target.value)}
-                    placeholder={`Distance in ${scaleUnit === 'feet' ? 'FT' : 'M'}`}
-                    className="px-2 py-1 border rounded text-sm w-32"
-                    step="0.01"
+                    value={typedDistanceFeet}
+                    onChange={(e) => setTypedDistanceFeet(e.target.value)}
+                    placeholder="Feet"
+                    className="px-2 py-1 border rounded text-sm w-16"
                     min="0"
                   />
+                  <span className="text-xs">FT</span>
+                  <input
+                    type="number"
+                    value={typedDistanceInches}
+                    onChange={(e) => setTypedDistanceInches(e.target.value)}
+                    placeholder="In"
+                    className="px-2 py-1 border rounded text-sm w-16"
+                    min="0"
+                    max="11"
+                  />
+                  <span className="text-xs">IN</span>
                   <button
                     onClick={addTypedMeasurement}
                     className="px-4 py-2 bg-foreground text-background rounded-md hover:bg-foreground/90"
