@@ -134,6 +134,31 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
       }
     });
 
+    // Keep background image always at the back
+    canvas.on('object:modified', (e) => {
+      if (e.target && (e.target as any).isBackgroundImage) {
+        canvas.sendObjectToBack(e.target);
+      }
+    });
+
+    canvas.on('object:moving', (e) => {
+      if (e.target && (e.target as any).isBackgroundImage) {
+        canvas.sendObjectToBack(e.target);
+      }
+    });
+
+    canvas.on('selection:created', (e) => {
+      if (e.selected && e.selected[0] && (e.selected[0] as any).isBackgroundImage) {
+        canvas.sendObjectToBack(e.selected[0]);
+      }
+    });
+
+    canvas.on('selection:updated', (e) => {
+      if (e.selected && e.selected[0] && (e.selected[0] as any).isBackgroundImage) {
+        canvas.sendObjectToBack(e.selected[0]);
+      }
+    });
+
     window.addEventListener('keydown', handleKeyDown);
 
     setFabricCanvas(canvas);
