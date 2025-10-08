@@ -38,10 +38,13 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
       opt.e.stopPropagation();
     });
 
-    // Enable panning when zoomed (Alt + drag)
+    // Enable panning when zoomed (Alt + drag or click on empty space)
     canvas.on('mouse:down', (opt) => {
       const evt = opt.e as MouseEvent;
-      if (evt.altKey === true) {
+      const target = opt.target;
+      
+      // Enable panning if Alt key is pressed OR clicking on empty space (no target object)
+      if (evt.altKey === true || !target) {
         setIsDragging(true);
         canvas.selection = false;
         setLastPos({ x: evt.clientX, y: evt.clientY });
@@ -316,7 +319,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
       )}
       
       <div className="text-xs text-muted-foreground">
-        💡 Mouse wheel to zoom • Alt + drag or Arrow keys to pan • Rotate pool with corner handle
+        💡 Mouse wheel to zoom • Click & drag or Arrow keys to pan • Rotate pool with corner handle
       </div>
       
       <div className="border rounded-lg shadow-elegant overflow-hidden bg-white">
