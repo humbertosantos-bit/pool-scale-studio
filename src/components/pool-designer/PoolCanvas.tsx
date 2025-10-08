@@ -23,6 +23,8 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
   const [measurementLines, setMeasurementLines] = useState<any[]>([]);
   const [measurementMode, setMeasurementMode] = useState<'draw' | 'type'>('draw');
   const [typedDistance, setTypedDistance] = useState('');
+  const [poolLength, setPoolLength] = useState('20');
+  const [poolWidth, setPoolWidth] = useState('12');
 
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -193,12 +195,17 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
   const addPool = () => {
     if (!fabricCanvas || !scaleReference) return;
 
-    // Fixed pool size: 12ft x 20ft (or 3.66m x 6.10m)
-    const width = scaleUnit === 'feet' ? 20 : 6.10;
-    const height = scaleUnit === 'feet' ? 12 : 3.66;
+    // Parse user input dimensions
+    const length = parseFloat(poolLength);
+    const width = parseFloat(poolWidth);
     
-    const pixelWidth = width * scaleReference.pixelLength / scaleReference.length;
-    const pixelHeight = height * scaleReference.pixelLength / scaleReference.length;
+    if (isNaN(length) || isNaN(width) || length <= 0 || width <= 0) {
+      alert('Please enter valid positive numbers for pool dimensions.');
+      return;
+    }
+    
+    const pixelWidth = length * scaleReference.pixelLength / scaleReference.length;
+    const pixelHeight = width * scaleReference.pixelLength / scaleReference.length;
     
     // Load water texture and create pattern
     FabricImage.fromURL(poolWaterTexture).then((img) => {
@@ -757,12 +764,35 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
         
         {scaleReference && (
           <>
-            <button
-              onClick={addPool}
-              className="px-4 py-2 bg-pool-light text-pool-dark rounded-md hover:bg-pool-light/80"
-            >
-              Add {scaleUnit === 'feet' ? '12×20 ft' : '3.66×6.10 m'} Pool
-            </button>
+            <div className="flex items-center gap-2 border-l pl-2">
+              <label className="text-sm font-medium">Pool Size:</label>
+              <input
+                type="number"
+                value={poolLength}
+                onChange={(e) => setPoolLength(e.target.value)}
+                placeholder="Length"
+                className="px-2 py-1 border rounded text-sm w-20"
+                step="0.1"
+                min="0"
+              />
+              <span className="text-sm">×</span>
+              <input
+                type="number"
+                value={poolWidth}
+                onChange={(e) => setPoolWidth(e.target.value)}
+                placeholder="Width"
+                className="px-2 py-1 border rounded text-sm w-20"
+                step="0.1"
+                min="0"
+              />
+              <span className="text-sm">{scaleUnit === 'feet' ? 'FT' : 'M'}</span>
+              <button
+                onClick={addPool}
+                className="px-4 py-2 bg-pool-light text-pool-dark rounded-md hover:bg-pool-light/80"
+              >
+                Add Pool
+              </button>
+            </div>
             <button
               onClick={deleteSelectedPool}
               className="px-4 py-2 bg-destructive text-destructive-foreground rounded-md hover:bg-destructive/90"
