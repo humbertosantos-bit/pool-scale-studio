@@ -208,32 +208,34 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
     canvas.on('object:modified', syncDimensionText);
 
     // Track background image transformations to move other elements
-    let bgLastPos: { x: number; y: number } | null = null;
-    let bgLastAngle: number | null = null;
+    let bgInitialState: { center: Point; angle: number; objects: Map<any, { relX: number; relY: number; relAngle: number }> } | null = null;
 
     canvas.on('object:moving', (e) => {
       const target = e.target;
       if (!target || !(target as any).isBackgroundImage) return;
 
-      const currentPos = target.getCenterPoint();
-      
-      if (bgLastPos) {
-        const deltaX = currentPos.x - bgLastPos.x;
-        const deltaY = currentPos.y - bgLastPos.y;
+      if (!bgInitialState) return;
 
-        // Move all pools and measurements
-        canvas.getObjects().forEach(obj => {
-          if ((obj as any).poolId || (obj as any).measurementId) {
-            obj.set({
-              left: (obj.left || 0) + deltaX,
-              top: (obj.top || 0) + deltaY,
-            });
+      const currentCenter = target.getCenterPoint();
+      const deltaX = currentCenter.x - bgInitialState.center.x;
+      const deltaY = currentCenter.y - bgInitialState.center.y;
+
+      // Move all pools and measurements
+      canvas.getObjects().forEach(obj => {
+        if ((obj as any).poolId || (obj as any).measurementId) {
+          const initial = bgInitialState!.objects.get(obj);
+          if (initial) {
+            const newCenter = new Point(
+              bgInitialState!.center.x + initial.relX + deltaX,
+              bgInitialState!.center.y + initial.relY + deltaY
+            );
+            
+            obj.setPositionByOrigin(newCenter, 'center', 'center');
             obj.setCoords();
           }
-        });
-      }
+        }
+      });
 
-      bgLastPos = { x: currentPos.x, y: currentPos.y };
       canvas.renderAll();
     });
 
@@ -241,50 +243,61 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
       const target = e.target;
       if (!target || !(target as any).isBackgroundImage) return;
 
-      const currentAngle = target.angle || 0;
-      
-      if (bgLastAngle !== null) {
-        const deltaAngle = currentAngle - bgLastAngle;
-        const centerPoint = target.getCenterPoint();
+      if (!bgInitialState) return;
 
-        // Rotate all pools and measurements around the background center
-        canvas.getObjects().forEach(obj => {
-          if ((obj as any).poolId || (obj as any).measurementId) {
-            const objCenter = obj.getCenterPoint();
+      const currentAngle = target.angle || 0;
+      const bgCenter = target.getCenterPoint();
+
+      // Rotate all pools and measurements around the background center
+      canvas.getObjects().forEach(obj => {
+        if ((obj as any).poolId || (obj as any).measurementId) {
+          const initial = bgInitialState!.objects.get(obj);
+          if (initial) {
+            const angleRad = (currentAngle * Math.PI) / 180;
             
-            // Calculate new position after rotation
-            const dx = objCenter.x - centerPoint.x;
-            const dy = objCenter.y - centerPoint.y;
-            const angleRad = (deltaAngle * Math.PI) / 180;
+            // Calculate new position based on rotation around background center
+            const newX = bgCenter.x + (initial.relX * Math.cos(angleRad) - initial.relY * Math.sin(angleRad));
+            const newY = bgCenter.y + (initial.relX * Math.sin(angleRad) + initial.relY * Math.cos(angleRad));
             
-            const newX = centerPoint.x + (dx * Math.cos(angleRad) - dy * Math.sin(angleRad));
-            const newY = centerPoint.y + (dx * Math.sin(angleRad) + dy * Math.cos(angleRad));
-            
-            obj.set({
-              left: newX - (obj.width! * (obj.scaleX || 1)) / 2,
-              top: newY - (obj.height! * (obj.scaleY || 1)) / 2,
-              angle: (obj.angle || 0) + deltaAngle,
-            });
+            const newCenter = new Point(newX, newY);
+            obj.setPositionByOrigin(newCenter, 'center', 'center');
+            obj.set({ angle: initial.relAngle + currentAngle });
             obj.setCoords();
           }
-        });
-      }
+        }
+      });
 
-      bgLastAngle = currentAngle;
       canvas.renderAll();
     });
 
     canvas.on('mouse:down', () => {
       const activeObj = canvas.getActiveObject();
       if (activeObj && (activeObj as any).isBackgroundImage) {
-        bgLastPos = activeObj.getCenterPoint();
-        bgLastAngle = activeObj.angle || 0;
+        const bgCenter = activeObj.getCenterPoint();
+        const bgAngle = activeObj.angle || 0;
+        
+        const objectsMap = new Map();
+        canvas.getObjects().forEach(obj => {
+          if ((obj as any).poolId || (obj as any).measurementId) {
+            const objCenter = obj.getCenterPoint();
+            objectsMap.set(obj, {
+              relX: objCenter.x - bgCenter.x,
+              relY: objCenter.y - bgCenter.y,
+              relAngle: (obj.angle || 0) - bgAngle,
+            });
+          }
+        });
+
+        bgInitialState = {
+          center: bgCenter,
+          angle: bgAngle,
+          objects: objectsMap,
+        };
       }
     });
 
     canvas.on('mouse:up', () => {
-      bgLastPos = null;
-      bgLastAngle = null;
+      bgInitialState = null;
     });
 
     window.addEventListener('keydown', handleKeyDown);
