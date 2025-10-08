@@ -12,8 +12,8 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
   const [fabricCanvas, setFabricCanvas] = useState<FabricCanvas | null>(null);
   const [scaleReference, setScaleReference] = useState<{ length: number; pixelLength: number } | null>(null);
   const [isSettingScale, setIsSettingScale] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
-  const [lastPos, setLastPos] = useState<{ x: number; y: number } | null>(null);
+  const isDraggingRef = useRef(false);
+  const lastPosRef = useRef<{ x: number; y: number } | null>(null);
   const [scaleUnit, setScaleUnit] = useState<'feet' | 'meters'>('feet');
   const [pools, setPools] = useState<any[]>([]);
 
@@ -45,29 +45,29 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
       
       // Enable panning if Alt key is pressed OR clicking on empty space (no target object)
       if (evt.altKey === true || !target) {
-        setIsDragging(true);
+        isDraggingRef.current = true;
         canvas.selection = false;
-        setLastPos({ x: evt.clientX, y: evt.clientY });
+        lastPosRef.current = { x: evt.clientX, y: evt.clientY };
       }
     });
 
     canvas.on('mouse:move', (opt) => {
-      if (isDragging && lastPos) {
+      if (isDraggingRef.current && lastPosRef.current) {
         const e = opt.e as MouseEvent;
         const vpt = canvas.viewportTransform;
         if (vpt) {
-          vpt[4] += e.clientX - lastPos.x;
-          vpt[5] += e.clientY - lastPos.y;
+          vpt[4] += e.clientX - lastPosRef.current.x;
+          vpt[5] += e.clientY - lastPosRef.current.y;
           canvas.requestRenderAll();
-          setLastPos({ x: e.clientX, y: e.clientY });
+          lastPosRef.current = { x: e.clientX, y: e.clientY };
         }
       }
     });
 
     canvas.on('mouse:up', () => {
-      setIsDragging(false);
+      isDraggingRef.current = false;
       canvas.selection = true;
-      setLastPos(null);
+      lastPosRef.current = null;
     });
 
     // Arrow key navigation for panning
