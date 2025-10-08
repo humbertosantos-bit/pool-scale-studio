@@ -185,42 +185,73 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
     canvas.on('mouse:up', ensureBackgroundAtBack);
     canvas.on('after:render', ensureBackgroundAtBack);
 
-    // Sync dimension text and coping with pool position and rotation
+    // Sync dimension text and coping with pool position and rotation, and fence dimension text
     const syncPoolElements = (e: any) => {
       const target = e.target;
-      if (!target || !(target as any).poolId || (target as any).isDimensionText || (target as any).isCoping) return;
+      if (!target) return;
       
-      const poolId = (target as any).poolId;
-      const objects = canvas.getObjects();
+      // Skip if the target is a dimension text or coping itself
+      if ((target as any).isDimensionText || (target as any).isCoping || (target as any).isFenceDimensionText) return;
       
-      // Sync dimension text
-      const dimensionText = objects.find(obj => 
-        (obj as any).poolId === poolId && (obj as any).isDimensionText
-      );
-      
-      if (dimensionText) {
-        const centerPoint = target.getCenterPoint();
-        dimensionText.set({
-          left: centerPoint.x,
-          top: centerPoint.y,
-          angle: target.angle || 0,
-        });
-        dimensionText.setCoords();
+      // Sync pool elements
+      if ((target as any).poolId) {
+        const poolId = (target as any).poolId;
+        const objects = canvas.getObjects();
+        
+        // Sync dimension text
+        const dimensionText = objects.find(obj => 
+          (obj as any).poolId === poolId && (obj as any).isDimensionText
+        );
+        
+        if (dimensionText) {
+          const centerPoint = target.getCenterPoint();
+          dimensionText.set({
+            left: centerPoint.x,
+            top: centerPoint.y,
+            angle: target.angle || 0,
+          });
+          dimensionText.setCoords();
+        }
+        
+        // Sync coping
+        const coping = objects.find(obj => 
+          (obj as any).poolId === poolId && (obj as any).isCoping
+        );
+        
+        if (coping) {
+          const centerPoint = target.getCenterPoint();
+          coping.set({
+            left: centerPoint.x,
+            top: centerPoint.y,
+            angle: target.angle || 0,
+          });
+          coping.setCoords();
+        }
       }
       
-      // Sync coping
-      const coping = objects.find(obj => 
-        (obj as any).poolId === poolId && (obj as any).isCoping
-      );
-      
-      if (coping) {
-        const centerPoint = target.getCenterPoint();
-        coping.set({
-          left: centerPoint.x,
-          top: centerPoint.y,
-          angle: target.angle || 0,
-        });
-        coping.setCoords();
+      // Sync fence dimension text
+      if ((target as any).fenceId) {
+        const fenceId = (target as any).fenceId;
+        const objects = canvas.getObjects();
+        
+        const dimensionText = objects.find(obj => 
+          (obj as any).fenceId === fenceId && (obj as any).isFenceDimensionText
+        );
+        
+        if (dimensionText && target.points) {
+          // Recalculate center position based on fence points
+          const points = target.points as any[];
+          const centerX = points.reduce((sum: number, p: any) => sum + p.x, 0) / points.length;
+          const centerY = points.reduce((sum: number, p: any) => sum + p.y, 0) / points.length;
+          
+          const fenceCenter = target.getCenterPoint();
+          dimensionText.set({
+            left: fenceCenter.x + centerX - (target.width || 0) / 2,
+            top: fenceCenter.y + centerY - (target.height || 0) / 2,
+            angle: target.angle || 0,
+          });
+          dimensionText.setCoords();
+        }
       }
     };
 
@@ -1166,10 +1197,9 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
       fabricCanvas.renderAll();
     };
     
-    const handleFinish = (e?: any) => {
-      if (e?.e) e.e.preventDefault();
-      
-      // FIRST: Remove all event listeners immediately to stop any further drawing
+    // Function to properly stop fence drawing and clean up all state
+    const stopFenceDrawing = () => {
+      // Remove all event listeners immediately to stop any further drawing
       fabricCanvas.off('mouse:down', handleClick);
       fabricCanvas.off('mouse:move', handleMouseMove);
       fabricCanvas.off('mouse:dblclick', handleFinish);
@@ -1177,25 +1207,61 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
       const canvasElement = fabricCanvas.getElement();
       canvasElement.removeEventListener('contextmenu', preventContextMenu);
       
-      // SECOND: Update state to exit drawing mode
+      // Update state to exit drawing mode
       setIsDrawingFence(false);
       isDrawingFenceRef.current = false;
       
-      // THIRD: Remove preview line first
+      // Remove preview line
       if (previewLine) {
         fabricCanvas.remove(previewLine);
         previewLine = null;
       }
       
-      // FOURTH: Handle the fence creation or cleanup
+      // Remove temporary elements
+      tempLines.forEach(line => fabricCanvas.remove(line));
+      tempCircles.forEach(circle => fabricCanvas.remove(circle));
+      
+      // Clear arrays
+      fencePoints = [];
+      tempLines = [];
+      tempCircles = [];
+      
+      // Re-enable object selection and interaction
+      fabricCanvas.selection = true;
+      fabricCanvas.forEachObject(obj => {
+        if (!(obj as any).isDimensionText && !(obj as any).isCoping && !(obj as any).isFenceDimensionText) {
+          obj.set({ selectable: true, evented: true });
+        }
+      });
+      
+      fabricCanvas.renderAll();
+    };
+    
+    const handleFinish = (e?: any) => {
+      if (e?.e) e.e.preventDefault();
+      
+      // If we have enough points, create the fence
       if (fencePoints.length >= 2) {
-        // Remove temporary elements
-        tempLines.forEach(line => fabricCanvas.remove(line));
-        tempCircles.forEach(circle => fabricCanvas.remove(circle));
+        // Calculate total fence length in feet
+        let totalLength = 0;
+        for (let i = 0; i < fencePoints.length - 1; i++) {
+          const p1 = fencePoints[i];
+          const p2 = fencePoints[i + 1];
+          const dx = p2.x - p1.x;
+          const dy = p2.y - p1.y;
+          const pixelDistance = Math.sqrt(dx * dx + dy * dy);
+          
+          // Convert pixels to feet using scale reference
+          if (scaleReference) {
+            const feetDistance = (pixelDistance * scaleReference.length) / scaleReference.pixelLength;
+            totalLength += feetDistance;
+          }
+        }
         
         // Create final fence as a Polyline with solid styling
         const polylinePoints = fencePoints.map(p => ({ x: p.x, y: p.y }));
         
+        const fenceId = `fence-${Date.now()}`;
         const fence = new Polyline(polylinePoints, {
           stroke: '#666666',
           strokeWidth: 3,
@@ -1210,29 +1276,41 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
           objectCaching: false,
         });
         
-        (fence as any).fenceId = `fence-${Date.now()}`;
+        (fence as any).fenceId = fenceId;
         fabricCanvas.add(fence);
+        
+        // Add dimension text showing total length
+        if (scaleReference && totalLength > 0) {
+          // Calculate center position of the fence
+          const centerX = fencePoints.reduce((sum, p) => sum + p.x, 0) / fencePoints.length;
+          const centerY = fencePoints.reduce((sum, p) => sum + p.y, 0) / fencePoints.length;
+          
+          const lengthStr = Number.isInteger(totalLength) ? totalLength.toString() : totalLength.toFixed(1);
+          const dimensionText = new Text(`Fence: ${lengthStr} ft`, {
+            left: centerX,
+            top: centerY,
+            fontSize: 10,
+            fontFamily: 'Arial',
+            fontWeight: 'bold',
+            fill: '#000000',
+            backgroundColor: 'rgba(255, 255, 255, 0.8)',
+            padding: 2,
+            originX: 'center',
+            originY: 'center',
+            selectable: false,
+            evented: false,
+          });
+          
+          (dimensionText as any).fenceId = fenceId;
+          (dimensionText as any).isFenceDimensionText = true;
+          fabricCanvas.add(dimensionText);
+        }
+        
         setFences(prev => [...prev, fence]);
-      } else {
-        // Clean up if not enough points
-        tempLines.forEach(line => fabricCanvas.remove(line));
-        tempCircles.forEach(circle => fabricCanvas.remove(circle));
       }
       
-      // Clear the points array
-      fencePoints = [];
-      tempLines = [];
-      tempCircles = [];
-      
-      // LAST: Re-enable object selection and interaction
-      fabricCanvas.selection = true;
-      fabricCanvas.forEachObject(obj => {
-        if (!(obj as any).isDimensionText && !(obj as any).isCoping) {
-          obj.set({ selectable: true, evented: true });
-        }
-      });
-      
-      fabricCanvas.renderAll();
+      // Clean up and stop drawing mode
+      stopFenceDrawing();
     };
     
     const handleRightClick = (e: any) => {
@@ -1272,7 +1350,19 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
     
     const activeObject = fabricCanvas.getActiveObject();
     if (activeObject && (activeObject as any).fenceId) {
+      const fenceId = (activeObject as any).fenceId;
+      
+      // Remove the fence
       fabricCanvas.remove(activeObject);
+      
+      // Also remove the associated dimension text
+      const objects = fabricCanvas.getObjects();
+      objects.forEach(obj => {
+        if ((obj as any).fenceId === fenceId) {
+          fabricCanvas.remove(obj);
+        }
+      });
+      
       setFences(prev => prev.filter(f => f !== activeObject));
       fabricCanvas.renderAll();
     }
