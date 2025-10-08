@@ -193,50 +193,50 @@ export const PoolControls: React.FC<PoolControlsProps> = ({
                 <div className="space-y-2">
                   <div>
                     <label className="text-xs text-muted-foreground mb-1 block">Length</label>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1">
                       <input
                         type="number"
                         value={poolLengthFeet}
                         onChange={(e) => onPoolLengthFeetChange(e.target.value)}
-                        placeholder="Feet"
-                        className="flex-1 px-3 py-2 border rounded-md text-sm"
+                        placeholder="0"
+                        className="w-16 px-2 py-2 border rounded-md text-sm"
                         min="0"
                       />
-                      <span className="text-sm text-muted-foreground min-w-[24px]">FT</span>
+                      <span className="text-xs text-muted-foreground">FT</span>
                       <input
                         type="number"
                         value={poolLengthInches}
                         onChange={(e) => onPoolLengthInchesChange(e.target.value)}
-                        placeholder="Inches"
-                        className="flex-1 px-3 py-2 border rounded-md text-sm"
+                        placeholder="0"
+                        className="w-16 px-2 py-2 border rounded-md text-sm"
                         min="0"
                         max="11"
                       />
-                      <span className="text-sm text-muted-foreground min-w-[24px]">IN</span>
+                      <span className="text-xs text-muted-foreground">IN</span>
                     </div>
                   </div>
                   <div>
                     <label className="text-xs text-muted-foreground mb-1 block">Width</label>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1">
                       <input
                         type="number"
                         value={poolWidthFeet}
                         onChange={(e) => onPoolWidthFeetChange(e.target.value)}
-                        placeholder="Feet"
-                        className="flex-1 px-3 py-2 border rounded-md text-sm"
+                        placeholder="0"
+                        className="w-16 px-2 py-2 border rounded-md text-sm"
                         min="0"
                       />
-                      <span className="text-sm text-muted-foreground min-w-[24px]">FT</span>
+                      <span className="text-xs text-muted-foreground">FT</span>
                       <input
                         type="number"
                         value={poolWidthInches}
                         onChange={(e) => onPoolWidthInchesChange(e.target.value)}
-                        placeholder="Inches"
-                        className="flex-1 px-3 py-2 border rounded-md text-sm"
+                        placeholder="0"
+                        className="w-16 px-2 py-2 border rounded-md text-sm"
                         min="0"
                         max="11"
                       />
-                      <span className="text-sm text-muted-foreground min-w-[24px]">IN</span>
+                      <span className="text-xs text-muted-foreground">IN</span>
                     </div>
                   </div>
                 </div>
@@ -282,26 +282,26 @@ export const PoolControls: React.FC<PoolControlsProps> = ({
                 </button>
               ) : (
                 <>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1">
                     <input
                       type="number"
                       value={typedDistanceFeet}
                       onChange={(e) => onTypedDistanceFeetChange(e.target.value)}
-                      placeholder="Feet"
-                      className="flex-1 px-3 py-2 border rounded-md text-sm"
+                      placeholder="0"
+                      className="w-16 px-2 py-2 border rounded-md text-sm"
                       min="0"
                     />
-                    <span className="text-sm text-muted-foreground min-w-[24px]">FT</span>
+                    <span className="text-xs text-muted-foreground">FT</span>
                     <input
                       type="number"
                       value={typedDistanceInches}
                       onChange={(e) => onTypedDistanceInchesChange(e.target.value)}
-                      placeholder="Inches"
-                      className="flex-1 px-3 py-2 border rounded-md text-sm"
+                      placeholder="0"
+                      className="w-16 px-2 py-2 border rounded-md text-sm"
                       min="0"
                       max="11"
                     />
-                    <span className="text-sm text-muted-foreground min-w-[24px]">IN</span>
+                    <span className="text-xs text-muted-foreground">IN</span>
                   </div>
                   <button
                     onClick={onAddTypedMeasurement}
