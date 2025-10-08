@@ -35,6 +35,9 @@ interface PoolControlsProps {
   isDrawingFence: boolean;
   onStartFenceDrawing: () => void;
   onDeleteSelectedFence: () => void;
+  isDrawingPaver: boolean;
+  onStartPaverDrawing: () => void;
+  onDeleteSelectedPaver: () => void;
   selectedImage: File;
   onFileSelect: (file: File) => void;
 }
@@ -71,6 +74,9 @@ export const PoolControls: React.FC<PoolControlsProps> = ({
   isDrawingFence,
   onStartFenceDrawing,
   onDeleteSelectedFence,
+  isDrawingPaver,
+  onStartPaverDrawing,
+  onDeleteSelectedPaver,
   selectedImage,
   onFileSelect,
 }) => {
@@ -345,6 +351,35 @@ export const PoolControls: React.FC<PoolControlsProps> = ({
                 className="w-full px-4 py-2 bg-destructive text-destructive-foreground rounded-md hover:bg-destructive/90 text-sm"
               >
                 Delete Selected Fence
+              </button>
+            </div>
+          </div>
+
+          {/* Pavers Section */}
+          <div className="border rounded-lg overflow-hidden">
+            <div className="bg-primary px-4 py-3">
+              <h2 className="text-sm font-semibold text-primary-foreground">Pavers</h2>
+            </div>
+            <div className="p-4 space-y-2">
+              <button
+                onClick={onStartPaverDrawing}
+                disabled={isDrawingPaver}
+                className="w-full px-4 py-2 bg-foreground text-background rounded-md hover:bg-foreground/90 disabled:opacity-50 text-sm"
+              >
+                {isDrawingPaver ? 'Click to add corners...' : 'Draw Paver Area'}
+              </button>
+              {isDrawingPaver && (
+                <p className="text-xs text-muted-foreground">
+                  💡 Click to add points<br/>
+                  💡 Double-click, Right-click, or press Enter to finish<br/>
+                  💡 Area will be calculated automatically
+                </p>
+              )}
+              <button
+                onClick={onDeleteSelectedPaver}
+                className="w-full px-4 py-2 bg-destructive text-destructive-foreground rounded-md hover:bg-destructive/90 text-sm"
+              >
+                Delete Selected Paver
               </button>
             </div>
           </div>
