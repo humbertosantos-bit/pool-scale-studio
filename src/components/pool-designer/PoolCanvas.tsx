@@ -317,6 +317,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
       tempLine = new Line([pointer.x, pointer.y, pointer.x, pointer.y], {
         stroke: '#10b981',
         strokeWidth: 2,
+        strokeUniform: true,
         selectable: false,
         evented: false,
       });
@@ -375,17 +376,17 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
       const dy = pointer.y - startPoint.y;
       const angle = Math.atan2(dy, dx) * 180 / Math.PI;
       
-      // Update arrows
+      // Update arrows (pointing OUTWARDS)
       tempArrow1.set({
         left: startPoint.x,
         top: startPoint.y,
-        angle: angle + 90,
+        angle: angle - 90,
       });
       
       tempArrow2.set({
         left: pointer.x,
         top: pointer.y,
-        angle: angle - 90,
+        angle: angle + 90,
       });
       
       // Calculate measurement
@@ -428,6 +429,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
         const finalLine = new Line([startPoint.x, startPoint.y, pointer.x, pointer.y], {
           stroke: '#10b981',
           strokeWidth: 2,
+          strokeUniform: true,
           selectable: false,
           evented: false,
         });
@@ -442,7 +444,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
           evented: false,
           originX: 'center',
           originY: 'center',
-          angle: angle + 90,
+          angle: angle - 90,
         });
         
         const finalArrow2 = new Triangle({
@@ -455,7 +457,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
           evented: false,
           originX: 'center',
           originY: 'center',
-          angle: angle - 90,
+          angle: angle + 90,
         });
         
         const finalText = new Text(`${realLength.toFixed(2)} ${scaleUnit}`, {
@@ -488,6 +490,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
       // Clean up
       fabricCanvas.off('mouse:move', handleMouseMove);
       fabricCanvas.off('mouse:up', handleMouseUp);
+      fabricCanvas.off('mouse:down', handleMouseDown);
       setIsMeasuring(false);
       isMeasuringRef.current = false;
     };
