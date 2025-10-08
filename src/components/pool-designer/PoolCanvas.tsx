@@ -321,9 +321,36 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
     isMeasuringRef.current = true;
     let startPoint: { x: number; y: number } | null = null;
     let tempLine: Line | null = null;
-    let tempArrow1: Triangle | null = null;
-    let tempArrow2: Triangle | null = null;
+    let tempArrow1Group: Group | null = null;
+    let tempArrow2Group: Group | null = null;
     let tempText: Text | null = null;
+
+    const createArrowHead = (x: number, y: number, angle: number) => {
+      const arrowSize = 4;
+      const arrowAngle = 30; // degrees
+      
+      const line1 = new Line([0, 0, -arrowSize, -arrowSize * Math.tan(arrowAngle * Math.PI / 180)], {
+        stroke: '#000000',
+        strokeWidth: 1,
+        strokeUniform: true,
+      });
+      
+      const line2 = new Line([0, 0, -arrowSize, arrowSize * Math.tan(arrowAngle * Math.PI / 180)], {
+        stroke: '#000000',
+        strokeWidth: 1,
+        strokeUniform: true,
+      });
+      
+      return new Group([line1, line2], {
+        left: x,
+        top: y,
+        angle: angle,
+        originX: 'left',
+        originY: 'center',
+        selectable: false,
+        evented: false,
+      });
+    };
 
     const handleMouseDown = (e: any) => {
       const pointer = fabricCanvas.getScenePoint(e.e);
@@ -331,56 +358,37 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
       
       // Create temporary line
       tempLine = new Line([pointer.x, pointer.y, pointer.x, pointer.y], {
-        stroke: '#10b981',
-        strokeWidth: 1,
+        stroke: '#000000',
+        strokeWidth: 1.5,
         strokeUniform: true,
         selectable: false,
         evented: false,
       });
       
       // Create temporary arrows
-      tempArrow1 = new Triangle({
-        left: pointer.x,
-        top: pointer.y,
-        width: 6,
-        height: 6,
-        fill: '#10b981',
-        selectable: false,
-        evented: false,
-        originX: 'center',
-        originY: 'top',
-      });
-      
-      tempArrow2 = new Triangle({
-        left: pointer.x,
-        top: pointer.y,
-        width: 6,
-        height: 6,
-        fill: '#10b981',
-        selectable: false,
-        evented: false,
-        originX: 'center',
-        originY: 'top',
-      });
+      tempArrow1Group = createArrowHead(pointer.x, pointer.y, 0);
+      tempArrow2Group = createArrowHead(pointer.x, pointer.y, 0);
       
       // Create temporary text
       tempText = new Text('0.00 ' + scaleUnit, {
         left: pointer.x,
         top: pointer.y,
-        fontSize: 5,
-        fill: '#10b981',
+        fontSize: 12,
+        fontFamily: 'Inter, Arial, sans-serif',
+        fill: '#000000',
         selectable: false,
         evented: false,
         originX: 'center',
-        originY: 'bottom',
+        originY: 'center',
+        backgroundColor: '#ffffff',
       });
       
-      fabricCanvas.add(tempLine, tempArrow1, tempArrow2, tempText);
+      fabricCanvas.add(tempLine, tempArrow1Group, tempArrow2Group, tempText);
       fabricCanvas.on('mouse:move', handleMouseMove);
     };
     
     const handleMouseMove = (e: any) => {
-      if (!startPoint || !tempLine || !tempArrow1 || !tempArrow2 || !tempText) return;
+      if (!startPoint || !tempLine || !tempArrow1Group || !tempArrow2Group || !tempText) return;
       
       const pointer = fabricCanvas.getScenePoint(e.e);
       
@@ -393,13 +401,13 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
       const angle = Math.atan2(dy, dx) * 180 / Math.PI;
       
       // Update arrows (pointing OUTWARDS at line tips)
-      tempArrow1.set({
+      tempArrow1Group.set({
         left: startPoint.x,
         top: startPoint.y,
         angle: angle + 180,
       });
       
-      tempArrow2.set({
+      tempArrow2Group.set({
         left: pointer.x,
         top: pointer.y,
         angle: angle,
@@ -409,26 +417,39 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
       const pixelLength = Math.sqrt(dx * dx + dy * dy);
       const realLength = (pixelLength * scaleReference.length) / scaleReference.pixelLength;
       
-      // Update text (parallel to line)
+      // Update text (parallel to line, always upright)
       const midX = (startPoint.x + pointer.x) / 2;
       const midY = (startPoint.y + pointer.y) / 2;
+      
+      // Keep text upright by flipping if angle is upside down
+      let textAngle = angle;
+      if (angle > 90 || angle < -90) {
+        textAngle = angle + 180;
+      }
+      
+      // Calculate offset perpendicular to line
+      const offset = 8;
+      const perpAngle = (angle + 90) * Math.PI / 180;
+      const offsetX = Math.cos(perpAngle) * offset;
+      const offsetY = Math.sin(perpAngle) * offset;
+      
       tempText.set({
-        left: midX,
-        top: midY,
+        left: midX + offsetX,
+        top: midY + offsetY,
         text: `${realLength.toFixed(2)} ${scaleUnit}`,
-        angle: angle,
+        angle: textAngle,
       });
       
       fabricCanvas.renderAll();
     };
     
     const handleMouseUp = (e: any) => {
-      if (!startPoint || !tempLine || !tempArrow1 || !tempArrow2 || !tempText) return;
+      if (!startPoint || !tempLine || !tempArrow1Group || !tempArrow2Group || !tempText) return;
       
       const pointer = fabricCanvas.getScenePoint(e.e);
       
       // Remove temporary objects
-      fabricCanvas.remove(tempLine, tempArrow1, tempArrow2, tempText);
+      fabricCanvas.remove(tempLine, tempArrow1Group, tempArrow2Group, tempText);
       
       // Calculate final values
       const dx = pointer.x - startPoint.x;
@@ -442,51 +463,70 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
         const midX = (startPoint.x + pointer.x) / 2;
         const midY = (startPoint.y + pointer.y) / 2;
         
+        // Create arrow helper function
+        const createFinalArrowHead = (x: number, y: number, arrowAngle: number) => {
+          const arrowSize = 4;
+          const arrowSpread = 30;
+          
+          const line1 = new Line([0, 0, -arrowSize, -arrowSize * Math.tan(arrowSpread * Math.PI / 180)], {
+            stroke: '#000000',
+            strokeWidth: 1,
+            strokeUniform: true,
+          });
+          
+          const line2 = new Line([0, 0, -arrowSize, arrowSize * Math.tan(arrowSpread * Math.PI / 180)], {
+            stroke: '#000000',
+            strokeWidth: 1,
+            strokeUniform: true,
+          });
+          
+          return new Group([line1, line2], {
+            left: x,
+            top: y,
+            angle: arrowAngle,
+            originX: 'left',
+            originY: 'center',
+            selectable: false,
+            evented: false,
+          });
+        };
+        
         // Create final objects
         const finalLine = new Line([startPoint.x, startPoint.y, pointer.x, pointer.y], {
-          stroke: '#10b981',
-          strokeWidth: 1,
+          stroke: '#000000',
+          strokeWidth: 1.5,
           strokeUniform: true,
           selectable: false,
           evented: false,
         });
         
-        const finalArrow1 = new Triangle({
-          left: startPoint.x,
-          top: startPoint.y,
-          width: 6,
-          height: 6,
-          fill: '#10b981',
-          selectable: false,
-          evented: false,
-          originX: 'center',
-          originY: 'top',
-          angle: angle + 180,
-        });
+        const finalArrow1 = createFinalArrowHead(startPoint.x, startPoint.y, angle + 180);
+        const finalArrow2 = createFinalArrowHead(pointer.x, pointer.y, angle);
         
-        const finalArrow2 = new Triangle({
-          left: pointer.x,
-          top: pointer.y,
-          width: 6,
-          height: 6,
-          fill: '#10b981',
-          selectable: false,
-          evented: false,
-          originX: 'center',
-          originY: 'top',
-          angle: angle,
-        });
+        // Keep text upright
+        let textAngle = angle;
+        if (angle > 90 || angle < -90) {
+          textAngle = angle + 180;
+        }
+        
+        // Calculate offset perpendicular to line
+        const offset = 8;
+        const perpAngle = (angle + 90) * Math.PI / 180;
+        const offsetX = Math.cos(perpAngle) * offset;
+        const offsetY = Math.sin(perpAngle) * offset;
         
         const finalText = new Text(`${realLength.toFixed(2)} ${scaleUnit}`, {
-          left: midX,
-          top: midY,
-          fontSize: 5,
-          fill: '#10b981',
+          left: midX + offsetX,
+          top: midY + offsetY,
+          fontSize: 12,
+          fontFamily: 'Inter, Arial, sans-serif',
+          fill: '#000000',
           selectable: false,
           evented: false,
           originX: 'center',
-          originY: 'bottom',
-          angle: angle,
+          originY: 'center',
+          angle: textAngle,
+          backgroundColor: '#ffffff',
         });
         
         // Group all elements together
@@ -572,9 +612,9 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
             <button
               onClick={startMeasurement}
               disabled={isMeasuring}
-              className="px-4 py-2 bg-emerald-500 text-white rounded-md hover:bg-emerald-600 disabled:opacity-50"
+              className="px-4 py-2 bg-foreground text-background rounded-md hover:bg-foreground/90 disabled:opacity-50"
             >
-              {isMeasuring ? 'Click two points to measure...' : 'Measure Distance'}
+              {isMeasuring ? 'Click and drag to measure...' : 'Measure Distance'}
             </button>
             <button
               onClick={deleteSelectedMeasurement}
