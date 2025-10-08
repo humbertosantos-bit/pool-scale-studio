@@ -135,29 +135,21 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
     });
 
     // Keep background image always at the back
-    canvas.on('object:modified', (e) => {
-      if (e.target && (e.target as any).isBackgroundImage) {
-        canvas.sendObjectToBack(e.target);
+    const ensureBackgroundAtBack = () => {
+      const objects = canvas.getObjects();
+      const bgImage = objects.find(obj => (obj as any).isBackgroundImage);
+      if (bgImage) {
+        canvas.sendObjectToBack(bgImage);
       }
-    });
+    };
 
-    canvas.on('object:moving', (e) => {
-      if (e.target && (e.target as any).isBackgroundImage) {
-        canvas.sendObjectToBack(e.target);
-      }
-    });
-
-    canvas.on('selection:created', (e) => {
-      if (e.selected && e.selected[0] && (e.selected[0] as any).isBackgroundImage) {
-        canvas.sendObjectToBack(e.selected[0]);
-      }
-    });
-
-    canvas.on('selection:updated', (e) => {
-      if (e.selected && e.selected[0] && (e.selected[0] as any).isBackgroundImage) {
-        canvas.sendObjectToBack(e.selected[0]);
-      }
-    });
+    canvas.on('object:modified', ensureBackgroundAtBack);
+    canvas.on('object:moving', ensureBackgroundAtBack);
+    canvas.on('object:rotating', ensureBackgroundAtBack);
+    canvas.on('object:scaling', ensureBackgroundAtBack);
+    canvas.on('selection:created', ensureBackgroundAtBack);
+    canvas.on('selection:updated', ensureBackgroundAtBack);
+    canvas.on('before:render', ensureBackgroundAtBack);
 
     window.addEventListener('keydown', handleKeyDown);
 
