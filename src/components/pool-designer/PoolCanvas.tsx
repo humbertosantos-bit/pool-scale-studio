@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Canvas as FabricCanvas, FabricImage, Line, Ellipse, Rect, Circle, Point, Text, Group, Triangle, Pattern } from 'fabric';
 import { cn } from '@/lib/utils';
 import poolWaterTexture from '@/assets/pool-water.png';
+import copingTexture from '@/assets/coping-texture.jpg';
 
 interface PoolCanvasProps {
   imageFile: File | null;
@@ -27,6 +28,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
   const [typedDistance, setTypedDistance] = useState('');
   const [poolLength, setPoolLength] = useState('20');
   const [poolWidth, setPoolWidth] = useState('12');
+  const [copingSize, setCopingSize] = useState<number | null>(null);
   const bgImageRef = useRef<FabricImage | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -181,13 +183,15 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
     canvas.on('mouse:up', ensureBackgroundAtBack);
     canvas.on('after:render', ensureBackgroundAtBack);
 
-    // Sync dimension text with pool position and rotation
-    const syncDimensionText = (e: any) => {
+    // Sync dimension text and coping with pool position and rotation
+    const syncPoolElements = (e: any) => {
       const target = e.target;
-      if (!target || !(target as any).poolId || (target as any).isDimensionText) return;
+      if (!target || !(target as any).poolId || (target as any).isDimensionText || (target as any).isCoping) return;
       
       const poolId = (target as any).poolId;
       const objects = canvas.getObjects();
+      
+      // Sync dimension text
       const dimensionText = objects.find(obj => 
         (obj as any).poolId === poolId && (obj as any).isDimensionText
       );
@@ -201,11 +205,26 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         });
         dimensionText.setCoords();
       }
+      
+      // Sync coping
+      const coping = objects.find(obj => 
+        (obj as any).poolId === poolId && (obj as any).isCoping
+      );
+      
+      if (coping) {
+        const centerPoint = target.getCenterPoint();
+        coping.set({
+          left: centerPoint.x,
+          top: centerPoint.y,
+          angle: target.angle || 0,
+        });
+        coping.setCoords();
+      }
     };
 
-    canvas.on('object:moving', syncDimensionText);
-    canvas.on('object:rotating', syncDimensionText);
-    canvas.on('object:modified', syncDimensionText);
+    canvas.on('object:moving', syncPoolElements);
+    canvas.on('object:rotating', syncPoolElements);
+    canvas.on('object:modified', syncPoolElements);
 
     // Track background image transformations to move other elements
     let bgInitialState: { center: Point; angle: number; objects: Map<any, { relX: number; relY: number; relAngle: number }> } | null = null;
@@ -378,23 +397,67 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
     const pixelWidth = length * scaleReference.pixelLength / scaleReference.length;
     const pixelHeight = width * scaleReference.pixelLength / scaleReference.length;
     
-    // Load water texture and create pattern
-    FabricImage.fromURL(poolWaterTexture).then((img) => {
-      // Scale texture to 50% of original size
-      img.scaleToWidth(img.width! * 0.5);
-      img.scaleToHeight(img.height! * 0.5);
+    // Load textures
+    Promise.all([
+      FabricImage.fromURL(poolWaterTexture),
+      copingSize ? FabricImage.fromURL(copingTexture) : Promise.resolve(null)
+    ]).then(([waterImg, copingImg]) => {
+      // Scale water texture to 50% of original size
+      waterImg.scaleToWidth(waterImg.width! * 0.5);
+      waterImg.scaleToHeight(waterImg.height! * 0.5);
       
-      const pattern = new Pattern({
-        source: img.getElement() as HTMLImageElement,
+      const waterPattern = new Pattern({
+        source: waterImg.getElement() as HTMLImageElement,
         repeat: 'repeat',
       });
       
+      const poolId = `pool-${Date.now()}`;
+      const centerX = fabricCanvas.width! / 2;
+      const centerY = fabricCanvas.height! / 2;
+      
+      // Add coping if selected
+      if (copingSize && copingImg) {
+        // Convert coping size from inches to pixels
+        // Coping texture is 32 inches, we need to scale it to canvas scale
+        const copingSizeInUnits = copingSize / 12; // Convert inches to feet
+        const copingPixelWidth = copingSizeInUnits * scaleReference.pixelLength / scaleReference.length;
+        
+        // Calculate texture scale: texture is 32 inches (2.67 feet)
+        const textureRealSize = 32 / 12; // 32 inches in feet
+        const texturePixelSize = textureRealSize * scaleReference.pixelLength / scaleReference.length;
+        const textureScale = texturePixelSize / copingImg.width!;
+        
+        copingImg.scale(textureScale);
+        
+        const copingPattern = new Pattern({
+          source: copingImg.getElement() as HTMLImageElement,
+          repeat: 'repeat',
+        });
+        
+        const coping = new Rect({
+          left: centerX,
+          top: centerY,
+          fill: copingPattern,
+          stroke: '#000000',
+          strokeWidth: 0.5,
+          width: pixelWidth + (copingPixelWidth * 2),
+          height: pixelHeight + (copingPixelWidth * 2),
+          selectable: false,
+          evented: false,
+        });
+        
+        (coping as any).poolId = poolId;
+        (coping as any).isCoping = true;
+        fabricCanvas.add(coping);
+      }
+      
+      // Add pool
       const pool = new Rect({
-        left: fabricCanvas.width! / 2,
-        top: fabricCanvas.height! / 2,
-        fill: pattern,
-        stroke: '#000000', // Black outline
-        strokeWidth: 0.5, // 0.5px thick
+        left: centerX,
+        top: centerY,
+        fill: waterPattern,
+        stroke: '#000000',
+        strokeWidth: 0.5,
         opacity: 0.9,
         width: pixelWidth,
         height: pixelHeight,
@@ -404,15 +467,15 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         hasControls: true,
         hasBorders: true,
         setControlsVisibility: {
-          mt: false, // middle top
-          mb: false, // middle bottom
-          ml: false, // middle left
-          mr: false, // middle right
-          bl: false, // bottom left
-          br: false, // bottom right
-          tl: false, // top left
-          tr: false, // top right
-          mtr: true, // rotation control
+          mt: false,
+          mb: false,
+          ml: false,
+          mr: false,
+          bl: false,
+          br: false,
+          tl: false,
+          tr: false,
+          mtr: true,
         },
       });
 
@@ -420,8 +483,8 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
       const lengthStr = Number.isInteger(length) ? length.toString() : length.toFixed(1);
       const widthStr = Number.isInteger(width) ? width.toString() : width.toFixed(1);
       const dimensionText = new Text(`${lengthStr} x ${widthStr}`, {
-        left: fabricCanvas.width! / 2,
-        top: fabricCanvas.height! / 2,
+        left: centerX,
+        top: centerY,
         fontSize: 10,
         fontFamily: 'Arial',
         fontWeight: 'bold',
@@ -432,7 +495,6 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         evented: false,
       });
 
-      const poolId = `pool-${Date.now()}`;
       (pool as any).poolId = poolId;
       (dimensionText as any).poolId = poolId;
       (dimensionText as any).isDimensionText = true;
@@ -547,14 +609,13 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
       // Remove the pool
       fabricCanvas.remove(activeObject);
       
-      // Also remove the associated dimension text
+      // Also remove the associated dimension text and coping
       const objects = fabricCanvas.getObjects();
-      const dimensionText = objects.find(obj => 
-        (obj as any).poolId === poolId && (obj as any).isDimensionText
-      );
-      if (dimensionText) {
-        fabricCanvas.remove(dimensionText);
-      }
+      objects.forEach(obj => {
+        if ((obj as any).poolId === poolId) {
+          fabricCanvas.remove(obj);
+        }
+      });
       
       setPools(prev => prev.filter(pool => pool !== activeObject));
       fabricCanvas.renderAll();
@@ -999,9 +1060,11 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         onTypedDistanceChange: setTypedDistance,
         onAddTypedMeasurement: addTypedMeasurement,
         onDeleteSelectedMeasurement: deleteSelectedMeasurement,
+        copingSize,
+        onCopingSizeChange: setCopingSize,
       });
     }
-  }, [scaleUnit, isSettingScale, scaleReference, poolLength, poolWidth, measurementMode, isMeasuring, typedDistance]);
+  }, [scaleUnit, isSettingScale, scaleReference, poolLength, poolWidth, measurementMode, isMeasuring, typedDistance, copingSize]);
 
   return (
     <div className={cn("flex flex-col h-full", className)}>

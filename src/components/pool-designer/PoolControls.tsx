@@ -20,6 +20,8 @@ interface PoolControlsProps {
   onTypedDistanceChange: (value: string) => void;
   onAddTypedMeasurement: () => void;
   onDeleteSelectedMeasurement: () => void;
+  copingSize: number | null;
+  onCopingSizeChange: (size: number | null) => void;
 }
 
 export const PoolControls: React.FC<PoolControlsProps> = ({
@@ -42,6 +44,8 @@ export const PoolControls: React.FC<PoolControlsProps> = ({
   onTypedDistanceChange,
   onAddTypedMeasurement,
   onDeleteSelectedMeasurement,
+  copingSize,
+  onCopingSizeChange,
 }) => {
   return (
     <div className="space-y-6">
@@ -105,6 +109,44 @@ export const PoolControls: React.FC<PoolControlsProps> = ({
                 />
                 <span className="text-sm text-muted-foreground">{scaleUnit === 'feet' ? 'FT' : 'M'}</span>
               </div>
+              
+              {/* Coping Options */}
+              <div className="pt-2">
+                <label className="text-sm font-medium mb-2 block">Coping</label>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => onCopingSizeChange(null)}
+                    className={`flex-1 px-3 py-2 border rounded-md text-sm transition-colors ${
+                      copingSize === null 
+                        ? 'bg-foreground text-background' 
+                        : 'bg-background hover:bg-muted'
+                    }`}
+                  >
+                    None
+                  </button>
+                  <button
+                    onClick={() => onCopingSizeChange(12)}
+                    className={`flex-1 px-3 py-2 border rounded-md text-sm transition-colors ${
+                      copingSize === 12 
+                        ? 'bg-foreground text-background' 
+                        : 'bg-background hover:bg-muted'
+                    }`}
+                  >
+                    12"
+                  </button>
+                  <button
+                    onClick={() => onCopingSizeChange(16)}
+                    className={`flex-1 px-3 py-2 border rounded-md text-sm transition-colors ${
+                      copingSize === 16 
+                        ? 'bg-foreground text-background' 
+                        : 'bg-background hover:bg-muted'
+                    }`}
+                  >
+                    16"
+                  </button>
+                </div>
+              </div>
+              
               <button
                 onClick={onAddPool}
                 className="w-full px-4 py-2 bg-pool-light text-pool-dark rounded-md hover:bg-pool-light/80 text-sm"
