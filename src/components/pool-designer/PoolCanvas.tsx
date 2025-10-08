@@ -329,14 +329,14 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
       const arrowSize = 3;
       const arrowAngle = 30; // degrees
       
-      const line1 = new Line([0, 0, arrowSize, -arrowSize * Math.tan(arrowAngle * Math.PI / 180)], {
-        stroke: '#000000',
+      const line1 = new Line([0, 0, -arrowSize, -arrowSize * Math.tan(arrowAngle * Math.PI / 180)], {
+        stroke: '#3b82f6',
         strokeWidth: 1,
         strokeUniform: true,
       });
       
-      const line2 = new Line([0, 0, arrowSize, arrowSize * Math.tan(arrowAngle * Math.PI / 180)], {
-        stroke: '#000000',
+      const line2 = new Line([0, 0, -arrowSize, arrowSize * Math.tan(arrowAngle * Math.PI / 180)], {
+        stroke: '#3b82f6',
         strokeWidth: 1,
         strokeUniform: true,
       });
@@ -358,8 +358,8 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
       
       // Create temporary line
       tempLine = new Line([pointer.x, pointer.y, pointer.x, pointer.y], {
-        stroke: '#000000',
-        strokeWidth: 1.5,
+        stroke: '#3b82f6',
+        strokeWidth: 1,
         strokeUniform: true,
         selectable: false,
         evented: false,
@@ -375,7 +375,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
         top: pointer.y,
         fontSize: 6,
         fontFamily: 'Inter, Arial, sans-serif',
-        fill: '#000000',
+        fill: '#3b82f6',
         selectable: false,
         evented: false,
         originX: 'center',
@@ -389,7 +389,23 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
     const handleMouseMove = (e: any) => {
       if (!startPoint || !tempLine || !tempArrow1Group || !tempArrow2Group || !tempText) return;
       
-      const pointer = fabricCanvas.getScenePoint(e.e);
+      let pointer = fabricCanvas.getScenePoint(e.e);
+      
+      // Snap to straight lines if Shift is pressed
+      if (e.e.shiftKey) {
+        const dx = pointer.x - startPoint.x;
+        const dy = pointer.y - startPoint.y;
+        const angle = Math.atan2(dy, dx);
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        // Snap to nearest 45-degree increment
+        const snapAngle = Math.round(angle / (Math.PI / 4)) * (Math.PI / 4);
+        
+        pointer = new Point(
+          startPoint.x + distance * Math.cos(snapAngle),
+          startPoint.y + distance * Math.sin(snapAngle)
+        );
+      }
       
       // Update line
       tempLine.set({ x2: pointer.x, y2: pointer.y });
@@ -399,17 +415,17 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
       const dy = pointer.y - startPoint.y;
       const angle = Math.atan2(dy, dx) * 180 / Math.PI;
       
-      // Update arrows (pointing OUTWARDS at line tips)
+      // Update arrows (pointing INWARDS from line tips)
       tempArrow1Group.set({
         left: startPoint.x,
         top: startPoint.y,
-        angle: angle + 180,
+        angle: angle,
       });
       
       tempArrow2Group.set({
         left: pointer.x,
         top: pointer.y,
-        angle: angle,
+        angle: angle + 180,
       });
       
       // Calculate measurement
@@ -445,7 +461,23 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
     const handleMouseUp = (e: any) => {
       if (!startPoint || !tempLine || !tempArrow1Group || !tempArrow2Group || !tempText) return;
       
-      const pointer = fabricCanvas.getScenePoint(e.e);
+      let pointer = fabricCanvas.getScenePoint(e.e);
+      
+      // Snap to straight lines if Shift is pressed
+      if (e.e.shiftKey) {
+        const dx = pointer.x - startPoint.x;
+        const dy = pointer.y - startPoint.y;
+        const angle = Math.atan2(dy, dx);
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        // Snap to nearest 45-degree increment
+        const snapAngle = Math.round(angle / (Math.PI / 4)) * (Math.PI / 4);
+        
+        pointer = new Point(
+          startPoint.x + distance * Math.cos(snapAngle),
+          startPoint.y + distance * Math.sin(snapAngle)
+        );
+      }
       
       // Remove temporary objects
       fabricCanvas.remove(tempLine, tempArrow1Group, tempArrow2Group, tempText);
@@ -467,14 +499,14 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
           const arrowSize = 3;
           const arrowSpread = 30;
           
-          const line1 = new Line([0, 0, arrowSize, -arrowSize * Math.tan(arrowSpread * Math.PI / 180)], {
-            stroke: '#000000',
+          const line1 = new Line([0, 0, -arrowSize, -arrowSize * Math.tan(arrowSpread * Math.PI / 180)], {
+            stroke: '#3b82f6',
             strokeWidth: 1,
             strokeUniform: true,
           });
           
-          const line2 = new Line([0, 0, arrowSize, arrowSize * Math.tan(arrowSpread * Math.PI / 180)], {
-            stroke: '#000000',
+          const line2 = new Line([0, 0, -arrowSize, arrowSize * Math.tan(arrowSpread * Math.PI / 180)], {
+            stroke: '#3b82f6',
             strokeWidth: 1,
             strokeUniform: true,
           });
@@ -492,15 +524,15 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
         
         // Create final objects
         const finalLine = new Line([startPoint.x, startPoint.y, pointer.x, pointer.y], {
-          stroke: '#000000',
-          strokeWidth: 1.5,
+          stroke: '#3b82f6',
+          strokeWidth: 1,
           strokeUniform: true,
           selectable: false,
           evented: false,
         });
         
-        const finalArrow1 = createFinalArrowHead(startPoint.x, startPoint.y, angle + 180);
-        const finalArrow2 = createFinalArrowHead(pointer.x, pointer.y, angle);
+        const finalArrow1 = createFinalArrowHead(startPoint.x, startPoint.y, angle);
+        const finalArrow2 = createFinalArrowHead(pointer.x, pointer.y, angle + 180);
         
         // Keep text upright
         let textAngle = angle;
@@ -519,7 +551,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
           top: midY + offsetY,
           fontSize: 6,
           fontFamily: 'Inter, Arial, sans-serif',
-          fill: '#000000',
+          fill: '#3b82f6',
           selectable: false,
           evented: false,
           originX: 'center',
@@ -533,8 +565,8 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
           evented: true,
           lockScalingX: true,
           lockScalingY: true,
-          lockRotation: true,
-          hasControls: false,
+          lockRotation: false,
+          hasControls: true,
           hasBorders: true,
         });
         
