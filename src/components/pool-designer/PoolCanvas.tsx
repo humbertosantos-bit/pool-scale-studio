@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Canvas as FabricCanvas, FabricImage, Line, Ellipse, Rect, Circle, Point, Text, Group, Triangle, Pattern, Polyline } from 'fabric';
 import { cn } from '@/lib/utils';
 import poolWaterTexture from '@/assets/pool-water.png';
+import pool12x24Image from '@/assets/pool-12x24.png';
 
 interface PoolCanvasProps {
   imageFile: File | null;
@@ -512,6 +513,111 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
       });
       
       setPools(prev => [...prev, pool]);
+      fabricCanvas.renderAll();
+    });
+  };
+
+  const addPresetPool = (length: number, width: number) => {
+    if (!fabricCanvas || !scaleReference) return;
+
+    const pixelWidth = length * scaleReference.pixelLength / scaleReference.length;
+    const pixelHeight = width * scaleReference.pixelLength / scaleReference.length;
+    
+    // Load the preset pool image
+    FabricImage.fromURL(pool12x24Image).then((poolImg) => {
+      const poolId = `pool-${Date.now()}`;
+      const centerX = fabricCanvas.width! / 2;
+      const centerY = fabricCanvas.height! / 2;
+      
+      // Scale the image to match the dimensions
+      poolImg.scaleToWidth(pixelWidth);
+      poolImg.scaleToHeight(pixelHeight);
+      
+      // Add coping if selected
+      if (copingSize) {
+        // Convert coping size from inches to feet, then to pixels
+        const copingSizeInFeet = copingSize / 12; // Convert inches to feet
+        const copingPixelWidth = copingSizeInFeet * scaleReference.pixelLength / scaleReference.length;
+        
+        // Create coping rectangle with light grey color
+        const coping = new Rect({
+          left: centerX,
+          top: centerY,
+          fill: '#D3D3D3', // Light grey color
+          stroke: '#000000',
+          strokeWidth: 0.5,
+          width: pixelWidth + (copingPixelWidth * 2), // Add coping width to left and right
+          height: pixelHeight + (copingPixelWidth * 2), // Add coping height to top and bottom
+          originX: 'center',
+          originY: 'center',
+          selectable: false,
+          evented: false,
+        });
+        
+        (coping as any).poolId = poolId;
+        (coping as any).isCoping = true;
+        fabricCanvas.add(coping);
+      }
+      
+      // Set pool image properties
+      poolImg.set({
+        left: centerX,
+        top: centerY,
+        originX: 'center',
+        originY: 'center',
+        lockScalingX: true,
+        lockScalingY: true,
+        lockRotation: false,
+        hasControls: true,
+        hasBorders: true,
+      });
+      
+      // Only show rotation control
+      (poolImg as any).setControlsVisibility?.({
+        mt: false,
+        mb: false,
+        ml: false,
+        mr: false,
+        bl: false,
+        br: false,
+        tl: false,
+        tr: false,
+        mtr: true,
+      });
+
+      // Add dimension text in the center of the pool
+      const lengthStr = Number.isInteger(length) ? length.toString() : length.toFixed(1);
+      const widthStr = Number.isInteger(width) ? width.toString() : width.toFixed(1);
+      const dimensionText = new Text(`${lengthStr} x ${widthStr}`, {
+        left: centerX,
+        top: centerY,
+        fontSize: 10,
+        fontFamily: 'Arial',
+        fontWeight: 'bold',
+        fill: '#000000',
+        originX: 'center',
+        originY: 'center',
+        selectable: false,
+        evented: false,
+      });
+
+      (poolImg as any).poolId = poolId;
+      (dimensionText as any).poolId = poolId;
+      (dimensionText as any).isDimensionText = true;
+      
+      fabricCanvas.add(poolImg);
+      fabricCanvas.add(dimensionText);
+      
+      // Ensure proper layering: image at back, pool above image, measurements on top
+      fabricCanvas.getObjects().forEach((obj) => {
+        if ((obj as any).isBackgroundImage) {
+          fabricCanvas.sendObjectToBack(obj);
+        } else if ((obj as any).measurementId) {
+          fabricCanvas.bringObjectToFront(obj);
+        }
+      });
+      
+      setPools(prev => [...prev, poolImg]);
       fabricCanvas.renderAll();
     });
   };
@@ -1434,6 +1540,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         onPoolLengthChange: setPoolLength,
         onPoolWidthChange: setPoolWidth,
         onAddPool: addPool,
+        onAddPresetPool: addPresetPool,
         onDeleteSelectedPool: deleteSelectedPool,
         measurementMode,
         onMeasurementModeChange: setMeasurementMode,

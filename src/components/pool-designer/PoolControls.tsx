@@ -14,6 +14,7 @@ interface PoolControlsProps {
   onPoolLengthChange: (value: string) => void;
   onPoolWidthChange: (value: string) => void;
   onAddPool: () => void;
+  onAddPresetPool?: (length: number, width: number) => void;
   onDeleteSelectedPool: () => void;
   measurementMode: 'draw' | 'type';
   onMeasurementModeChange: (mode: 'draw' | 'type') => void;
@@ -43,6 +44,7 @@ export const PoolControls: React.FC<PoolControlsProps> = ({
   onPoolLengthChange,
   onPoolWidthChange,
   onAddPool,
+  onAddPresetPool,
   onDeleteSelectedPool,
   measurementMode,
   onMeasurementModeChange,
@@ -128,36 +130,50 @@ export const PoolControls: React.FC<PoolControlsProps> = ({
               <h2 className="text-sm font-semibold text-primary-foreground">Pool Size</h2>
             </div>
             <div className="p-4 space-y-2">
-              <div className="flex items-center gap-2">
-                <input
-                  type="number"
-                  value={poolLength}
-                  onChange={(e) => onPoolLengthChange(e.target.value)}
-                  placeholder="Length"
-                  className="flex-1 px-3 py-2 border rounded-md text-sm"
-                  step="0.1"
-                  min="0"
-                />
-                <span className="text-sm text-muted-foreground">{scaleUnit === 'feet' ? 'FT' : 'M'}</span>
+              <div className="mb-3">
+                <label className="text-sm font-semibold mb-2 block">Preset Pools</label>
+                <button
+                  onClick={() => onAddPresetPool?.(12, 24)}
+                  className="w-full px-4 py-2 bg-pool-light text-pool-dark rounded-md hover:bg-pool-light/80 text-sm font-medium"
+                >
+                  12x24
+                </button>
               </div>
-              <div className="flex items-center gap-2">
-                <input
-                  type="number"
-                  value={poolWidth}
-                  onChange={(e) => onPoolWidthChange(e.target.value)}
-                  placeholder="Width"
-                  className="flex-1 px-3 py-2 border rounded-md text-sm"
-                  step="0.1"
-                  min="0"
-                />
-                <span className="text-sm text-muted-foreground">{scaleUnit === 'feet' ? 'FT' : 'M'}</span>
+              
+              <div className="pt-3 border-t">
+                <label className="text-sm font-semibold mb-2 block">Custom Size</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    value={poolLength}
+                    onChange={(e) => onPoolLengthChange(e.target.value)}
+                    placeholder="Length"
+                    className="flex-1 px-3 py-2 border rounded-md text-sm"
+                    step="0.1"
+                    min="0"
+                  />
+                  <span className="text-sm text-muted-foreground">{scaleUnit === 'feet' ? 'FT' : 'M'}</span>
+                </div>
+                <div className="flex items-center gap-2 mt-2">
+                  <input
+                    type="number"
+                    value={poolWidth}
+                    onChange={(e) => onPoolWidthChange(e.target.value)}
+                    placeholder="Width"
+                    className="flex-1 px-3 py-2 border rounded-md text-sm"
+                    step="0.1"
+                    min="0"
+                  />
+                  <span className="text-sm text-muted-foreground">{scaleUnit === 'feet' ? 'FT' : 'M'}</span>
+                </div>
+                <button
+                  onClick={onAddPool}
+                  className="w-full mt-2 px-4 py-2 bg-pool-light text-pool-dark rounded-md hover:bg-pool-light/80 text-sm"
+                >
+                  Add Pool
+                </button>
               </div>
-              <button
-                onClick={onAddPool}
-                className="w-full px-4 py-2 bg-pool-light text-pool-dark rounded-md hover:bg-pool-light/80 text-sm"
-              >
-                Add Pool
-              </button>
+              
               <button
                 onClick={onDeleteSelectedPool}
                 className="w-full px-4 py-2 bg-destructive text-destructive-foreground rounded-md hover:bg-destructive/90 text-sm"
