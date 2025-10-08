@@ -133,7 +133,7 @@ export const PoolControls: React.FC<PoolControlsProps> = ({
               <div className="mb-3">
                 <label className="text-sm font-semibold mb-2 block">Preset Pools</label>
                 <button
-                  onClick={() => onAddPresetPool?.(12, 24)}
+                  onClick={() => onAddPresetPool?.(24, 12)}
                   className="w-full px-4 py-2 bg-pool-light text-pool-dark rounded-md hover:bg-pool-light/80 text-sm font-medium"
                 >
                   12x24
