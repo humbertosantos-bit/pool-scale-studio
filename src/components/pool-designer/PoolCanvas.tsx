@@ -1217,9 +1217,9 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
     
     fabricCanvas.on('mouse:down', (e) => {
       const mouseEvent = e.e as MouseEvent;
-      if (mouseEvent.button === 2) {
+      if (mouseEvent.button === 1) {
         handleRightClick(e);
-      } else {
+      } else if (mouseEvent.button === 0) {
         handleClick(e);
       }
     });
