@@ -291,7 +291,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
           disabled={!imageFile || isSettingScale}
           className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50"
         >
-          {isSettingScale ? 'Click and drag to set scale...' : 'Set Scale Reference'}
+          {isSettingScale ? 'Click and drag to set scale...' : scaleReference ? 'Reset Scale Reference' : 'Set Scale Reference'}
         </button>
         
         {scaleReference && (
