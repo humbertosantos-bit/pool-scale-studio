@@ -511,6 +511,15 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
     
     setIsMeasuring(true);
     isMeasuringRef.current = true;
+    
+    // Make background image non-interactive during measurement
+    if (bgImageRef.current) {
+      bgImageRef.current.set({
+        selectable: false,
+        evented: false,
+      });
+    }
+    
     let startPoint: { x: number; y: number } | null = null;
     let tempLine: Line | null = null;
     let tempArrow1Group: Group | null = null;
@@ -767,6 +776,14 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
       fabricCanvas.off('mouse:down', handleMouseDown);
       setIsMeasuring(false);
       isMeasuringRef.current = false;
+      
+      // Restore background image interactivity after measurement
+      if (bgImageRef.current) {
+        bgImageRef.current.set({
+          selectable: true,
+          evented: true,
+        });
+      }
     };
 
     fabricCanvas.on('mouse:down', handleMouseDown);
