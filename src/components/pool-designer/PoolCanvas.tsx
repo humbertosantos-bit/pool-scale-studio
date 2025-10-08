@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Canvas as FabricCanvas, FabricImage, Line, Ellipse, Rect, Circle, Point } from 'fabric';
+import { Canvas as FabricCanvas, FabricImage, Line, Ellipse, Rect, Circle, Point, Text, Group } from 'fabric';
 import { cn } from '@/lib/utils';
 
 interface PoolCanvasProps {
@@ -17,6 +17,9 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
   const lastPosRef = useRef<{ x: number; y: number } | null>(null);
   const [scaleUnit, setScaleUnit] = useState<'feet' | 'meters'>('feet');
   const [pools, setPools] = useState<any[]>([]);
+  const [isMeasuring, setIsMeasuring] = useState(false);
+  const isMeasuringRef = useRef(false);
+  const [measurementLines, setMeasurementLines] = useState<any[]>([]);
 
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -44,8 +47,8 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
       const evt = opt.e as MouseEvent;
       const target = opt.target;
       
-      // Don't enable panning if we're setting scale
-      if (isSettingScaleRef.current) return;
+      // Don't enable panning if we're setting scale or measuring
+      if (isSettingScaleRef.current || isMeasuringRef.current) return;
       
       // Enable panning if Alt key is pressed OR clicking on empty space (no target object)
       if (evt.altKey === true || !target) {
@@ -207,9 +210,9 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
         
         // Add a visual indicator at the first point
         tempCircle = new Circle({
-          left: pointer.x - 3,
-          top: pointer.y - 3,
-          radius: 3,
+          left: pointer.x - 1.5,
+          top: pointer.y - 1.5,
+          radius: 1.5,
           fill: '#ef4444',
           selectable: false,
           evented: false,
@@ -219,6 +222,17 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
       } else {
         // Second click - complete the scale reference
         const secondPoint = { x: pointer.x, y: pointer.y };
+        
+        // Add a visual indicator at the second point
+        const secondCircle = new Circle({
+          left: pointer.x - 1.5,
+          top: pointer.y - 1.5,
+          radius: 1.5,
+          fill: '#ef4444',
+          selectable: false,
+          evented: false,
+        });
+        fabricCanvas.add(secondCircle);
         
         // Draw line between the two points
         line = new Line([firstPoint.x, firstPoint.y, secondPoint.x, secondPoint.y], {
@@ -244,6 +258,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
         
         // Clean up visual indicators
         if (tempCircle) fabricCanvas.remove(tempCircle);
+        if (secondCircle) fabricCanvas.remove(secondCircle);
         if (line) fabricCanvas.remove(line);
         
         setIsSettingScale(false);
@@ -277,6 +292,111 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
       });
     }
     setScaleUnit(newUnit);
+  };
+
+  const startMeasurement = () => {
+    if (!fabricCanvas || !scaleReference) return;
+    
+    setIsMeasuring(true);
+    isMeasuringRef.current = true;
+    let firstPoint: { x: number; y: number } | null = null;
+    let tempCircle: Circle | null = null;
+
+    const handleMouseDown = (e: any) => {
+      const pointer = fabricCanvas.getScenePoint(e.e);
+      
+      if (!firstPoint) {
+        // First click - mark the first point
+        firstPoint = { x: pointer.x, y: pointer.y };
+        
+        // Add a visual indicator at the first point
+        tempCircle = new Circle({
+          left: pointer.x - 1.5,
+          top: pointer.y - 1.5,
+          radius: 1.5,
+          fill: '#10b981',
+          selectable: false,
+          evented: false,
+        });
+        fabricCanvas.add(tempCircle);
+        fabricCanvas.renderAll();
+      } else {
+        // Second click - complete the measurement
+        const secondPoint = { x: pointer.x, y: pointer.y };
+        
+        // Add a visual indicator at the second point
+        const secondCircle = new Circle({
+          left: pointer.x - 1.5,
+          top: pointer.y - 1.5,
+          radius: 1.5,
+          fill: '#10b981',
+          selectable: false,
+          evented: false,
+        });
+        fabricCanvas.add(secondCircle);
+        
+        const pixelLength = Math.sqrt(
+          Math.pow(secondPoint.x - firstPoint.x, 2) + Math.pow(secondPoint.y - firstPoint.y, 2)
+        );
+        
+        const realLength = (pixelLength * scaleReference.length) / scaleReference.pixelLength;
+        
+        // Draw line between the two points
+        const line = new Line([firstPoint.x, firstPoint.y, secondPoint.x, secondPoint.y], {
+          stroke: '#10b981',
+          strokeWidth: 2,
+          selectable: false,
+          evented: false,
+        });
+        
+        // Add measurement text at the midpoint
+        const midX = (firstPoint.x + secondPoint.x) / 2;
+        const midY = (firstPoint.y + secondPoint.y) / 2;
+        
+        const text = new Text(`${realLength.toFixed(2)} ${scaleUnit}`, {
+          left: midX,
+          top: midY - 15,
+          fontSize: 14,
+          fill: '#10b981',
+          backgroundColor: 'rgba(255, 255, 255, 0.9)',
+          padding: 4,
+          selectable: false,
+          evented: false,
+        });
+        
+        // Group the line, circles, and text together
+        const measurementGroup = new Group([tempCircle!, secondCircle, line, text], {
+          selectable: true,
+          evented: true,
+        });
+        
+        (measurementGroup as any).measurementId = `measurement-${Date.now()}`;
+        fabricCanvas.add(measurementGroup);
+        setMeasurementLines(prev => [...prev, measurementGroup]);
+        fabricCanvas.renderAll();
+        
+        // Reset for next measurement
+        firstPoint = null;
+        tempCircle = null;
+        
+        setIsMeasuring(false);
+        isMeasuringRef.current = false;
+        fabricCanvas.off('mouse:down', handleMouseDown);
+      }
+    };
+
+    fabricCanvas.on('mouse:down', handleMouseDown);
+  };
+
+  const deleteSelectedMeasurement = () => {
+    if (!fabricCanvas) return;
+    
+    const activeObject = fabricCanvas.getActiveObject();
+    if (activeObject && (activeObject as any).measurementId && (activeObject as any).measurementId.startsWith('measurement-')) {
+      fabricCanvas.remove(activeObject);
+      setMeasurementLines(prev => prev.filter(m => m !== activeObject));
+      fabricCanvas.renderAll();
+    }
   };
 
   return (
@@ -315,6 +435,19 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
               className="px-4 py-2 bg-destructive text-destructive-foreground rounded-md hover:bg-destructive/90"
             >
               Delete Selected Pool
+            </button>
+            <button
+              onClick={startMeasurement}
+              disabled={isMeasuring}
+              className="px-4 py-2 bg-emerald-500 text-white rounded-md hover:bg-emerald-600 disabled:opacity-50"
+            >
+              {isMeasuring ? 'Click two points to measure...' : 'Measure Distance'}
+            </button>
+            <button
+              onClick={deleteSelectedMeasurement}
+              className="px-4 py-2 bg-destructive text-destructive-foreground rounded-md hover:bg-destructive/90"
+            >
+              Delete Selected Measurement
             </button>
           </>
         )}
