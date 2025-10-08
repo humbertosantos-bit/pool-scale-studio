@@ -6,9 +6,11 @@ import poolWaterTexture from '@/assets/pool-water.png';
 interface PoolCanvasProps {
   imageFile: File | null;
   className?: string;
+  canvasOnly?: boolean;
+  onStateChange?: (state: any) => void;
 }
 
-export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) => {
+export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, canvasOnly = false, onStateChange }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [fabricCanvas, setFabricCanvas] = useState<FabricCanvas | null>(null);
   const [scaleReference, setScaleReference] = useState<{ length: number; pixelLength: number } | null>(null);
@@ -864,30 +866,59 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
     }
   };
 
+  // Expose state to parent component
+  useEffect(() => {
+    if (onStateChange) {
+      onStateChange({
+        scaleUnit,
+        setScaleUnit: handleUnitChange,
+        isSettingScale,
+        scaleReference,
+        startScaleReference,
+        poolLength,
+        poolWidth,
+        setPoolLength,
+        setPoolWidth,
+        addPool,
+        deleteSelectedPool,
+        measurementMode,
+        setMeasurementMode,
+        isMeasuring,
+        startMeasurement,
+        typedDistance,
+        setTypedDistance,
+        addTypedMeasurement,
+        deleteSelectedMeasurement,
+      });
+    }
+  }, [scaleUnit, isSettingScale, scaleReference, poolLength, poolWidth, measurementMode, isMeasuring, typedDistance]);
+
   return (
-    <div className={cn("flex flex-col gap-4", className)}>
-      <div className="flex gap-2 flex-wrap items-center">
-        <div className="flex items-center gap-2">
-          <label className="text-sm font-medium">Units:</label>
-          <select 
-            value={scaleUnit} 
-            onChange={(e) => handleUnitChange(e.target.value as 'feet' | 'meters')}
-            className="px-2 py-1 border rounded text-sm"
-          >
-            <option value="feet">Feet</option>
-            <option value="meters">Meters</option>
-          </select>
-        </div>
-        
-        <button
-          onClick={startScaleReference}
-          disabled={!imageFile || isSettingScale}
-          className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50"
-        >
-          {isSettingScale ? 'Click two points to set scale...' : scaleReference ? 'Reset Scale Reference' : 'Set Scale Reference'}
-        </button>
-        
-        {scaleReference && (
+    <div className={cn("flex flex-col gap-4 h-full", className)}>
+      {!canvasOnly && (
+        <>
+          <div className="flex gap-2 flex-wrap items-center">
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium">Units:</label>
+              <select 
+                value={scaleUnit} 
+                onChange={(e) => handleUnitChange(e.target.value as 'feet' | 'meters')}
+                className="px-2 py-1 border rounded text-sm"
+              >
+                <option value="feet">Feet</option>
+                <option value="meters">Meters</option>
+              </select>
+            </div>
+            
+            <button
+              onClick={startScaleReference}
+              disabled={!imageFile || isSettingScale}
+              className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50"
+            >
+              {isSettingScale ? 'Click two points to set scale...' : scaleReference ? 'Reset Scale Reference' : 'Set Scale Reference'}
+            </button>
+            
+            {scaleReference && (
           <>
             <div className="flex items-center gap-2 border-l pl-2">
               <label className="text-sm font-medium">Pool Size:</label>
@@ -971,22 +1002,24 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
             >
               Delete Selected Measurement
             </button>
-          </>
-        )}
-      </div>
-      
-      {scaleReference && (
-        <div className="text-sm text-muted-foreground">
-          Scale: 1 pixel = {(scaleReference.length / scaleReference.pixelLength).toFixed(4)} {scaleUnit === 'feet' ? 'FT' : 'M'}
+            </>
+          )}
         </div>
+        
+        {scaleReference && (
+          <div className="text-sm text-muted-foreground">
+            Scale: 1 pixel = {(scaleReference.length / scaleReference.pixelLength).toFixed(4)} {scaleUnit === 'feet' ? 'FT' : 'M'}
+          </div>
+        )}
+        
+        <div className="text-xs text-muted-foreground">
+          💡 Mouse wheel to zoom • Click & drag or Arrow keys to pan • Rotate pool with corner handle
+        </div>
+      </>
       )}
       
-      <div className="text-xs text-muted-foreground">
-        💡 Mouse wheel to zoom • Click & drag or Arrow keys to pan • Rotate pool with corner handle
-      </div>
-      
-      <div className="border rounded-lg shadow-elegant overflow-hidden bg-white">
-        <canvas ref={canvasRef} className="max-w-full" />
+      <div className="border rounded-lg shadow-elegant overflow-hidden bg-white flex-1">
+        <canvas ref={canvasRef} className="w-full h-full" />
       </div>
     </div>
   );

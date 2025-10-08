@@ -1,34 +1,41 @@
 import React, { useState } from 'react';
 import { FileUpload } from '@/components/ui/file-upload';
 import { PoolCanvas } from './PoolCanvas';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { PoolControls } from './PoolControls';
 import logo from '@/assets/piscineriviera-logo.png';
 
 export const PoolDesigner: React.FC = () => {
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [poolState, setPoolState] = useState<any>(null);
 
   const handleFileSelect = (file: File) => {
     setSelectedImage(file);
   };
 
+  const handleStateChange = (state: any) => {
+    setPoolState(state);
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background to-pool-light/20 p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
-        <div className="flex items-center justify-center gap-6">
-          <img src={logo} alt="Piscine Riviera" className="h-20 w-auto" />
-          <h1 className="text-4xl font-bold bg-gradient-hero bg-clip-text text-transparent">
+    <div className="min-h-screen bg-gradient-to-br from-background to-pool-light/20">
+      {/* Header */}
+      <div className="border-b bg-white/80 backdrop-blur-sm">
+        <div className="px-6 py-4 flex items-center gap-6">
+          <img src={logo} alt="Piscine Riviera" className="h-16 w-auto" />
+          <h1 className="text-3xl font-bold bg-gradient-hero bg-clip-text text-transparent">
             Piscine Riviera Design Tool
           </h1>
         </div>
+      </div>
 
-        <div className="grid lg:grid-cols-3 gap-6">
-          <Card className="lg:col-span-1">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                📁 Upload Property Image
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
+      {/* Main Content */}
+      <div className="flex h-[calc(100vh-88px)]">
+        {/* Left Sidebar - 1/3 width */}
+        <div className="w-1/3 border-r bg-white overflow-y-auto">
+          <div className="p-6 space-y-6">
+            {/* Upload Section */}
+            <div>
+              <h2 className="text-lg font-semibold mb-4">📁 Upload Property Image</h2>
               <FileUpload onFileSelect={handleFileSelect} />
               
               {selectedImage && (
@@ -41,43 +48,29 @@ export const PoolDesigner: React.FC = () => {
                   </p>
                 </div>
               )}
-              
-              <div className="mt-6 space-y-3 text-sm text-muted-foreground">
-                <div className="flex items-start gap-2">
-                  <span className="text-primary font-medium">1.</span>
-                  <span>Upload your property photo</span>
-                </div>
-                <div className="flex items-start gap-2">
-                  <span className="text-primary font-medium">2.</span>
-                  <span>Set scale reference (draw a line on a known measurement)</span>
-                </div>
-                <div className="flex items-start gap-2">
-                  <span className="text-primary font-medium">3.</span>
-                  <span>Add and position pools to visualize</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+            </div>
 
-          <Card className="lg:col-span-2">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                🎨 Design Canvas
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {selectedImage ? (
-                <PoolCanvas imageFile={selectedImage} />
-              ) : (
-                <div className="h-[400px] flex items-center justify-center border-2 border-dashed border-primary/30 rounded-lg">
-                  <div className="text-center space-y-2">
-                    <div className="text-4xl opacity-50">🏊‍♂️</div>
-                    <p className="text-muted-foreground">Upload an image to start designing</p>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+            {/* Tools Section - shown when image is uploaded */}
+            {selectedImage && poolState && (
+              <div className="space-y-6 pt-6 border-t">
+                <PoolControls {...poolState} />
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Right Canvas - 2/3 width */}
+        <div className="w-2/3 bg-gradient-to-br from-background to-pool-light/20 p-6 overflow-auto">
+          {selectedImage ? (
+            <PoolCanvas imageFile={selectedImage} canvasOnly onStateChange={handleStateChange} />
+          ) : (
+            <div className="h-full flex items-center justify-center">
+              <div className="text-center space-y-2">
+                <div className="text-6xl opacity-50">🏊‍♂️</div>
+                <p className="text-xl text-muted-foreground">Upload an image to start designing</p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
