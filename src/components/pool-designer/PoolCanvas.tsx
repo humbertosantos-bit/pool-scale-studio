@@ -1169,12 +1169,29 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
     const handleFinish = (e?: any) => {
       if (e?.e) e.e.preventDefault();
       
-      // Finish drawing
+      // FIRST: Remove all event listeners immediately to stop any further drawing
+      fabricCanvas.off('mouse:down', handleClick);
+      fabricCanvas.off('mouse:move', handleMouseMove);
+      fabricCanvas.off('mouse:dblclick', handleFinish);
+      window.removeEventListener('keydown', handleKeyPress);
+      const canvasElement = fabricCanvas.getElement();
+      canvasElement.removeEventListener('contextmenu', preventContextMenu);
+      
+      // SECOND: Update state to exit drawing mode
+      setIsDrawingFence(false);
+      isDrawingFenceRef.current = false;
+      
+      // THIRD: Remove preview line first
+      if (previewLine) {
+        fabricCanvas.remove(previewLine);
+        previewLine = null;
+      }
+      
+      // FOURTH: Handle the fence creation or cleanup
       if (fencePoints.length >= 2) {
         // Remove temporary elements
         tempLines.forEach(line => fabricCanvas.remove(line));
         tempCircles.forEach(circle => fabricCanvas.remove(circle));
-        if (previewLine) fabricCanvas.remove(previewLine);
         
         // Create final fence as a Polyline with solid styling
         const polylinePoints = fencePoints.map(p => ({ x: p.x, y: p.y }));
@@ -1200,21 +1217,14 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         // Clean up if not enough points
         tempLines.forEach(line => fabricCanvas.remove(line));
         tempCircles.forEach(circle => fabricCanvas.remove(circle));
-        if (previewLine) fabricCanvas.remove(previewLine);
       }
       
-      // Clean up event listeners
-      fabricCanvas.off('mouse:down', handleClick);
-      fabricCanvas.off('mouse:move', handleMouseMove);
-      fabricCanvas.off('mouse:dblclick', handleFinish);
-      window.removeEventListener('keydown', handleKeyPress);
-      const canvasElement = fabricCanvas.getElement();
-      canvasElement.removeEventListener('contextmenu', preventContextMenu);
+      // Clear the points array
+      fencePoints = [];
+      tempLines = [];
+      tempCircles = [];
       
-      setIsDrawingFence(false);
-      isDrawingFenceRef.current = false;
-      
-      // Re-enable object selection and interaction
+      // LAST: Re-enable object selection and interaction
       fabricCanvas.selection = true;
       fabricCanvas.forEachObject(obj => {
         if (!(obj as any).isDimensionText && !(obj as any).isCoping) {
