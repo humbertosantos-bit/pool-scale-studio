@@ -326,16 +326,16 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
     let tempText: Text | null = null;
 
     const createArrowHead = (x: number, y: number, angle: number) => {
-      const arrowSize = 4;
+      const arrowSize = 3;
       const arrowAngle = 30; // degrees
       
-      const line1 = new Line([0, 0, -arrowSize, -arrowSize * Math.tan(arrowAngle * Math.PI / 180)], {
+      const line1 = new Line([0, 0, arrowSize, -arrowSize * Math.tan(arrowAngle * Math.PI / 180)], {
         stroke: '#000000',
         strokeWidth: 1,
         strokeUniform: true,
       });
       
-      const line2 = new Line([0, 0, -arrowSize, arrowSize * Math.tan(arrowAngle * Math.PI / 180)], {
+      const line2 = new Line([0, 0, arrowSize, arrowSize * Math.tan(arrowAngle * Math.PI / 180)], {
         stroke: '#000000',
         strokeWidth: 1,
         strokeUniform: true,
@@ -345,7 +345,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
         left: x,
         top: y,
         angle: angle,
-        originX: 'left',
+        originX: 'center',
         originY: 'center',
         selectable: false,
         evented: false,
@@ -373,14 +373,13 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
       tempText = new Text('0.00 ' + scaleUnit, {
         left: pointer.x,
         top: pointer.y,
-        fontSize: 12,
+        fontSize: 6,
         fontFamily: 'Inter, Arial, sans-serif',
         fill: '#000000',
         selectable: false,
         evented: false,
         originX: 'center',
         originY: 'center',
-        backgroundColor: '#ffffff',
       });
       
       fabricCanvas.add(tempLine, tempArrow1Group, tempArrow2Group, tempText);
@@ -465,16 +464,16 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
         
         // Create arrow helper function
         const createFinalArrowHead = (x: number, y: number, arrowAngle: number) => {
-          const arrowSize = 4;
+          const arrowSize = 3;
           const arrowSpread = 30;
           
-          const line1 = new Line([0, 0, -arrowSize, -arrowSize * Math.tan(arrowSpread * Math.PI / 180)], {
+          const line1 = new Line([0, 0, arrowSize, -arrowSize * Math.tan(arrowSpread * Math.PI / 180)], {
             stroke: '#000000',
             strokeWidth: 1,
             strokeUniform: true,
           });
           
-          const line2 = new Line([0, 0, -arrowSize, arrowSize * Math.tan(arrowSpread * Math.PI / 180)], {
+          const line2 = new Line([0, 0, arrowSize, arrowSize * Math.tan(arrowSpread * Math.PI / 180)], {
             stroke: '#000000',
             strokeWidth: 1,
             strokeUniform: true,
@@ -484,7 +483,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
             left: x,
             top: y,
             angle: arrowAngle,
-            originX: 'left',
+            originX: 'center',
             originY: 'center',
             selectable: false,
             evented: false,
@@ -518,7 +517,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
         const finalText = new Text(`${realLength.toFixed(2)} ${scaleUnit}`, {
           left: midX + offsetX,
           top: midY + offsetY,
-          fontSize: 12,
+          fontSize: 6,
           fontFamily: 'Inter, Arial, sans-serif',
           fill: '#000000',
           selectable: false,
@@ -526,7 +525,6 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
           originX: 'center',
           originY: 'center',
           angle: textAngle,
-          backgroundColor: '#ffffff',
         });
         
         // Group all elements together
