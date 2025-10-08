@@ -1632,6 +1632,20 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
       
       const pointer = fabricCanvas.getScenePoint(e.e);
       
+      // Snap to straight lines if shift is held
+      if (e.e.shiftKey && paverPoints.length > 0) {
+        const lastPoint = paverPoints[paverPoints.length - 1];
+        const dx = Math.abs(pointer.x - lastPoint.x);
+        const dy = Math.abs(pointer.y - lastPoint.y);
+        
+        // Snap to horizontal or vertical based on which is closer
+        if (dx > dy) {
+          pointer.y = lastPoint.y;
+        } else {
+          pointer.x = lastPoint.x;
+        }
+      }
+      
       // Remove old preview line
       if (previewLine) {
         fabricCanvas.remove(previewLine);
@@ -1641,7 +1655,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
       const lastPoint = paverPoints[paverPoints.length - 1];
       previewLine = new Line([lastPoint.x, lastPoint.y, pointer.x, pointer.y], {
         stroke: '#22c55e',
-        strokeWidth: 2,
+        strokeWidth: 1,
         strokeDashArray: [5, 5],
         selectable: false,
         evented: false,
@@ -1682,7 +1696,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         // Create paver polygon
         const paver = new Polyline(polylinePoints, {
           stroke: '#22c55e',
-          strokeWidth: 2,
+          strokeWidth: 1,
           fill: 'rgba(34, 197, 94, 0.2)',
           selectable: true,
           evented: true,
@@ -1694,6 +1708,8 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
           lockScalingX: true,
           lockScalingY: true,
           lockRotation: true,
+          lockMovementX: true,
+          lockMovementY: true,
           hasControls: true,
           hasBorders: true,
         });
@@ -1840,6 +1856,21 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
       
       if (mouseEvent.button === 0) {
         const pointer = fabricCanvas.getScenePoint(e.e);
+        
+        // Snap to straight lines if shift is held
+        if (mouseEvent.shiftKey && paverPoints.length > 0) {
+          const lastPoint = paverPoints[paverPoints.length - 1];
+          const dx = Math.abs(pointer.x - lastPoint.x);
+          const dy = Math.abs(pointer.y - lastPoint.y);
+          
+          // Snap to horizontal or vertical based on which is closer
+          if (dx > dy) {
+            pointer.y = lastPoint.y;
+          } else {
+            pointer.x = lastPoint.x;
+          }
+        }
+        
         paverPoints.push({ x: pointer.x, y: pointer.y });
         
         // Add visual marker
@@ -1861,7 +1892,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
           const prevPoint = paverPoints[paverPoints.length - 2];
           const line = new Line([prevPoint.x, prevPoint.y, pointer.x, pointer.y], {
             stroke: '#22c55e',
-            strokeWidth: 2,
+            strokeWidth: 1,
             selectable: false,
             evented: false,
           });
