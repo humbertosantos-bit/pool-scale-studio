@@ -329,7 +329,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
       const dimensionText = new Text(`${lengthStr} x ${widthStr}`, {
         left: fabricCanvas.width! / 2,
         top: fabricCanvas.height! / 2,
-        fontSize: 6,
+        fontSize: 10,
         fontFamily: 'Arial',
         fontWeight: 'bold',
         fill: '#000000',
@@ -484,7 +484,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
           if (data && data.pixelLength) {
             const realLength = (data.pixelLength * scaleReference.length * conversionFactor) / scaleReference.pixelLength;
             const textObj = measurement.getObjects().find(obj => obj instanceof Text) as Text;
-            const unitLabel = newUnit === 'feet' ? 'FT' : 'M';
+            const unitLabel = newUnit === 'feet' ? 'ft' : 'm';
             if (textObj) {
               textObj.set({ text: `${realLength.toFixed(2)} ${unitLabel}` });
             }
@@ -551,12 +551,12 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
     const midX = (startPoint.x + endPoint.x) / 2;
     const midY = (startPoint.y + endPoint.y) / 2;
     const offset = 8;
-    const unitLabel = scaleUnit === 'feet' ? 'FT' : 'M';
+    const unitLabel = scaleUnit === 'feet' ? 'ft' : 'm';
     
     const finalText = new Text(`${distance.toFixed(2)} ${unitLabel}`, {
       left: midX,
       top: midY - offset,
-      fontSize: 6,
+      fontSize: 12,
       fontFamily: 'Inter, Arial, sans-serif',
       fill: '#4169e1',
       selectable: false,
@@ -646,11 +646,11 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
       tempArrow2Group = createArrowHead(pointer.x, pointer.y, 0);
       
       // Create temporary text
-      const unitLabel = scaleUnit === 'feet' ? 'FT' : 'M';
+      const unitLabel = scaleUnit === 'feet' ? 'ft' : 'm';
       tempText = new Text('0.00 ' + unitLabel, {
         left: pointer.x,
         top: pointer.y,
-        fontSize: 6,
+        fontSize: 12,
         fontFamily: 'Inter, Arial, sans-serif',
         fill: '#4169e1',
         selectable: false,
@@ -725,7 +725,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
       const offsetX = Math.cos(perpAngle) * offset;
       const offsetY = Math.sin(perpAngle) * offset;
       
-      const unitLabel = scaleUnit === 'feet' ? 'FT' : 'M';
+      const unitLabel = scaleUnit === 'feet' ? 'ft' : 'm';
       tempText.set({
         left: midX + offsetX,
         top: midY + offsetY,
@@ -817,11 +817,11 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         const offsetX = Math.cos(perpAngle) * offset;
         const offsetY = Math.sin(perpAngle) * offset;
         
-        const unitLabel = scaleUnit === 'feet' ? 'FT' : 'M';
+        const unitLabel = scaleUnit === 'feet' ? 'ft' : 'm';
         const finalText = new Text(`${realLength.toFixed(2)} ${unitLabel}`, {
           left: midX + offsetX,
           top: midY + offsetY,
-          fontSize: 6,
+          fontSize: 12,
           fontFamily: 'Inter, Arial, sans-serif',
           fill: '#4169e1',
           selectable: false,
