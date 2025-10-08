@@ -1708,8 +1708,6 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
           lockScalingX: true,
           lockScalingY: true,
           lockRotation: true,
-          lockMovementX: true,
-          lockMovementY: true,
           hasControls: true,
           hasBorders: true,
         });
@@ -1834,9 +1832,21 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
           (areaText as any).isPaverArea = true;
           
           fabricCanvas.add(areaText);
+          fabricCanvas.bringObjectToFront(areaText);
         };
         
         fabricCanvas.add(paver);
+        
+        // Send paver behind pools but above background
+        const bgImage = fabricCanvas.getObjects().find(obj => (obj as any).isBackgroundImage);
+        if (bgImage) {
+          const bgIndex = fabricCanvas.getObjects().indexOf(bgImage);
+          fabricCanvas.remove(paver);
+          fabricCanvas.insertAt(bgIndex + 1, paver);
+        } else {
+          fabricCanvas.sendObjectToBack(paver);
+        }
+        
         updatePaverArea(paver);
         
         // Update area when paver is modified or moved
@@ -1952,6 +1962,183 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
     }
   };
 
+  const addRectangularPaver = (widthFeet: number, lengthFeet: number) => {
+    if (!fabricCanvas || !scaleReference) {
+      alert('Please set a scale reference first.');
+      return;
+    }
+
+    // Convert dimensions to pixels
+    const pixelWidth = widthFeet * scaleReference.pixelLength / scaleReference.length;
+    const pixelLength = lengthFeet * scaleReference.pixelLength / scaleReference.length;
+
+    // Get canvas center
+    const vpt = fabricCanvas.viewportTransform || [1, 0, 0, 1, 0, 0];
+    const zoom = fabricCanvas.getZoom();
+    const centerX = (fabricCanvas.width! / 2 - vpt[4]) / zoom;
+    const centerY = (fabricCanvas.height! / 2 - vpt[5]) / zoom;
+
+    // Create rectangle points
+    const halfWidth = pixelWidth / 2;
+    const halfLength = pixelLength / 2;
+    
+    const paverPoints = [
+      { x: centerX - halfWidth, y: centerY - halfLength },
+      { x: centerX + halfWidth, y: centerY - halfLength },
+      { x: centerX + halfWidth, y: centerY + halfLength },
+      { x: centerX - halfWidth, y: centerY + halfLength },
+      { x: centerX - halfWidth, y: centerY - halfLength }, // Close the polygon
+    ];
+
+    const paverId = `paver-${Date.now()}`;
+
+    // Create paver polygon
+    const paver = new Polyline(paverPoints, {
+      stroke: '#22c55e',
+      strokeWidth: 1,
+      fill: 'rgba(34, 197, 94, 0.2)',
+      selectable: true,
+      evented: true,
+      objectCaching: false,
+      cornerStyle: 'circle',
+      cornerColor: '#22c55e',
+      cornerSize: 8,
+      transparentCorners: false,
+      lockScalingX: true,
+      lockScalingY: true,
+      lockRotation: true,
+      hasControls: true,
+      hasBorders: true,
+    });
+
+    // Enable polyline point editing
+    paver.points?.forEach((point, index) => {
+      if (index === paver.points!.length - 1) return; // Skip the last point (duplicate of first)
+
+      paver.controls[`p${index}`] = new Control({
+        positionHandler: (dim, finalMatrix, fabricObject) => {
+          const polyline = fabricObject as Polyline;
+          const pt = polyline.points![index] as any;
+          const x = pt.x - polyline.pathOffset!.x;
+          const y = pt.y - polyline.pathOffset!.y;
+          const matrix = util.multiplyTransformMatrices(
+            fabricCanvas.viewportTransform,
+            polyline.calcTransformMatrix()
+          );
+          return util.transformPoint({ x, y }, matrix);
+        },
+        actionHandler: (eventData, transform, x, y) => {
+          const polyline = transform.target as Polyline;
+          const pt = polyline.points![index] as any;
+          const lastPt = polyline.points![polyline.points!.length - 1] as any;
+
+          if (!transform.offsetX) {
+            const invMatrix = util.invertTransform(
+              util.multiplyTransformMatrices(
+                fabricCanvas.viewportTransform,
+                polyline.calcTransformMatrix()
+              )
+            );
+            const currentPoint = util.transformPoint({ x, y }, invMatrix);
+            transform.offsetX = (pt.x - polyline.pathOffset!.x) - currentPoint.x;
+            transform.offsetY = (pt.y - polyline.pathOffset!.y) - currentPoint.y;
+          }
+
+          const invMatrix = util.invertTransform(
+            util.multiplyTransformMatrices(
+              fabricCanvas.viewportTransform,
+              polyline.calcTransformMatrix()
+            )
+          );
+          const newPoint = util.transformPoint({ x, y }, invMatrix);
+
+          pt.x = newPoint.x + transform.offsetX + polyline.pathOffset!.x;
+          pt.y = newPoint.y + transform.offsetY + polyline.pathOffset!.y;
+
+          // Update the last point to match the first point
+          if (index === 0) {
+            lastPt.x = pt.x;
+            lastPt.y = pt.y;
+          }
+
+          // Recalculate the area after editing
+          const shoelaceArea = Math.abs(
+            paver.points!.slice(0, -1).reduce((sum: number, point: any, i: number) => {
+              const nextPoint = paver.points![i + 1] as any;
+              return sum + (point.x * nextPoint.y - nextPoint.x * point.y);
+            }, 0) / 2
+          );
+
+          const realArea = (shoelaceArea * scaleReference.length * scaleReference.length) / (scaleReference.pixelLength * scaleReference.pixelLength);
+          (polyline as any).paverArea = realArea;
+
+          // Update area text
+          const areaText = fabricCanvas.getObjects().find((obj: any) => 
+            obj.paverId === paverId && obj.isPaverArea
+          ) as Text;
+          
+          if (areaText) {
+            areaText.set({ text: `${realArea.toFixed(2)} sq ft` });
+          }
+
+          return true;
+        },
+        render: (ctx, left, top, styleOverride, fabricObject) => {
+          ctx.save();
+          ctx.fillStyle = '#22c55e';
+          ctx.strokeStyle = '#22c55e';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(left, top, 4, 0, 2 * Math.PI);
+          ctx.fill();
+          ctx.stroke();
+          ctx.restore();
+        },
+      });
+    });
+
+    // Calculate area
+    const area = widthFeet * lengthFeet;
+    (paver as any).paverArea = area;
+    (paver as any).paverId = paverId;
+
+    fabricCanvas.add(paver);
+
+    // Send paver behind pools but above background
+    const bgImage = fabricCanvas.getObjects().find(obj => (obj as any).isBackgroundImage);
+    if (bgImage) {
+      const bgIndex = fabricCanvas.getObjects().indexOf(bgImage);
+      fabricCanvas.remove(paver);
+      fabricCanvas.insertAt(bgIndex + 1, paver);
+    } else {
+      fabricCanvas.sendObjectToBack(paver);
+    }
+
+    // Add area text
+    const areaText = new Text(`${area.toFixed(2)} sq ft`, {
+      fontSize: 14,
+      fontFamily: 'Inter, Arial, sans-serif',
+      fill: '#22c55e',
+      selectable: false,
+      evented: false,
+      originX: 'center',
+      originY: 'center',
+    });
+
+    (areaText as any).paverId = paverId;
+    (areaText as any).isPaverArea = true;
+
+    areaText.set({
+      left: centerX,
+      top: centerY - 10,
+    });
+    fabricCanvas.add(areaText);
+    fabricCanvas.bringObjectToFront(areaText);
+
+    setPavers(prev => [...prev, paver]);
+    fabricCanvas.renderAll();
+  };
+
   // Expose state to parent component
   useEffect(() => {
     if (onStateChange) {
@@ -1990,6 +2177,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         isDrawingPaver,
         onStartPaverDrawing: startPaverDrawing,
         onDeleteSelectedPaver: deleteSelectedPaver,
+        onAddRectangularPaver: addRectangularPaver,
       });
     }
   }, [scaleUnit, isSettingScale, scaleReference, poolLengthFeet, poolLengthInches, poolWidthFeet, poolWidthInches, measurementMode, isMeasuring, typedDistanceFeet, typedDistanceInches, copingSize, isDrawingFence, isDrawingPaver]);

@@ -38,6 +38,7 @@ interface PoolControlsProps {
   isDrawingPaver: boolean;
   onStartPaverDrawing: () => void;
   onDeleteSelectedPaver: () => void;
+  onAddRectangularPaver: (widthFeet: number, lengthFeet: number) => void;
   selectedImage: File;
   onFileSelect: (file: File) => void;
 }
@@ -77,6 +78,7 @@ export const PoolControls: React.FC<PoolControlsProps> = ({
   isDrawingPaver,
   onStartPaverDrawing,
   onDeleteSelectedPaver,
+  onAddRectangularPaver,
   selectedImage,
   onFileSelect,
 }) => {
@@ -371,10 +373,51 @@ export const PoolControls: React.FC<PoolControlsProps> = ({
               {isDrawingPaver && (
                 <p className="text-xs text-muted-foreground">
                   💡 Click to add points<br/>
-                  💡 Double-click, Right-click, or press Enter to finish<br/>
-                  💡 Area will be calculated automatically
+                  💡 Hold Shift for straight lines<br/>
+                  💡 Double-click, Right-click, or press Enter to finish
                 </p>
               )}
+              
+              <div className="pt-3 border-t">
+                <label className="text-sm font-semibold mb-2 block">Rectangular Paver</label>
+                <div className="space-y-2">
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Width (FT)</label>
+                    <input
+                      type="number"
+                      id="paverWidth"
+                      placeholder="0"
+                      className="w-full px-3 py-2 border rounded-md text-sm"
+                      min="0"
+                      step="0.5"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Length (FT)</label>
+                    <input
+                      type="number"
+                      id="paverLength"
+                      placeholder="0"
+                      className="w-full px-3 py-2 border rounded-md text-sm"
+                      min="0"
+                      step="0.5"
+                    />
+                  </div>
+                  <button
+                    onClick={() => {
+                      const width = parseFloat((document.getElementById('paverWidth') as HTMLInputElement)?.value || '0');
+                      const length = parseFloat((document.getElementById('paverLength') as HTMLInputElement)?.value || '0');
+                      if (width > 0 && length > 0) {
+                        onAddRectangularPaver(width, length);
+                      }
+                    }}
+                    className="w-full px-4 py-2 bg-foreground text-background rounded-md hover:bg-foreground/90 text-sm"
+                  >
+                    Add Rectangular Paver
+                  </button>
+                </div>
+              </div>
+              
               <button
                 onClick={onDeleteSelectedPaver}
                 className="w-full px-4 py-2 bg-destructive text-destructive-foreground rounded-md hover:bg-destructive/90 text-sm"
