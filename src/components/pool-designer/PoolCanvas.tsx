@@ -529,9 +529,10 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
       const centerX = fabricCanvas.width! / 2;
       const centerY = fabricCanvas.height! / 2;
       
-      // Scale the image to match the dimensions
-      poolImg.scaleToWidth(pixelWidth);
-      poolImg.scaleToHeight(pixelHeight);
+      // Calculate exact scale factors to match the real-world dimensions
+      const scaleX = pixelWidth / poolImg.width!;
+      const scaleY = pixelHeight / poolImg.height!;
+      poolImg.set({ scaleX, scaleY });
       
       // Add coping if selected
       if (copingSize) {
