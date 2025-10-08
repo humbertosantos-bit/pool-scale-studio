@@ -67,9 +67,42 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
       setLastPos(null);
     });
 
+    // Arrow key navigation for panning
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const panStep = 20;
+      const vpt = canvas.viewportTransform;
+      if (!vpt) return;
+
+      switch (e.key) {
+        case 'ArrowLeft':
+          vpt[4] += panStep;
+          canvas.requestRenderAll();
+          e.preventDefault();
+          break;
+        case 'ArrowRight':
+          vpt[4] -= panStep;
+          canvas.requestRenderAll();
+          e.preventDefault();
+          break;
+        case 'ArrowUp':
+          vpt[5] += panStep;
+          canvas.requestRenderAll();
+          e.preventDefault();
+          break;
+        case 'ArrowDown':
+          vpt[5] -= panStep;
+          canvas.requestRenderAll();
+          e.preventDefault();
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+
     setFabricCanvas(canvas);
 
     return () => {
+      window.removeEventListener('keydown', handleKeyDown);
       canvas.dispose();
     };
   }, []);
@@ -127,9 +160,20 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
       height: pixelHeight,
       lockScalingX: true,
       lockScalingY: true,
-      lockRotation: true,
-      hasControls: false,
+      lockRotation: false,
+      hasControls: true,
       hasBorders: true,
+      setControlsVisibility: {
+        mt: false, // middle top
+        mb: false, // middle bottom
+        ml: false, // middle left
+        mr: false, // middle right
+        bl: false, // bottom left
+        br: false, // bottom right
+        tl: false, // top left
+        tr: false, // top right
+        mtr: true, // rotation control
+      },
     });
 
     (pool as any).poolId = `pool-${Date.now()}`;
@@ -272,7 +316,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
       )}
       
       <div className="text-xs text-muted-foreground">
-        💡 Use mouse wheel to zoom, Alt + drag to pan, drag image to reposition
+        💡 Mouse wheel to zoom • Alt + drag or Arrow keys to pan • Rotate pool with corner handle
       </div>
       
       <div className="border rounded-lg shadow-elegant overflow-hidden bg-white">
