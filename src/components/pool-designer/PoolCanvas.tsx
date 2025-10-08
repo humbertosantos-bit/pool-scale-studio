@@ -738,8 +738,11 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
   };
 
   const handleUnitChange = (newUnit: 'feet' | 'meters') => {
+    // Always update the unit state first
+    setScaleUnit(newUnit);
+    
+    // If there's an existing scale reference, convert it to the new unit
     if (scaleReference && newUnit !== scaleUnit) {
-      // Convert the scale reference to the new unit
       const conversionFactor = newUnit === 'meters' ? 0.3048 : 3.28084;
       setScaleReference({
         ...scaleReference,
@@ -763,7 +766,6 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         fabricCanvas.renderAll();
       }
     }
-    setScaleUnit(newUnit);
   };
 
   const addTypedMeasurement = () => {
