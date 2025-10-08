@@ -210,9 +210,9 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
         
         // Add a visual indicator at the first point
         tempCircle = new Circle({
-          left: pointer.x - 1.5,
-          top: pointer.y - 1.5,
-          radius: 1.5,
+          left: pointer.x - 0.5,
+          top: pointer.y - 0.5,
+          radius: 0.5,
           fill: '#ef4444',
           selectable: false,
           evented: false,
@@ -225,9 +225,9 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
         
         // Add a visual indicator at the second point
         const secondCircle = new Circle({
-          left: pointer.x - 1.5,
-          top: pointer.y - 1.5,
-          radius: 1.5,
+          left: pointer.x - 0.5,
+          top: pointer.y - 0.5,
+          radius: 0.5,
           fill: '#ef4444',
           selectable: false,
           evented: false,
@@ -300,89 +300,159 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
     setIsMeasuring(true);
     isMeasuringRef.current = true;
     let firstPoint: { x: number; y: number } | null = null;
-    let tempCircle: Circle | null = null;
+    let line: Line | null = null;
+    let text: Text | null = null;
 
     const handleMouseDown = (e: any) => {
       const pointer = fabricCanvas.getScenePoint(e.e);
       
       if (!firstPoint) {
-        // First click - mark the first point
+        // First click - start the line
         firstPoint = { x: pointer.x, y: pointer.y };
         
-        // Add a visual indicator at the first point
-        tempCircle = new Circle({
-          left: pointer.x - 1.5,
-          top: pointer.y - 1.5,
-          radius: 1.5,
-          fill: '#10b981',
-          selectable: false,
-          evented: false,
-        });
-        fabricCanvas.add(tempCircle);
-        fabricCanvas.renderAll();
-      } else {
-        // Second click - complete the measurement
-        const secondPoint = { x: pointer.x, y: pointer.y };
-        
-        // Add a visual indicator at the second point
-        const secondCircle = new Circle({
-          left: pointer.x - 1.5,
-          top: pointer.y - 1.5,
-          radius: 1.5,
-          fill: '#10b981',
-          selectable: false,
-          evented: false,
-        });
-        fabricCanvas.add(secondCircle);
-        
-        const pixelLength = Math.sqrt(
-          Math.pow(secondPoint.x - firstPoint.x, 2) + Math.pow(secondPoint.y - firstPoint.y, 2)
-        );
-        
-        const realLength = (pixelLength * scaleReference.length) / scaleReference.pixelLength;
-        
-        // Draw line between the two points
-        const line = new Line([firstPoint.x, firstPoint.y, secondPoint.x, secondPoint.y], {
+        // Create the line
+        line = new Line([pointer.x, pointer.y, pointer.x, pointer.y], {
           stroke: '#10b981',
-          strokeWidth: 2,
+          strokeWidth: 1,
           selectable: false,
           evented: false,
         });
         
-        // Add measurement text at the midpoint
-        const midX = (firstPoint.x + secondPoint.x) / 2;
-        const midY = (firstPoint.y + secondPoint.y) / 2;
-        
-        const text = new Text(`${realLength.toFixed(2)} ${scaleUnit}`, {
-          left: midX,
-          top: midY - 15,
-          fontSize: 14,
+        // Create the text
+        text = new Text('0.00 ' + scaleUnit, {
+          left: pointer.x,
+          top: pointer.y - 10,
+          fontSize: 10,
           fill: '#10b981',
           backgroundColor: 'rgba(255, 255, 255, 0.9)',
-          padding: 4,
+          padding: 2,
           selectable: false,
           evented: false,
         });
         
-        // Group the line, circles, and text together
-        const measurementGroup = new Group([tempCircle!, secondCircle, line, text], {
-          selectable: true,
-          evented: true,
-        });
+        fabricCanvas.add(line, text);
+        fabricCanvas.on('mouse:move', handleMouseMove);
+      } else {
+        // Second click - finalize the measurement
+        fabricCanvas.off('mouse:move', handleMouseMove);
         
-        (measurementGroup as any).measurementId = `measurement-${Date.now()}`;
-        fabricCanvas.add(measurementGroup);
-        setMeasurementLines(prev => [...prev, measurementGroup]);
+        if (line && text) {
+          // Calculate final measurement
+          const x2 = line.x2!;
+          const y2 = line.y2!;
+          const pixelLength = Math.sqrt(
+            Math.pow(x2 - firstPoint.x, 2) + Math.pow(y2 - firstPoint.y, 2)
+          );
+          const realLength = (pixelLength * scaleReference.length) / scaleReference.pixelLength;
+          
+          // Remove temporary objects
+          fabricCanvas.remove(line, text);
+          
+          // Create final editable line with circles
+          const finalLine = new Line([firstPoint.x, firstPoint.y, x2, y2], {
+            stroke: '#10b981',
+            strokeWidth: 1,
+            selectable: true,
+            evented: true,
+            hasControls: false,
+            hasBorders: true,
+            lockScalingX: true,
+            lockScalingY: true,
+            lockRotation: true,
+          });
+          
+          // Create circles at endpoints
+          const circle1 = new Circle({
+            left: firstPoint.x,
+            top: firstPoint.y,
+            radius: 3,
+            fill: '#10b981',
+            stroke: '#fff',
+            strokeWidth: 1,
+            selectable: false,
+            evented: false,
+            originX: 'center',
+            originY: 'center',
+          });
+          
+          const circle2 = new Circle({
+            left: x2,
+            top: y2,
+            radius: 3,
+            fill: '#10b981',
+            stroke: '#fff',
+            strokeWidth: 1,
+            selectable: false,
+            evented: false,
+            originX: 'center',
+            originY: 'center',
+          });
+          
+          // Create final text
+          const midX = (firstPoint.x + x2) / 2;
+          const midY = (firstPoint.y + y2) / 2;
+          const finalText = new Text(`${realLength.toFixed(2)} ${scaleUnit}`, {
+            left: midX,
+            top: midY - 8,
+            fontSize: 10,
+            fill: '#10b981',
+            backgroundColor: 'rgba(255, 255, 255, 0.9)',
+            padding: 2,
+            selectable: false,
+            evented: false,
+            originX: 'center',
+            originY: 'center',
+          });
+          
+          // Group everything together
+          const measurementGroup = new Group([finalLine, circle1, circle2, finalText], {
+            selectable: true,
+            evented: true,
+            lockScalingX: true,
+            lockScalingY: true,
+            lockRotation: true,
+          });
+          
+          (measurementGroup as any).measurementId = `measurement-${Date.now()}`;
+          fabricCanvas.add(measurementGroup);
+          setMeasurementLines(prev => [...prev, measurementGroup]);
+        }
+        
         fabricCanvas.renderAll();
         
         // Reset for next measurement
         firstPoint = null;
-        tempCircle = null;
+        line = null;
+        text = null;
         
         setIsMeasuring(false);
         isMeasuringRef.current = false;
         fabricCanvas.off('mouse:down', handleMouseDown);
       }
+    };
+    
+    const handleMouseMove = (e: any) => {
+      if (!firstPoint || !line || !text) return;
+      
+      const pointer = fabricCanvas.getScenePoint(e.e);
+      line.set({ x2: pointer.x, y2: pointer.y });
+      
+      // Update measurement
+      const pixelLength = Math.sqrt(
+        Math.pow(pointer.x - firstPoint.x, 2) + Math.pow(pointer.y - firstPoint.y, 2)
+      );
+      const realLength = (pixelLength * scaleReference.length) / scaleReference.pixelLength;
+      
+      // Update text position and content
+      const midX = (firstPoint.x + pointer.x) / 2;
+      const midY = (firstPoint.y + pointer.y) / 2;
+      text.set({
+        left: midX,
+        top: midY - 10,
+        text: `${realLength.toFixed(2)} ${scaleUnit}`,
+      });
+      
+      fabricCanvas.renderAll();
     };
 
     fabricCanvas.on('mouse:down', handleMouseDown);
