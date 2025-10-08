@@ -145,6 +145,9 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
     };
 
     canvas.on('object:added', ensureBackgroundAtBack);
+    canvas.on('object:modified', ensureBackgroundAtBack);
+    canvas.on('object:rotating', ensureBackgroundAtBack);
+    canvas.on('object:scaling', ensureBackgroundAtBack);
     canvas.on('after:render', ensureBackgroundAtBack);
 
     window.addEventListener('keydown', handleKeyDown);
@@ -176,13 +179,26 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
         img.set({
           left: (canvasWidth - imgWidth * scale) / 2,
           top: (canvasHeight - imgHeight * scale) / 2,
-          selectable: false,
-          evented: false,
+          selectable: true,
+          evented: true,
           lockScalingX: true,
           lockScalingY: true,
-          lockRotation: true,
-          hasControls: false,
-          hasBorders: false,
+          lockRotation: false,
+          hasControls: true,
+          hasBorders: true,
+        });
+        
+        // Only show rotation control
+        (img as any).setControlsVisibility?.({
+          mt: false,
+          mb: false,
+          ml: false,
+          mr: false,
+          bl: false,
+          br: false,
+          tl: false,
+          tr: false,
+          mtr: true, // rotation control only
         });
 
         (img as any).isBackgroundImage = true;
