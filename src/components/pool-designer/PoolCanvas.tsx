@@ -43,6 +43,9 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
       const evt = opt.e as MouseEvent;
       const target = opt.target;
       
+      // Don't enable panning if we're setting scale
+      if (isSettingScale) return;
+      
       // Enable panning if Alt key is pressed OR clicking on empty space (no target object)
       if (evt.altKey === true || !target) {
         isDraggingRef.current = true;
@@ -108,7 +111,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
       window.removeEventListener('keydown', handleKeyDown);
       canvas.dispose();
     };
-  }, []);
+  }, [isSettingScale]);
 
   useEffect(() => {
     if (!fabricCanvas || !imageFile) return;
@@ -189,63 +192,65 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
     if (!fabricCanvas) return;
     
     setIsSettingScale(true);
-    let startPoint: { x: number; y: number } | null = null;
+    let firstPoint: { x: number; y: number } | null = null;
+    let tempCircle: Circle | null = null;
     let line: Line | null = null;
 
     const handleMouseDown = (e: any) => {
       const pointer = fabricCanvas.getScenePoint(e.e);
-      startPoint = { x: pointer.x, y: pointer.y };
-    };
-
-    const handleMouseMove = (e: any) => {
-      if (!startPoint) return;
       
-      const pointer = fabricCanvas.getScenePoint(e.e);
-      
-      if (line) {
-        fabricCanvas.remove(line);
-      }
-      
-      line = new Line([startPoint.x, startPoint.y, pointer.x, pointer.y], {
-        stroke: '#ef4444',
-        strokeWidth: 1,
-        selectable: false,
-        evented: false,
-      });
-      
-      fabricCanvas.add(line);
-      fabricCanvas.renderAll();
-    };
-
-    const handleMouseUp = () => {
-      if (!startPoint || !line) return;
-      
-      const pixelLength = Math.sqrt(
-        Math.pow(line.x2! - line.x1!, 2) + Math.pow(line.y2! - line.y1!, 2)
-      );
-      
-      const realLength = prompt(`Enter the real-world length of this measurement (in ${scaleUnit}):`);
-      if (realLength && !isNaN(Number(realLength))) {
-        setScaleReference({
-          length: Number(realLength),
-          pixelLength: pixelLength,
+      if (!firstPoint) {
+        // First click - mark the first point
+        firstPoint = { x: pointer.x, y: pointer.y };
+        
+        // Add a visual indicator at the first point
+        tempCircle = new Circle({
+          left: pointer.x - 3,
+          top: pointer.y - 3,
+          radius: 3,
+          fill: '#ef4444',
+          selectable: false,
+          evented: false,
         });
-        setIsSettingScale(false);
-        // Remove the scale line after setting
-        fabricCanvas.remove(line);
+        fabricCanvas.add(tempCircle);
+        fabricCanvas.renderAll();
       } else {
-        fabricCanvas.remove(line);
+        // Second click - complete the scale reference
+        const secondPoint = { x: pointer.x, y: pointer.y };
+        
+        // Draw line between the two points
+        line = new Line([firstPoint.x, firstPoint.y, secondPoint.x, secondPoint.y], {
+          stroke: '#ef4444',
+          strokeWidth: 1,
+          selectable: false,
+          evented: false,
+        });
+        fabricCanvas.add(line);
+        fabricCanvas.renderAll();
+        
+        const pixelLength = Math.sqrt(
+          Math.pow(secondPoint.x - firstPoint.x, 2) + Math.pow(secondPoint.y - firstPoint.y, 2)
+        );
+        
+        const realLength = prompt(`Enter the real-world length of this measurement (in ${scaleUnit}):`);
+        if (realLength && !isNaN(Number(realLength))) {
+          setScaleReference({
+            length: Number(realLength),
+            pixelLength: pixelLength,
+          });
+        }
+        
+        // Clean up visual indicators
+        if (tempCircle) fabricCanvas.remove(tempCircle);
+        if (line) fabricCanvas.remove(line);
+        
+        setIsSettingScale(false);
+        fabricCanvas.off('mouse:down', handleMouseDown);
+        fabricCanvas.renderAll();
       }
-      
-      fabricCanvas.off('mouse:down', handleMouseDown);
-      fabricCanvas.off('mouse:move', handleMouseMove);
-      fabricCanvas.off('mouse:up', handleMouseUp);
-      fabricCanvas.renderAll();
     };
 
     fabricCanvas.on('mouse:down', handleMouseDown);
-    fabricCanvas.on('mouse:move', handleMouseMove);
-    fabricCanvas.on('mouse:up', handleMouseUp);
   };
 
   const deleteSelectedPool = () => {
@@ -291,7 +296,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className }) 
           disabled={!imageFile || isSettingScale}
           className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50"
         >
-          {isSettingScale ? 'Click and drag to set scale...' : scaleReference ? 'Reset Scale Reference' : 'Set Scale Reference'}
+          {isSettingScale ? 'Click two points to set scale...' : scaleReference ? 'Reset Scale Reference' : 'Set Scale Reference'}
         </button>
         
         {scaleReference && (
