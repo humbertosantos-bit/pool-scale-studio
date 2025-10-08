@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Canvas as FabricCanvas, FabricImage, Line, Ellipse, Rect, Circle, Point, Text, Group, Triangle, Pattern } from 'fabric';
+import { Canvas as FabricCanvas, FabricImage, Line, Ellipse, Rect, Circle, Point, Text, Group, Triangle, Pattern, Polyline } from 'fabric';
 import { cn } from '@/lib/utils';
 import poolWaterTexture from '@/assets/pool-water.png';
 
@@ -1036,20 +1036,18 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
     setIsDrawingFence(true);
     isDrawingFenceRef.current = true;
     
-    // Make background image non-interactive during fence drawing
-    if (bgImageRef.current) {
-      bgImageRef.current.set({
-        selectable: false,
-        evented: false,
-      });
-    }
+    // Disable object selection during fence drawing
+    fabricCanvas.selection = false;
+    fabricCanvas.forEachObject(obj => {
+      obj.set({ selectable: false, evented: false });
+    });
     
     let fencePoints: Point[] = [];
     let tempLines: Line[] = [];
     let tempCircles: Circle[] = [];
-      let previewLine: Line | null = null;
-      let lastClickTime = 0;
-      let lastClickPos: Point | null = null;
+    let previewLine: Line | null = null;
+    let lastClickTime = 0;
+    let lastClickPos: Point | null = null;
     
     const handleClick = (e: any) => {
       const mouseEvent = e.e as MouseEvent;
@@ -1089,12 +1087,14 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
       lastClickTime = now;
       lastClickPos = newPoint;
       
-      // Add visual marker at this point
+      // Add visual marker at this point - larger and more visible
       const marker = new Circle({
         left: newPoint.x,
         top: newPoint.y,
-        radius: 2,
-        fill: '#8B4513',
+        radius: 4,
+        fill: '#666666',
+        stroke: '#ffffff',
+        strokeWidth: 2,
         selectable: false,
         evented: false,
         originX: 'center',
@@ -1107,8 +1107,9 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
       if (fencePoints.length > 1) {
         const prevPoint = fencePoints[fencePoints.length - 2];
         const line = new Line([prevPoint.x, prevPoint.y, newPoint.x, newPoint.y], {
-          stroke: '#8B4513',
+          stroke: '#666666',
           strokeWidth: 2,
+          strokeDashArray: [5, 5],
           selectable: false,
           evented: false,
         });
@@ -1142,7 +1143,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         );
       }
       
-      // Update or create preview line
+      // Update or create preview line - lighter color for preview
       const lastPoint = fencePoints[fencePoints.length - 1];
       if (previewLine) {
         previewLine.set({
@@ -1153,9 +1154,9 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         });
       } else {
         previewLine = new Line([lastPoint.x, lastPoint.y, previewPoint.x, previewPoint.y], {
-          stroke: '#8B4513',
-          strokeWidth: 2,
-          strokeDashArray: [5, 5],
+          stroke: '#999999',
+          strokeWidth: 1,
+          strokeDashArray: [3, 3],
           selectable: false,
           evented: false,
         });
@@ -1165,7 +1166,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
       fabricCanvas.renderAll();
     };
     
-    const handleFinish = (e: any) => {
+    const handleFinish = (e?: any) => {
       if (e?.e) e.e.preventDefault();
       
       // Finish drawing
@@ -1175,22 +1176,13 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         tempCircles.forEach(circle => fabricCanvas.remove(circle));
         if (previewLine) fabricCanvas.remove(previewLine);
         
-        // Create final fence as a group
-        const finalLines: Line[] = [];
-        for (let i = 0; i < fencePoints.length - 1; i++) {
-          const line = new Line(
-            [fencePoints[i].x, fencePoints[i].y, fencePoints[i + 1].x, fencePoints[i + 1].y],
-            {
-              stroke: '#8B4513',
-              strokeWidth: 2,
-              selectable: false,
-              evented: false,
-            }
-          );
-          finalLines.push(line);
-        }
+        // Create final fence as a Polyline with solid styling
+        const polylinePoints = fencePoints.map(p => ({ x: p.x, y: p.y }));
         
-        const fenceGroup = new Group(finalLines, {
+        const fence = new Polyline(polylinePoints, {
+          stroke: '#666666',
+          strokeWidth: 3,
+          fill: 'transparent',
           selectable: true,
           evented: true,
           lockScalingX: true,
@@ -1198,11 +1190,12 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
           lockRotation: false,
           hasControls: true,
           hasBorders: true,
+          objectCaching: false,
         });
         
-        (fenceGroup as any).fenceId = `fence-${Date.now()}`;
-        fabricCanvas.add(fenceGroup);
-        setFences(prev => [...prev, fenceGroup]);
+        (fence as any).fenceId = `fence-${Date.now()}`;
+        fabricCanvas.add(fence);
+        setFences(prev => [...prev, fence]);
       } else {
         // Clean up if not enough points
         tempLines.forEach(line => fabricCanvas.remove(line));
@@ -1214,33 +1207,54 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
       fabricCanvas.off('mouse:down', handleClick);
       fabricCanvas.off('mouse:move', handleMouseMove);
       fabricCanvas.off('mouse:dblclick', handleFinish);
+      window.removeEventListener('keydown', handleKeyPress);
+      const canvasElement = fabricCanvas.getElement();
+      canvasElement.removeEventListener('contextmenu', preventContextMenu);
       
       setIsDrawingFence(false);
       isDrawingFenceRef.current = false;
       
-      // Restore background image interactivity
-      if (bgImageRef.current) {
-        bgImageRef.current.set({
-          selectable: true,
-          evented: true,
-        });
-      }
+      // Re-enable object selection and interaction
+      fabricCanvas.selection = true;
+      fabricCanvas.forEachObject(obj => {
+        if (!(obj as any).isDimensionText && !(obj as any).isCoping) {
+          obj.set({ selectable: true, evented: true });
+        }
+      });
       
       fabricCanvas.renderAll();
+    };
+    
+    const handleRightClick = (e: any) => {
+      e.e.preventDefault();
+      handleFinish();
+    };
+    
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if (e.key === 'Enter') {
+        handleFinish();
+      }
+    };
+    
+    const preventContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
     };
     
     fabricCanvas.on('mouse:down', (e) => {
       const mouseEvent = e.e as MouseEvent;
       if (mouseEvent.button === 0) {
         handleClick(e);
+      } else if (mouseEvent.button === 2) {
+        handleRightClick(e);
       }
     });
     fabricCanvas.on('mouse:move', handleMouseMove);
     fabricCanvas.on('mouse:dblclick', handleFinish);
     
-    // Enable right-click context menu prevention
+    // Enable keyboard support and prevent context menu
+    window.addEventListener('keydown', handleKeyPress);
     const canvasElement = fabricCanvas.getElement();
-    canvasElement.addEventListener('contextmenu', (e) => e.preventDefault());
+    canvasElement.addEventListener('contextmenu', preventContextMenu);
   };
 
   const deleteSelectedFence = () => {
