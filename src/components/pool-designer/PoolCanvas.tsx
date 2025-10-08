@@ -252,9 +252,9 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
       const deltaX = currentCenter.x - bgInitialState.center.x;
       const deltaY = currentCenter.y - bgInitialState.center.y;
 
-      // Move all pools and measurements (but not fences - they are independent)
+      // Move all pools, measurements, and fences
       canvas.getObjects().forEach(obj => {
-        if ((obj as any).poolId || (obj as any).measurementId) {
+        if ((obj as any).poolId || (obj as any).measurementId || (obj as any).fenceId) {
           const initial = bgInitialState!.objects.get(obj);
           if (initial) {
             const newCenter = new Point(
@@ -280,9 +280,9 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
       const currentAngle = target.angle || 0;
       const bgCenter = target.getCenterPoint();
 
-      // Rotate all pools and measurements (but not fences - they are independent) around the background center
+      // Rotate all pools, measurements, and fences around the background center
       canvas.getObjects().forEach(obj => {
-        if ((obj as any).poolId || (obj as any).measurementId) {
+        if ((obj as any).poolId || (obj as any).measurementId || (obj as any).fenceId) {
           const initial = bgInitialState!.objects.get(obj);
           if (initial) {
             const angleRad = (currentAngle * Math.PI) / 180;
@@ -310,7 +310,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         
         const objectsMap = new Map();
         canvas.getObjects().forEach(obj => {
-          if ((obj as any).poolId || (obj as any).measurementId) {
+          if ((obj as any).poolId || (obj as any).measurementId || (obj as any).fenceId) {
             const objCenter = obj.getCenterPoint();
             objectsMap.set(obj, {
               relX: objCenter.x - bgCenter.x,
@@ -1491,44 +1491,8 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
             
             let nextMarkerAt = Math.ceil(segmentStart / markerInterval) * markerInterval;
             
+            // Skip creating markers - user doesn't want them
             while (nextMarkerAt < segmentEnd) {
-              const distanceIntoSegment = nextMarkerAt - segmentStart;
-              const ratio = distanceIntoSegment / feetDistance;
-              
-              // Calculate marker position relative to fence position
-              const markerX = fenceLeft + p1.x + (p2.x - p1.x) * ratio;
-              const markerY = fenceTop + p1.y + (p2.y - p1.y) * ratio;
-              
-              const markerSize = 3;
-              const line1 = new Line([
-                markerX - markerSize, 
-                markerY - markerSize, 
-                markerX + markerSize, 
-                markerY + markerSize
-              ], {
-                stroke: '#666666',
-                strokeWidth: 1.5,
-                selectable: false,
-                evented: false,
-              });
-              const line2 = new Line([
-                markerX - markerSize, 
-                markerY + markerSize, 
-                markerX + markerSize, 
-                markerY - markerSize
-              ], {
-                stroke: '#666666',
-                strokeWidth: 1.5,
-                selectable: false,
-                evented: false,
-              });
-              
-              (line1 as any).fenceId = fenceId;
-              (line1 as any).isFenceMarker = true;
-              (line2 as any).fenceId = fenceId;
-              (line2 as any).isFenceMarker = true;
-              
-              fabricCanvas.add(line1, line2);
               nextMarkerAt += markerInterval;
             }
             
