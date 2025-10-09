@@ -3,6 +3,7 @@ import { Canvas as FabricCanvas, FabricImage, Line, Ellipse, Rect, Circle, Point
 import { cn } from '@/lib/utils';
 import poolWaterTexture from '@/assets/pool-water.png';
 import pool12x24Image from '@/assets/pool-12x24.png';
+import { calculateSunPosition, getSunlightIntensity, getHeatmapColor, CANADIAN_PROVINCES, type Province } from '@/utils/solarCalculations';
 
 interface PoolCanvasProps {
   imageFile: File | null;
@@ -44,6 +45,18 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
   const [pavers, setPavers] = useState<any[]>([]);
   const bgImageRef = useRef<FabricImage | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  
+  // Solar simulation states
+  const [showSolarOverlay, setShowSolarOverlay] = useState(false);
+  const [timeOfDay, setTimeOfDay] = useState(12); // 0-23 hours
+  const [northRotation, setNorthRotation] = useState(0); // degrees
+  const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number }>({ 
+    latitude: 45.5017, // Default: Montreal
+    longitude: -73.5673 
+  });
+  const [selectedProvince, setSelectedProvince] = useState<string>('Quebec');
+  const solarOverlayRef = useRef<FabricImage | null>(null);
+  const northArrowRef = useRef<Group | null>(null);
 
   useEffect(() => {
     if (!canvasRef.current || !containerRef.current) return;
@@ -446,6 +459,10 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         fabricCanvas.clear();
         fabricCanvas.add(img);
         fabricCanvas.sendObjectToBack(img); // Ensure image stays at the back
+        
+        // Add north arrow after image is loaded
+        createNorthArrow();
+        
         fabricCanvas.renderAll();
       });
     };
@@ -2232,6 +2249,194 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
     }
   };
 
+  // Solar simulation functions
+  const createNorthArrow = () => {
+    if (!fabricCanvas) return;
+    
+    // Remove existing north arrow if any
+    if (northArrowRef.current) {
+      fabricCanvas.remove(northArrowRef.current);
+    }
+    
+    // Create arrow shape
+    const arrowLine = new Line([0, 20, 0, -20], {
+      stroke: '#ef4444',
+      strokeWidth: 3,
+    });
+    
+    const arrowHead = new Triangle({
+      width: 12,
+      height: 15,
+      fill: '#ef4444',
+      top: -20,
+      left: 0,
+      originX: 'center',
+      originY: 'bottom',
+    });
+    
+    const northText = new Text('N', {
+      fontSize: 14,
+      fontFamily: 'Inter, Arial, sans-serif',
+      fill: '#ef4444',
+      fontWeight: 'bold',
+      top: -35,
+      left: 0,
+      originX: 'center',
+      originY: 'center',
+    });
+    
+    // Group arrow components
+    const northArrow = new Group([arrowLine, arrowHead, northText], {
+      left: 100,
+      top: 100,
+      selectable: true,
+      hasControls: true,
+      hasBorders: true,
+      lockScalingX: true,
+      lockScalingY: true,
+      lockRotation: false,
+    });
+    
+    (northArrow as any).isNorthArrow = true;
+    northArrowRef.current = northArrow;
+    
+    fabricCanvas.add(northArrow);
+    fabricCanvas.bringObjectToFront(northArrow);
+    fabricCanvas.renderAll();
+  };
+
+  const updateSolarOverlay = () => {
+    if (!fabricCanvas || !showSolarOverlay) {
+      // Remove overlay if it exists and shouldn't be shown
+      if (solarOverlayRef.current) {
+        fabricCanvas?.remove(solarOverlayRef.current);
+        solarOverlayRef.current = null;
+        fabricCanvas?.renderAll();
+      }
+      return;
+    }
+    
+    // Get canvas dimensions
+    const canvasWidth = fabricCanvas.width!;
+    const canvasHeight = fabricCanvas.height!;
+    
+    // Calculate sun position
+    const currentDate = new Date();
+    const sunPosition = calculateSunPosition(userLocation, currentDate, timeOfDay);
+    
+    // Get north arrow rotation if it exists
+    const northRotationAngle = northArrowRef.current?.angle || northRotation;
+    
+    // Create canvas for gradient overlay
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = canvasWidth;
+    tempCanvas.height = canvasHeight;
+    const ctx = tempCanvas.getContext('2d')!;
+    
+    // Create radial gradient based on sun position
+    const sunAzimuthAdjusted = (sunPosition.azimuth - northRotationAngle + 360) % 360;
+    const sunRadians = (sunAzimuthAdjusted * Math.PI) / 180;
+    
+    // Calculate sun position on canvas
+    const sunDistance = 0.4; // Distance from center (0-1)
+    const centerX = canvasWidth / 2;
+    const centerY = canvasHeight / 2;
+    const sunX = centerX + Math.sin(sunRadians) * canvasWidth * sunDistance;
+    const sunY = centerY - Math.cos(sunRadians) * canvasHeight * sunDistance;
+    
+    // Create gradient from sun position
+    const gradient = ctx.createRadialGradient(
+      sunX, sunY, 0,
+      sunX, sunY, Math.max(canvasWidth, canvasHeight) * 0.8
+    );
+    
+    // Gradient colors based on sun altitude
+    const intensity = sunPosition.altitude / 90; // 0-1
+    
+    if (intensity > 0.5) {
+      gradient.addColorStop(0, 'rgba(255, 200, 0, 0.5)');
+      gradient.addColorStop(0.3, 'rgba(255, 180, 0, 0.3)');
+      gradient.addColorStop(0.6, 'rgba(150, 150, 180, 0.2)');
+      gradient.addColorStop(1, 'rgba(100, 100, 120, 0.3)');
+    } else if (intensity > 0.2) {
+      gradient.addColorStop(0, 'rgba(255, 220, 100, 0.3)');
+      gradient.addColorStop(0.5, 'rgba(180, 180, 200, 0.2)');
+      gradient.addColorStop(1, 'rgba(120, 120, 140, 0.3)');
+    } else {
+      gradient.addColorStop(0, 'rgba(200, 200, 220, 0.2)');
+      gradient.addColorStop(1, 'rgba(100, 100, 120, 0.4)');
+    }
+    
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+    
+    // Create or update overlay
+    FabricImage.fromURL(tempCanvas.toDataURL()).then((overlayImg) => {
+      if (solarOverlayRef.current) {
+        fabricCanvas.remove(solarOverlayRef.current);
+      }
+      
+      overlayImg.set({
+        left: 0,
+        top: 0,
+        selectable: false,
+        evented: false,
+        opacity: 0.6,
+      });
+      
+      (overlayImg as any).isSolarOverlay = true;
+      solarOverlayRef.current = overlayImg;
+      
+      fabricCanvas.add(overlayImg);
+      
+      // Layer: background < solar overlay < pavers < pools < measurements < north arrow
+      const bgImage = fabricCanvas.getObjects().find(obj => (obj as any).isBackgroundImage);
+      if (bgImage) {
+        const bgIndex = fabricCanvas.getObjects().indexOf(bgImage);
+        fabricCanvas.remove(overlayImg);
+        fabricCanvas.insertAt(bgIndex + 1, overlayImg);
+      }
+      
+      // Bring north arrow to front
+      if (northArrowRef.current) {
+        fabricCanvas.bringObjectToFront(northArrowRef.current);
+      }
+      
+      fabricCanvas.renderAll();
+    });
+  };
+
+  // Update solar overlay when settings change
+  useEffect(() => {
+    updateSolarOverlay();
+  }, [showSolarOverlay, timeOfDay, userLocation, northRotation, fabricCanvas]);
+
+  // Update north rotation when arrow is rotated
+  useEffect(() => {
+    if (!fabricCanvas || !northArrowRef.current) return;
+    
+    const handleArrowRotation = (e: any) => {
+      if (e.target === northArrowRef.current) {
+        setNorthRotation(e.target.angle || 0);
+      }
+    };
+    
+    fabricCanvas.on('object:rotating', handleArrowRotation);
+    fabricCanvas.on('object:modified', handleArrowRotation);
+    
+    return () => {
+      fabricCanvas.off('object:rotating', handleArrowRotation);
+      fabricCanvas.off('object:modified', handleArrowRotation);
+    };
+  }, [fabricCanvas]);
+
+  // Update location when province changes
+  useEffect(() => {
+    if (selectedProvince && CANADIAN_PROVINCES[selectedProvince as Province]) {
+      setUserLocation(CANADIAN_PROVINCES[selectedProvince as Province]);
+    }
+  }, [selectedProvince]);
+
   const addRectangularPaver = (widthFeet: number, lengthFeet: number) => {
     if (!fabricCanvas || !scaleReference) {
       alert('Please set a scale reference first.');
@@ -2456,9 +2661,15 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         onStartPaverDrawing: startPaverDrawing,
         onDeleteSelectedPaver: deleteSelectedPaver,
         onAddRectangularPaver: addRectangularPaver,
+        showSolarOverlay,
+        onShowSolarOverlayChange: setShowSolarOverlay,
+        timeOfDay,
+        onTimeOfDayChange: setTimeOfDay,
+        selectedProvince,
+        onSelectedProvinceChange: setSelectedProvince,
       });
     }
-  }, [scaleUnit, isSettingScale, scaleReference, poolLengthFeet, poolLengthInches, poolWidthFeet, poolWidthInches, measurementMode, isMeasuring, typedDistanceFeet, typedDistanceInches, copingSize, paverLeftFeet, paverRightFeet, paverTopFeet, paverBottomFeet, isDrawingFence, isDrawingPaver]);
+  }, [scaleUnit, isSettingScale, scaleReference, poolLengthFeet, poolLengthInches, poolWidthFeet, poolWidthInches, measurementMode, isMeasuring, typedDistanceFeet, typedDistanceInches, copingSize, paverLeftFeet, paverRightFeet, paverTopFeet, paverBottomFeet, isDrawingFence, isDrawingPaver, showSolarOverlay, timeOfDay, selectedProvince]);
 
   return (
     <div className={cn("flex flex-col h-full", className)}>

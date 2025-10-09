@@ -2,6 +2,10 @@ import React from 'react';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { FileUpload } from '@/components/ui/file-upload';
+import { Slider } from '@/components/ui/slider';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import { CANADIAN_PROVINCES, type Province } from '@/utils/solarCalculations';
 
 interface PoolControlsProps {
   scaleUnit: 'feet' | 'meters';
@@ -49,6 +53,14 @@ interface PoolControlsProps {
   onAddRectangularPaver: (widthFeet: number, lengthFeet: number) => void;
   selectedImage: File;
   onFileSelect: (file: File) => void;
+  
+  // Solar simulation props
+  showSolarOverlay: boolean;
+  onShowSolarOverlayChange: (show: boolean) => void;
+  timeOfDay: number;
+  onTimeOfDayChange: (time: number) => void;
+  selectedProvince: string;
+  onSelectedProvinceChange: (province: string) => void;
 }
 
 export const PoolControls: React.FC<PoolControlsProps> = ({
@@ -97,6 +109,12 @@ export const PoolControls: React.FC<PoolControlsProps> = ({
   onAddRectangularPaver,
   selectedImage,
   onFileSelect,
+  showSolarOverlay,
+  onShowSolarOverlayChange,
+  timeOfDay,
+  onTimeOfDayChange,
+  selectedProvince,
+  onSelectedProvinceChange,
 }) => {
   return (
     <div className="space-y-4">
@@ -494,6 +512,75 @@ export const PoolControls: React.FC<PoolControlsProps> = ({
               >
                 Delete Selected Paver
               </button>
+            </div>
+          </div>
+
+          {/* Solar Simulation Section */}
+          <div className="border rounded-lg overflow-hidden">
+            <div className="bg-primary px-4 py-3">
+              <h2 className="text-sm font-semibold text-primary-foreground">☀️ Solar Simulation</h2>
+            </div>
+            <div className="p-4 space-y-4">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="solar-overlay" className="text-sm font-medium">
+                  Show Sun Overlay
+                </Label>
+                <Switch
+                  id="solar-overlay"
+                  checked={showSolarOverlay}
+                  onCheckedChange={onShowSolarOverlayChange}
+                />
+              </div>
+              
+              {showSolarOverlay && (
+                <>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">
+                      Province/Location
+                    </Label>
+                    <select
+                      value={selectedProvince}
+                      onChange={(e) => onSelectedProvinceChange(e.target.value)}
+                      className="w-full px-3 py-2 border rounded-md text-sm"
+                    >
+                      {Object.keys(CANADIAN_PROVINCES).map((province) => (
+                        <option key={province} value={province}>
+                          {province}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm font-medium">
+                        Time of Day
+                      </Label>
+                      <span className="text-sm text-muted-foreground">
+                        {timeOfDay}:00
+                      </span>
+                    </div>
+                    <Slider
+                      value={[timeOfDay]}
+                      onValueChange={(value) => onTimeOfDayChange(value[0])}
+                      min={6}
+                      max={20}
+                      step={1}
+                      className="w-full"
+                    />
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>6:00 AM</span>
+                      <span>8:00 PM</span>
+                    </div>
+                  </div>
+                  
+                  <div className="text-xs text-muted-foreground space-y-1 pt-2 border-t">
+                    <p>💡 Rotate the red north arrow to set orientation</p>
+                    <p>🟡 Yellow/Orange = High sunlight</p>
+                    <p>🔵 Blue/Gray = Low sunlight/shade</p>
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
