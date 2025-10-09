@@ -2306,7 +2306,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
   };
 
   const updateSolarOverlay = () => {
-    if (!fabricCanvas || !showSolarOverlay) {
+    if (!fabricCanvas || !showSolarOverlay || !bgImageRef.current) {
       // Remove overlay if it exists and shouldn't be shown
       if (solarOverlayRef.current) {
         fabricCanvas?.remove(solarOverlayRef.current);
@@ -2316,9 +2316,14 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
       return;
     }
     
-    // Get canvas dimensions
-    const canvasWidth = fabricCanvas.width!;
-    const canvasHeight = fabricCanvas.height!;
+    const bgImage = bgImageRef.current;
+    
+    // Get background image dimensions and position
+    const imgWidth = bgImage.getScaledWidth();
+    const imgHeight = bgImage.getScaledHeight();
+    const imgLeft = bgImage.left || 0;
+    const imgTop = bgImage.top || 0;
+    const imgAngle = bgImage.angle || 0;
     
     // Calculate sun position
     const currentDate = new Date();
@@ -2337,20 +2342,22 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
     // Get north arrow rotation if it exists
     const northRotationAngle = northArrowRef.current?.angle || northRotation;
     
-    // Create canvas for gradient overlay
+    // Create canvas for gradient overlay (same size as background image)
     const tempCanvas = document.createElement('canvas');
-    tempCanvas.width = canvasWidth;
-    tempCanvas.height = canvasHeight;
+    tempCanvas.width = imgWidth;
+    tempCanvas.height = imgHeight;
     const ctx = tempCanvas.getContext('2d')!;
     
     // Calculate adjusted sun azimuth and position
-    const sunAzimuthAdjusted = (sunPosition.azimuth - northRotationAngle + 360) % 360;
+    // Account for both north arrow rotation AND background image rotation
+    const totalRotation = (northRotationAngle - imgAngle + 360) % 360;
+    const sunAzimuthAdjusted = (sunPosition.azimuth - totalRotation + 360) % 360;
     const sunRadians = (sunAzimuthAdjusted * Math.PI) / 180;
     
-    // Calculate where the sun is "coming from" (extended beyond canvas)
-    const centerX = canvasWidth / 2;
-    const centerY = canvasHeight / 2;
-    const maxDim = Math.max(canvasWidth, canvasHeight);
+    // Calculate where the sun is "coming from" (extended beyond image)
+    const centerX = imgWidth / 2;
+    const centerY = imgHeight / 2;
+    const maxDim = Math.max(imgWidth, imgHeight);
     const sunSourceDistance = maxDim * 2; // Far away to simulate directional light
     const sunX = centerX + Math.sin(sunRadians) * sunSourceDistance;
     const sunY = centerY - Math.cos(sunRadians) * sunSourceDistance;
@@ -2358,10 +2365,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
     // Calculate intensity based on altitude (0-90 degrees)
     const intensity = Math.pow(sunPosition.altitude / 90, 0.7); // 0-1, with curve
     
-    // Draw directional sunlight cone
-    const coneAngle = 100 * (Math.PI / 180); // 100 degree cone
-    
-    // Create gradient from sun source toward canvas
+    // Create gradient from sun source toward image center
     const gradient = ctx.createRadialGradient(
       sunX, sunY, 0,
       sunX, sunY, sunSourceDistance * 1.5
@@ -2370,25 +2374,25 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
     // Brighter, more visible colors based on sun altitude
     if (intensity > 0.6) {
       // High sun - bright yellow/orange
-      gradient.addColorStop(0, `rgba(255, 220, 50, ${0.7 * intensity})`);
-      gradient.addColorStop(0.4, `rgba(255, 200, 80, ${0.5 * intensity})`);
-      gradient.addColorStop(0.7, `rgba(255, 180, 100, ${0.3 * intensity})`);
+      gradient.addColorStop(0, `rgba(255, 220, 50, ${0.8 * intensity})`);
+      gradient.addColorStop(0.3, `rgba(255, 200, 80, ${0.6 * intensity})`);
+      gradient.addColorStop(0.6, `rgba(255, 180, 100, ${0.4 * intensity})`);
       gradient.addColorStop(1, 'rgba(120, 120, 150, 0.1)');
     } else if (intensity > 0.3) {
       // Medium sun - yellow
-      gradient.addColorStop(0, `rgba(255, 230, 100, ${0.6 * intensity})`);
-      gradient.addColorStop(0.5, `rgba(255, 210, 120, ${0.4 * intensity})`);
-      gradient.addColorStop(0.8, `rgba(200, 200, 220, ${0.2 * intensity})`);
+      gradient.addColorStop(0, `rgba(255, 230, 100, ${0.7 * intensity})`);
+      gradient.addColorStop(0.4, `rgba(255, 210, 120, ${0.5 * intensity})`);
+      gradient.addColorStop(0.7, `rgba(200, 200, 220, ${0.3 * intensity})`);
       gradient.addColorStop(1, 'rgba(140, 140, 160, 0.1)');
     } else {
       // Low sun - pale yellow
-      gradient.addColorStop(0, `rgba(255, 240, 150, ${0.4 * intensity})`);
-      gradient.addColorStop(0.6, `rgba(220, 220, 230, ${0.2 * intensity})`);
+      gradient.addColorStop(0, `rgba(255, 240, 150, ${0.5 * intensity})`);
+      gradient.addColorStop(0.5, `rgba(220, 220, 230, ${0.3 * intensity})`);
       gradient.addColorStop(1, 'rgba(160, 160, 180, 0.05)');
     }
     
     ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+    ctx.fillRect(0, 0, imgWidth, imgHeight);
     
     // Create or update overlay
     FabricImage.fromURL(tempCanvas.toDataURL()).then((overlayImg) => {
@@ -2397,22 +2401,28 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
       }
       
       overlayImg.set({
-        left: 0,
-        top: 0,
+        left: imgLeft,
+        top: imgTop,
+        scaleX: 1,
+        scaleY: 1,
+        angle: imgAngle,
         selectable: false,
         evented: false,
-        opacity: 0.8,
+        opacity: 0.85,
+        originX: 'left',
+        originY: 'top',
       });
       
       (overlayImg as any).isSolarOverlay = true;
+      (overlayImg as any).linkedToBackground = true;
       solarOverlayRef.current = overlayImg;
       
       fabricCanvas.add(overlayImg);
       
       // Layer: background < solar overlay < pavers < pools < measurements < north arrow
-      const bgImage = fabricCanvas.getObjects().find(obj => (obj as any).isBackgroundImage);
-      if (bgImage) {
-        const bgIndex = fabricCanvas.getObjects().indexOf(bgImage);
+      const bgImageObj = fabricCanvas.getObjects().find(obj => (obj as any).isBackgroundImage);
+      if (bgImageObj) {
+        const bgIndex = fabricCanvas.getObjects().indexOf(bgImageObj);
         fabricCanvas.remove(overlayImg);
         fabricCanvas.insertAt(bgIndex + 1, overlayImg);
       }
