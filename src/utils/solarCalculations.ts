@@ -100,23 +100,23 @@ export function getHeatmapColor(intensity: number): string {
   // intensity: 0 (no sun) to 1 (full sun)
   
   if (intensity < 0.2) {
-    // Very low sun - blue/gray
-    const gray = Math.floor(100 + intensity * 5 * 50);
-    return `rgba(${gray}, ${gray}, ${gray + 20}, 0.4)`;
+    // Very low sun - darker gray/blue (shadow)
+    const gray = Math.floor(80 + intensity * 5 * 40);
+    return `rgba(${gray}, ${gray}, ${gray + 30}, 0.6)`;
   } else if (intensity < 0.5) {
-    // Medium sun - light yellow
+    // Medium sun - bright yellow
     const factor = (intensity - 0.2) / 0.3;
-    const r = Math.floor(255);
+    const r = 255;
     const g = Math.floor(200 + factor * 55);
     const b = Math.floor(100 * (1 - factor));
-    return `rgba(${r}, ${g}, ${b}, 0.3)`;
+    return `rgba(${r}, ${g}, ${b}, 0.5)`;
   } else {
-    // High sun - orange/yellow
+    // High sun - vibrant orange/yellow
     const factor = (intensity - 0.5) / 0.5;
-    const r = Math.floor(255);
-    const g = Math.floor(200 - factor * 50);
-    const b = 0;
-    return `rgba(${r}, ${g}, ${b}, 0.4)`;
+    const r = 255;
+    const g = Math.floor(200 - factor * 30);
+    const b = Math.floor(50 * (1 - factor));
+    return `rgba(${r}, ${g}, ${b}, 0.7)`;
   }
 }
 

@@ -2324,6 +2324,16 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
     const currentDate = new Date();
     const sunPosition = calculateSunPosition(userLocation, currentDate, timeOfDay);
     
+    // If sun is below horizon, show no sunlight
+    if (sunPosition.altitude <= 0) {
+      if (solarOverlayRef.current) {
+        fabricCanvas.remove(solarOverlayRef.current);
+        solarOverlayRef.current = null;
+        fabricCanvas.renderAll();
+      }
+      return;
+    }
+    
     // Get north arrow rotation if it exists
     const northRotationAngle = northArrowRef.current?.angle || northRotation;
     
@@ -2333,38 +2343,48 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
     tempCanvas.height = canvasHeight;
     const ctx = tempCanvas.getContext('2d')!;
     
-    // Create radial gradient based on sun position
+    // Calculate adjusted sun azimuth and position
     const sunAzimuthAdjusted = (sunPosition.azimuth - northRotationAngle + 360) % 360;
     const sunRadians = (sunAzimuthAdjusted * Math.PI) / 180;
     
-    // Calculate sun position on canvas
-    const sunDistance = 0.4; // Distance from center (0-1)
+    // Calculate where the sun is "coming from" (extended beyond canvas)
     const centerX = canvasWidth / 2;
     const centerY = canvasHeight / 2;
-    const sunX = centerX + Math.sin(sunRadians) * canvasWidth * sunDistance;
-    const sunY = centerY - Math.cos(sunRadians) * canvasHeight * sunDistance;
+    const maxDim = Math.max(canvasWidth, canvasHeight);
+    const sunSourceDistance = maxDim * 2; // Far away to simulate directional light
+    const sunX = centerX + Math.sin(sunRadians) * sunSourceDistance;
+    const sunY = centerY - Math.cos(sunRadians) * sunSourceDistance;
     
-    // Create gradient from sun position
+    // Calculate intensity based on altitude (0-90 degrees)
+    const intensity = Math.pow(sunPosition.altitude / 90, 0.7); // 0-1, with curve
+    
+    // Draw directional sunlight cone
+    const coneAngle = 100 * (Math.PI / 180); // 100 degree cone
+    
+    // Create gradient from sun source toward canvas
     const gradient = ctx.createRadialGradient(
       sunX, sunY, 0,
-      sunX, sunY, Math.max(canvasWidth, canvasHeight) * 0.8
+      sunX, sunY, sunSourceDistance * 1.5
     );
     
-    // Gradient colors based on sun altitude
-    const intensity = sunPosition.altitude / 90; // 0-1
-    
-    if (intensity > 0.5) {
-      gradient.addColorStop(0, 'rgba(255, 200, 0, 0.5)');
-      gradient.addColorStop(0.3, 'rgba(255, 180, 0, 0.3)');
-      gradient.addColorStop(0.6, 'rgba(150, 150, 180, 0.2)');
-      gradient.addColorStop(1, 'rgba(100, 100, 120, 0.3)');
-    } else if (intensity > 0.2) {
-      gradient.addColorStop(0, 'rgba(255, 220, 100, 0.3)');
-      gradient.addColorStop(0.5, 'rgba(180, 180, 200, 0.2)');
-      gradient.addColorStop(1, 'rgba(120, 120, 140, 0.3)');
+    // Brighter, more visible colors based on sun altitude
+    if (intensity > 0.6) {
+      // High sun - bright yellow/orange
+      gradient.addColorStop(0, `rgba(255, 220, 50, ${0.7 * intensity})`);
+      gradient.addColorStop(0.4, `rgba(255, 200, 80, ${0.5 * intensity})`);
+      gradient.addColorStop(0.7, `rgba(255, 180, 100, ${0.3 * intensity})`);
+      gradient.addColorStop(1, 'rgba(120, 120, 150, 0.1)');
+    } else if (intensity > 0.3) {
+      // Medium sun - yellow
+      gradient.addColorStop(0, `rgba(255, 230, 100, ${0.6 * intensity})`);
+      gradient.addColorStop(0.5, `rgba(255, 210, 120, ${0.4 * intensity})`);
+      gradient.addColorStop(0.8, `rgba(200, 200, 220, ${0.2 * intensity})`);
+      gradient.addColorStop(1, 'rgba(140, 140, 160, 0.1)');
     } else {
-      gradient.addColorStop(0, 'rgba(200, 200, 220, 0.2)');
-      gradient.addColorStop(1, 'rgba(100, 100, 120, 0.4)');
+      // Low sun - pale yellow
+      gradient.addColorStop(0, `rgba(255, 240, 150, ${0.4 * intensity})`);
+      gradient.addColorStop(0.6, `rgba(220, 220, 230, ${0.2 * intensity})`);
+      gradient.addColorStop(1, 'rgba(160, 160, 180, 0.05)');
     }
     
     ctx.fillStyle = gradient;
@@ -2381,7 +2401,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         top: 0,
         selectable: false,
         evented: false,
-        opacity: 0.6,
+        opacity: 0.8,
       });
       
       (overlayImg as any).isSolarOverlay = true;
