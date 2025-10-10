@@ -636,9 +636,15 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
       const outerWidth = pixelWidth + (copingPixelWidth * 2);
       const outerHeight = pixelHeight + (copingPixelWidth * 2);
       
+      // Calculate top and bottom paver pixel heights first
+      const paverTopPixelHeight = paverTop * scaleReference.pixelLength / scaleReference.length;
+      const paverBottomPixelHeight = paverBottom * scaleReference.pixelLength / scaleReference.length;
+      
       // Create paver areas around the pool
       if (paverLeft > 0) {
         const paverPixelWidth = paverLeft * scaleReference.pixelLength / scaleReference.length;
+        // Include top and bottom paver heights in the total height
+        const totalHeight = outerHeight + paverTopPixelHeight + paverBottomPixelHeight;
         const leftPaver = new Rect({
           left: centerX - outerWidth / 2 - paverPixelWidth / 2,
           top: centerY,
@@ -646,7 +652,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
           stroke: '#22c55e',
           strokeWidth: 1,
           width: paverPixelWidth,
-          height: outerHeight,
+          height: totalHeight,
           originX: 'center',
           originY: 'center',
           selectable: true,
@@ -656,7 +662,44 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
           lockRotation: true,
         });
         (leftPaver as any).paverId = `paver-left-${poolId}`;
-        (leftPaver as any).paverArea = paverLeft * (outerHeight * scaleReference.length / scaleReference.pixelLength);
+        (leftPaver as any).paverArea = paverLeft * (totalHeight * scaleReference.length / scaleReference.pixelLength);
+        
+        // Add delete control to left paver
+        leftPaver.controls['deleteControl'] = new Control({
+          x: 0.5,
+          y: -0.5,
+          offsetX: 16,
+          offsetY: -16,
+          cursorStyle: 'pointer',
+          mouseUpHandler: () => {
+            const areaTextObj = fabricCanvas.getObjects().find((obj: any) => 
+              obj.paverId === `paver-left-${poolId}` && obj.isPaverArea
+            );
+            if (areaTextObj) fabricCanvas.remove(areaTextObj);
+            fabricCanvas.remove(leftPaver);
+            setPavers(prev => prev.filter(p => p !== leftPaver));
+            fabricCanvas.renderAll();
+            return true;
+          },
+          render: (ctx, left, top) => {
+            const size = 20;
+            ctx.save();
+            ctx.translate(left, top);
+            ctx.beginPath();
+            ctx.arc(0, 0, size / 2, 0, 2 * Math.PI);
+            ctx.fillStyle = '#ef4444';
+            ctx.fill();
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.moveTo(-size / 4, -size / 4);
+            ctx.lineTo(size / 4, size / 4);
+            ctx.moveTo(size / 4, -size / 4);
+            ctx.lineTo(-size / 4, size / 4);
+            ctx.stroke();
+            ctx.restore();
+          },
+        });
+        
         fabricCanvas.add(leftPaver);
         
         // Position paver behind pool
@@ -690,6 +733,8 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
       
       if (paverRight > 0) {
         const paverPixelWidth = paverRight * scaleReference.pixelLength / scaleReference.length;
+        // Include top and bottom paver heights in the total height
+        const totalHeight = outerHeight + paverTopPixelHeight + paverBottomPixelHeight;
         const rightPaver = new Rect({
           left: centerX + outerWidth / 2 + paverPixelWidth / 2,
           top: centerY,
@@ -697,7 +742,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
           stroke: '#22c55e',
           strokeWidth: 1,
           width: paverPixelWidth,
-          height: outerHeight,
+          height: totalHeight,
           originX: 'center',
           originY: 'center',
           selectable: true,
@@ -707,7 +752,44 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
           lockRotation: true,
         });
         (rightPaver as any).paverId = `paver-right-${poolId}`;
-        (rightPaver as any).paverArea = paverRight * (outerHeight * scaleReference.length / scaleReference.pixelLength);
+        (rightPaver as any).paverArea = paverRight * (totalHeight * scaleReference.length / scaleReference.pixelLength);
+        
+        // Add delete control to right paver
+        rightPaver.controls['deleteControl'] = new Control({
+          x: 0.5,
+          y: -0.5,
+          offsetX: 16,
+          offsetY: -16,
+          cursorStyle: 'pointer',
+          mouseUpHandler: () => {
+            const areaTextObj = fabricCanvas.getObjects().find((obj: any) => 
+              obj.paverId === `paver-right-${poolId}` && obj.isPaverArea
+            );
+            if (areaTextObj) fabricCanvas.remove(areaTextObj);
+            fabricCanvas.remove(rightPaver);
+            setPavers(prev => prev.filter(p => p !== rightPaver));
+            fabricCanvas.renderAll();
+            return true;
+          },
+          render: (ctx, left, top) => {
+            const size = 20;
+            ctx.save();
+            ctx.translate(left, top);
+            ctx.beginPath();
+            ctx.arc(0, 0, size / 2, 0, 2 * Math.PI);
+            ctx.fillStyle = '#ef4444';
+            ctx.fill();
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.moveTo(-size / 4, -size / 4);
+            ctx.lineTo(size / 4, size / 4);
+            ctx.moveTo(size / 4, -size / 4);
+            ctx.lineTo(-size / 4, size / 4);
+            ctx.stroke();
+            ctx.restore();
+          },
+        });
+        
         fabricCanvas.add(rightPaver);
         
         const bgImage = fabricCanvas.getObjects().find(obj => (obj as any).isBackgroundImage);
@@ -759,6 +841,43 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         });
         (topPaver as any).paverId = `paver-top-${poolId}`;
         (topPaver as any).paverArea = paverTop * (totalWidth * scaleReference.length / scaleReference.pixelLength);
+        
+        // Add delete control to top paver
+        topPaver.controls['deleteControl'] = new Control({
+          x: 0.5,
+          y: -0.5,
+          offsetX: 16,
+          offsetY: -16,
+          cursorStyle: 'pointer',
+          mouseUpHandler: () => {
+            const areaTextObj = fabricCanvas.getObjects().find((obj: any) => 
+              obj.paverId === `paver-top-${poolId}` && obj.isPaverArea
+            );
+            if (areaTextObj) fabricCanvas.remove(areaTextObj);
+            fabricCanvas.remove(topPaver);
+            setPavers(prev => prev.filter(p => p !== topPaver));
+            fabricCanvas.renderAll();
+            return true;
+          },
+          render: (ctx, left, top) => {
+            const size = 20;
+            ctx.save();
+            ctx.translate(left, top);
+            ctx.beginPath();
+            ctx.arc(0, 0, size / 2, 0, 2 * Math.PI);
+            ctx.fillStyle = '#ef4444';
+            ctx.fill();
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.moveTo(-size / 4, -size / 4);
+            ctx.lineTo(size / 4, size / 4);
+            ctx.moveTo(size / 4, -size / 4);
+            ctx.lineTo(-size / 4, size / 4);
+            ctx.stroke();
+            ctx.restore();
+          },
+        });
+        
         fabricCanvas.add(topPaver);
         
         const bgImage = fabricCanvas.getObjects().find(obj => (obj as any).isBackgroundImage);
@@ -810,6 +929,43 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         });
         (bottomPaver as any).paverId = `paver-bottom-${poolId}`;
         (bottomPaver as any).paverArea = paverBottom * (totalWidth * scaleReference.length / scaleReference.pixelLength);
+        
+        // Add delete control to bottom paver
+        bottomPaver.controls['deleteControl'] = new Control({
+          x: 0.5,
+          y: -0.5,
+          offsetX: 16,
+          offsetY: -16,
+          cursorStyle: 'pointer',
+          mouseUpHandler: () => {
+            const areaTextObj = fabricCanvas.getObjects().find((obj: any) => 
+              obj.paverId === `paver-bottom-${poolId}` && obj.isPaverArea
+            );
+            if (areaTextObj) fabricCanvas.remove(areaTextObj);
+            fabricCanvas.remove(bottomPaver);
+            setPavers(prev => prev.filter(p => p !== bottomPaver));
+            fabricCanvas.renderAll();
+            return true;
+          },
+          render: (ctx, left, top) => {
+            const size = 20;
+            ctx.save();
+            ctx.translate(left, top);
+            ctx.beginPath();
+            ctx.arc(0, 0, size / 2, 0, 2 * Math.PI);
+            ctx.fillStyle = '#ef4444';
+            ctx.fill();
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.moveTo(-size / 4, -size / 4);
+            ctx.lineTo(size / 4, size / 4);
+            ctx.moveTo(size / 4, -size / 4);
+            ctx.lineTo(-size / 4, size / 4);
+            ctx.stroke();
+            ctx.restore();
+          },
+        });
+        
         fabricCanvas.add(bottomPaver);
         
         const bgImage = fabricCanvas.getObjects().find(obj => (obj as any).isBackgroundImage);
