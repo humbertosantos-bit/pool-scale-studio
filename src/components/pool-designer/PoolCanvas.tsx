@@ -479,6 +479,125 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
     fabricCanvas.renderAll();
   }, [bgImageOpacity, fabricCanvas]);
 
+  const updatePaverOutline = (paverOutline: any, poolId: string, pool: any, centerX: number, centerY: number, L: number, W: number, C: number) => {
+    if (!fabricCanvas || !scaleReference) return;
+    
+    const { left: paverLeft, right: paverRight, top: paverTop, bottom: paverBottom } = paverOutline.paverDimensions;
+    
+    // Recalculate dimensions
+    const outerLength = L + (paverLeft + C) + (paverRight + C);
+    const outerWidth = W + (paverTop + C) + (paverBottom + C);
+    
+    const outerLengthPixels = outerLength * scaleReference.pixelLength / scaleReference.length;
+    const outerWidthPixels = outerWidth * scaleReference.pixelLength / scaleReference.length;
+    
+    // Update paver outline dimensions
+    paverOutline.set({
+      width: outerLengthPixels,
+      height: outerWidthPixels,
+    });
+    
+    // Remove old labels
+    const oldLabels = fabricCanvas.getObjects().filter((obj: any) => 
+      obj.isPaverDimensionLabel && obj.poolId === poolId
+    );
+    oldLabels.forEach(label => fabricCanvas.remove(label));
+    
+    // Create new labels
+    const createEditableDimensionLabel = (
+      text: string, 
+      x: number, 
+      y: number, 
+      side: 'left' | 'right' | 'top' | 'bottom'
+    ) => {
+      const label = new Text(text, {
+        fontSize: 13,
+        fontFamily: 'Inter, Arial, sans-serif',
+        fill: '#22c55e',
+        fontWeight: 'bold',
+        selectable: true,
+        evented: true,
+        left: x,
+        top: y,
+        originX: 'center',
+        originY: 'center',
+        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+        padding: 6,
+        lockScalingX: true,
+        lockScalingY: true,
+        lockRotation: true,
+        hasControls: false,
+        hasBorders: true,
+        borderColor: '#22c55e',
+      });
+      
+      (label as any).isPaverDimensionLabel = true;
+      (label as any).poolId = poolId;
+      (label as any).paverSide = side;
+      
+      // Double-click to edit
+      label.on('mousedblclick', () => {
+        const currentValue = paverOutline.paverDimensions[side];
+        const newValue = prompt(`Enter new ${side} paver width (ft):`, currentValue.toString());
+        if (newValue !== null) {
+          const parsed = parseFloat(newValue);
+          if (!isNaN(parsed) && parsed >= 0) {
+            paverOutline.paverDimensions[side] = parsed;
+            updatePaverOutline(paverOutline, poolId, pool, centerX, centerY, L, W, C);
+          }
+        }
+      });
+      
+      return label;
+    };
+    
+    if (paverLeft > 0) {
+      const leftLabel = createEditableDimensionLabel(
+        `${paverLeft} ft`,
+        centerX - outerLengthPixels / 2 + (paverLeft * scaleReference.pixelLength / scaleReference.length) / 2,
+        centerY,
+        'left'
+      );
+      fabricCanvas.add(leftLabel);
+      fabricCanvas.bringObjectToFront(leftLabel);
+    }
+    
+    if (paverRight > 0) {
+      const rightLabel = createEditableDimensionLabel(
+        `${paverRight} ft`,
+        centerX + outerLengthPixels / 2 - (paverRight * scaleReference.pixelLength / scaleReference.length) / 2,
+        centerY,
+        'right'
+      );
+      fabricCanvas.add(rightLabel);
+      fabricCanvas.bringObjectToFront(rightLabel);
+    }
+    
+    if (paverTop > 0) {
+      const topLabel = createEditableDimensionLabel(
+        `${paverTop} ft`,
+        centerX,
+        centerY - outerWidthPixels / 2 + (paverTop * scaleReference.pixelLength / scaleReference.length) / 2,
+        'top'
+      );
+      fabricCanvas.add(topLabel);
+      fabricCanvas.bringObjectToFront(topLabel);
+    }
+    
+    if (paverBottom > 0) {
+      const bottomLabel = createEditableDimensionLabel(
+        `${paverBottom} ft`,
+        centerX,
+        centerY + outerWidthPixels / 2 - (paverBottom * scaleReference.pixelLength / scaleReference.length) / 2,
+        'bottom'
+      );
+      fabricCanvas.add(bottomLabel);
+      fabricCanvas.bringObjectToFront(bottomLabel);
+    }
+    
+    fabricCanvas.renderAll();
+  };
+
   const addPool = () => {
     if (!fabricCanvas || !scaleReference) return;
 
@@ -691,6 +810,12 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         
         (paverOutline as any).paverId = `paver-outline-${poolId}`;
         (paverOutline as any).poolId = poolId;
+        (paverOutline as any).paverDimensions = {
+          left: paverLeft,
+          right: paverRight,
+          top: paverTop,
+          bottom: paverBottom,
+        };
         
         // Add delete control to paver outline
         paverOutline.controls['deleteControl'] = new Control({
@@ -704,7 +829,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
             const objects = fabricCanvas.getObjects();
             const paverObjects = objects.filter((obj: any) => 
               (obj.paverId && obj.paverId.includes(poolId)) || 
-              (obj.isPaverLabel && obj.poolId === poolId)
+              (obj.isPaverDimensionLabel && obj.poolId === poolId)
             );
             paverObjects.forEach(obj => fabricCanvas.remove(obj));
             setPavers(prev => prev.filter(p => (p as any).poolId !== poolId));
@@ -742,68 +867,98 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         
         setPavers(prev => [...prev, paverOutline]);
         
-        // Add labels for each side showing square footage
-        const labelStyle = {
-          fontSize: 13,
-          fontFamily: 'Inter, Arial, sans-serif',
-          fill: '#22c55e',
-          fontWeight: 'bold' as const,
-          selectable: false,
-          evented: false,
-          originX: 'center' as const,
-          originY: 'center' as const,
-          backgroundColor: 'rgba(255, 255, 255, 0.95)',
-          padding: 6,
+        // Add editable dimension labels for each side
+        const createEditableDimensionLabel = (
+          text: string, 
+          x: number, 
+          y: number, 
+          side: 'left' | 'right' | 'top' | 'bottom'
+        ) => {
+          const label = new Text(text, {
+            fontSize: 13,
+            fontFamily: 'Inter, Arial, sans-serif',
+            fill: '#22c55e',
+            fontWeight: 'bold',
+            selectable: true,
+            evented: true,
+            left: x,
+            top: y,
+            originX: 'center',
+            originY: 'center',
+            backgroundColor: 'rgba(255, 255, 255, 0.95)',
+            padding: 6,
+            lockScalingX: true,
+            lockScalingY: true,
+            lockRotation: true,
+            hasControls: false,
+            hasBorders: true,
+            borderColor: '#22c55e',
+          });
+          
+          (label as any).isPaverDimensionLabel = true;
+          (label as any).poolId = poolId;
+          (label as any).paverSide = side;
+          
+          // Double-click to edit
+          label.on('mousedblclick', () => {
+            const currentValue = (paverOutline as any).paverDimensions[side];
+            const newValue = prompt(`Enter new ${side} paver width (ft):`, currentValue.toString());
+            if (newValue !== null) {
+              const parsed = parseFloat(newValue);
+              if (!isNaN(parsed) && parsed >= 0) {
+                // Update dimension
+                (paverOutline as any).paverDimensions[side] = parsed;
+                
+                // Redraw paver outline and labels
+                updatePaverOutline(paverOutline, poolId, pool, centerX, centerY, L, W, C);
+              }
+            }
+          });
+          
+          return label;
         };
         
-        // Left label
+        // Create labels for each side
         if (paverLeft > 0) {
-          const leftLabel = new Text(`Left: ${leftArea.toFixed(1)} sq ft`, {
-            ...labelStyle,
-            left: centerX - outerLengthPixels / 2 + (paverLeft * scaleReference.pixelLength / scaleReference.length) / 2,
-            top: centerY,
-          });
-          (leftLabel as any).isPaverLabel = true;
-          (leftLabel as any).poolId = poolId;
+          const leftLabel = createEditableDimensionLabel(
+            `${paverLeft} ft`,
+            centerX - outerLengthPixels / 2 + (paverLeft * scaleReference.pixelLength / scaleReference.length) / 2,
+            centerY,
+            'left'
+          );
           fabricCanvas.add(leftLabel);
           fabricCanvas.bringObjectToFront(leftLabel);
         }
         
-        // Right label
         if (paverRight > 0) {
-          const rightLabel = new Text(`Right: ${rightArea.toFixed(1)} sq ft`, {
-            ...labelStyle,
-            left: centerX + outerLengthPixels / 2 - (paverRight * scaleReference.pixelLength / scaleReference.length) / 2,
-            top: centerY,
-          });
-          (rightLabel as any).isPaverLabel = true;
-          (rightLabel as any).poolId = poolId;
+          const rightLabel = createEditableDimensionLabel(
+            `${paverRight} ft`,
+            centerX + outerLengthPixels / 2 - (paverRight * scaleReference.pixelLength / scaleReference.length) / 2,
+            centerY,
+            'right'
+          );
           fabricCanvas.add(rightLabel);
           fabricCanvas.bringObjectToFront(rightLabel);
         }
         
-        // Top label
         if (paverTop > 0) {
-          const topLabel = new Text(`Top: ${topArea.toFixed(1)} sq ft`, {
-            ...labelStyle,
-            left: centerX,
-            top: centerY - outerWidthPixels / 2 + (paverTop * scaleReference.pixelLength / scaleReference.length) / 2,
-          });
-          (topLabel as any).isPaverLabel = true;
-          (topLabel as any).poolId = poolId;
+          const topLabel = createEditableDimensionLabel(
+            `${paverTop} ft`,
+            centerX,
+            centerY - outerWidthPixels / 2 + (paverTop * scaleReference.pixelLength / scaleReference.length) / 2,
+            'top'
+          );
           fabricCanvas.add(topLabel);
           fabricCanvas.bringObjectToFront(topLabel);
         }
         
-        // Bottom label
         if (paverBottom > 0) {
-          const bottomLabel = new Text(`Bottom: ${bottomArea.toFixed(1)} sq ft`, {
-            ...labelStyle,
-            left: centerX,
-            top: centerY + outerWidthPixels / 2 - (paverBottom * scaleReference.pixelLength / scaleReference.length) / 2,
-          });
-          (bottomLabel as any).isPaverLabel = true;
-          (bottomLabel as any).poolId = poolId;
+          const bottomLabel = createEditableDimensionLabel(
+            `${paverBottom} ft`,
+            centerX,
+            centerY + outerWidthPixels / 2 - (paverBottom * scaleReference.pixelLength / scaleReference.length) / 2,
+            'bottom'
+          );
           fabricCanvas.add(bottomLabel);
           fabricCanvas.bringObjectToFront(bottomLabel);
         }
