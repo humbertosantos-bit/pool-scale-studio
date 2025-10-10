@@ -639,29 +639,47 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
       const paverTop = parseFloat(paverTopFeet) || 0;
       const paverBottom = parseFloat(paverBottomFeet) || 0;
       
-      // Calculate the outer edge of the coping (or pool if no coping)
-      const copingSizeInFeet = copingSize ? copingSize / 12 : 0;
-      const copingPixelWidth = copingSizeInFeet * scaleReference.pixelLength / scaleReference.length;
-      const outerWidth = pixelWidth + (copingPixelWidth * 2);
-      const outerHeight = pixelHeight + (copingPixelWidth * 2);
-      
-      // Calculate top and bottom paver pixel heights first
-      const paverTopPixelHeight = paverTop * scaleReference.pixelLength / scaleReference.length;
-      const paverBottomPixelHeight = paverBottom * scaleReference.pixelLength / scaleReference.length;
-      
-      // Create paver areas around the pool
-      if (paverLeft > 0) {
-        const paverPixelWidth = paverLeft * scaleReference.pixelLength / scaleReference.length;
-        // Include top and bottom paver heights in the total height
-        const totalHeight = outerHeight + paverTopPixelHeight + paverBottomPixelHeight;
-        const leftPaver = new Rect({
-          left: centerX - outerWidth / 2 - paverPixelWidth / 2,
+      if (paverLeft > 0 || paverRight > 0 || paverTop > 0 || paverBottom > 0) {
+        // Calculate dimensions using the formula:
+        // L = pool length, W = pool width, C = coping size
+        // P_left, P_right, P_top, P_bottom = paver widths
+        
+        const copingSizeInFeet = copingSize ? copingSize / 12 : 0;
+        const L = lengthFt; // pool length
+        const W = widthFt; // pool width
+        const C = copingSizeInFeet;
+        
+        // Outer total dimensions
+        const outerLength = L + (paverLeft + C) + (paverRight + C);
+        const outerWidth = W + (paverTop + C) + (paverBottom + C);
+        
+        // Convert to pixels
+        const outerLengthPixels = outerLength * scaleReference.pixelLength / scaleReference.length;
+        const outerWidthPixels = outerWidth * scaleReference.pixelLength / scaleReference.length;
+        
+        // Pool area
+        const poolArea = L * W;
+        
+        // Calculate each side's area (in sq ft)
+        const leftPaverHeight = W + (paverTop + C) + (paverBottom + C);
+        const rightPaverHeight = W + (paverTop + C) + (paverBottom + C);
+        const topPaverWidth = L + (paverLeft + C) + (paverRight + C);
+        const bottomPaverWidth = L + (paverLeft + C) + (paverRight + C);
+        
+        const leftArea = paverLeft * leftPaverHeight;
+        const rightArea = paverRight * rightPaverHeight;
+        const topArea = paverTop * topPaverWidth;
+        const bottomArea = paverBottom * bottomPaverWidth;
+        
+        // Create semi-transparent paver outline rectangle
+        const paverOutline = new Rect({
+          left: centerX,
           top: centerY,
-          fill: 'rgba(34, 197, 94, 0.2)',
+          fill: 'rgba(34, 197, 94, 0.15)',
           stroke: '#22c55e',
-          strokeWidth: 1,
-          width: paverPixelWidth,
-          height: totalHeight,
+          strokeWidth: 2,
+          width: outerLengthPixels,
+          height: outerWidthPixels,
           originX: 'center',
           originY: 'center',
           selectable: true,
@@ -670,28 +688,31 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
           lockScalingY: true,
           lockRotation: true,
         });
-        (leftPaver as any).paverId = `paver-left-${poolId}`;
-        (leftPaver as any).paverArea = paverLeft * (totalHeight * scaleReference.length / scaleReference.pixelLength);
         
-        // Add delete control to left paver
-        leftPaver.controls['deleteControl'] = new Control({
+        (paverOutline as any).paverId = `paver-outline-${poolId}`;
+        (paverOutline as any).poolId = poolId;
+        
+        // Add delete control to paver outline
+        paverOutline.controls['deleteControl'] = new Control({
           x: 0.5,
           y: -0.5,
           offsetX: 16,
           offsetY: -16,
           cursorStyle: 'pointer',
           mouseUpHandler: () => {
-            const areaTextObj = fabricCanvas.getObjects().find((obj: any) => 
-              obj.paverId === `paver-left-${poolId}` && obj.isPaverArea
+            // Remove all paver-related objects for this pool
+            const objects = fabricCanvas.getObjects();
+            const paverObjects = objects.filter((obj: any) => 
+              (obj.paverId && obj.paverId.includes(poolId)) || 
+              (obj.isPaverLabel && obj.poolId === poolId)
             );
-            if (areaTextObj) fabricCanvas.remove(areaTextObj);
-            fabricCanvas.remove(leftPaver);
-            setPavers(prev => prev.filter(p => p !== leftPaver));
+            paverObjects.forEach(obj => fabricCanvas.remove(obj));
+            setPavers(prev => prev.filter(p => (p as any).poolId !== poolId));
             fabricCanvas.renderAll();
             return true;
           },
           render: (ctx, left, top) => {
-            const size = 20;
+            const size = 24;
             ctx.save();
             ctx.translate(left, top);
             ctx.beginPath();
@@ -699,7 +720,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
             ctx.fillStyle = '#ef4444';
             ctx.fill();
             ctx.strokeStyle = '#fff';
-            ctx.lineWidth = 2;
+            ctx.lineWidth = 2.5;
             ctx.moveTo(-size / 4, -size / 4);
             ctx.lineTo(size / 4, size / 4);
             ctx.moveTo(size / 4, -size / 4);
@@ -709,300 +730,83 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
           },
         });
         
-        fabricCanvas.add(leftPaver);
+        fabricCanvas.add(paverOutline);
         
         // Position paver behind pool
         const bgImage = fabricCanvas.getObjects().find(obj => (obj as any).isBackgroundImage);
         if (bgImage) {
           const bgIndex = fabricCanvas.getObjects().indexOf(bgImage);
-          fabricCanvas.remove(leftPaver);
-          fabricCanvas.insertAt(bgIndex + 1, leftPaver);
+          fabricCanvas.remove(paverOutline);
+          fabricCanvas.insertAt(bgIndex + 1, paverOutline);
         }
         
-        const leftText = new Text(`${(leftPaver as any).paverArea.toFixed(2)} sq ft`, {
-          left: leftPaver.left,
-          top: leftPaver.top,
-          fontSize: 12,
+        setPavers(prev => [...prev, paverOutline]);
+        
+        // Add labels for each side showing square footage
+        const labelStyle = {
+          fontSize: 13,
           fontFamily: 'Inter, Arial, sans-serif',
           fill: '#22c55e',
-          fontWeight: 'bold',
+          fontWeight: 'bold' as const,
           selectable: false,
           evented: false,
-          originX: 'center',
-          originY: 'center',
-          backgroundColor: 'rgba(255, 255, 255, 0.9)',
-          padding: 4,
-        });
-        (leftText as any).paverId = `paver-left-${poolId}`;
-        (leftText as any).isPaverArea = true;
-        fabricCanvas.add(leftText);
-        fabricCanvas.bringObjectToFront(leftText);
-        setPavers(prev => [...prev, leftPaver]);
-      }
-      
-      if (paverRight > 0) {
-        const paverPixelWidth = paverRight * scaleReference.pixelLength / scaleReference.length;
-        // Include top and bottom paver heights in the total height
-        const totalHeight = outerHeight + paverTopPixelHeight + paverBottomPixelHeight;
-        const rightPaver = new Rect({
-          left: centerX + outerWidth / 2 + paverPixelWidth / 2,
-          top: centerY,
-          fill: 'rgba(34, 197, 94, 0.2)',
-          stroke: '#22c55e',
-          strokeWidth: 1,
-          width: paverPixelWidth,
-          height: totalHeight,
-          originX: 'center',
-          originY: 'center',
-          selectable: true,
-          evented: true,
-          lockScalingX: true,
-          lockScalingY: true,
-          lockRotation: true,
-        });
-        (rightPaver as any).paverId = `paver-right-${poolId}`;
-        (rightPaver as any).paverArea = paverRight * (totalHeight * scaleReference.length / scaleReference.pixelLength);
+          originX: 'center' as const,
+          originY: 'center' as const,
+          backgroundColor: 'rgba(255, 255, 255, 0.95)',
+          padding: 6,
+        };
         
-        // Add delete control to right paver
-        rightPaver.controls['deleteControl'] = new Control({
-          x: 0.5,
-          y: -0.5,
-          offsetX: 16,
-          offsetY: -16,
-          cursorStyle: 'pointer',
-          mouseUpHandler: () => {
-            const areaTextObj = fabricCanvas.getObjects().find((obj: any) => 
-              obj.paverId === `paver-right-${poolId}` && obj.isPaverArea
-            );
-            if (areaTextObj) fabricCanvas.remove(areaTextObj);
-            fabricCanvas.remove(rightPaver);
-            setPavers(prev => prev.filter(p => p !== rightPaver));
-            fabricCanvas.renderAll();
-            return true;
-          },
-          render: (ctx, left, top) => {
-            const size = 20;
-            ctx.save();
-            ctx.translate(left, top);
-            ctx.beginPath();
-            ctx.arc(0, 0, size / 2, 0, 2 * Math.PI);
-            ctx.fillStyle = '#ef4444';
-            ctx.fill();
-            ctx.strokeStyle = '#fff';
-            ctx.lineWidth = 2;
-            ctx.moveTo(-size / 4, -size / 4);
-            ctx.lineTo(size / 4, size / 4);
-            ctx.moveTo(size / 4, -size / 4);
-            ctx.lineTo(-size / 4, size / 4);
-            ctx.stroke();
-            ctx.restore();
-          },
-        });
-        
-        fabricCanvas.add(rightPaver);
-        
-        const bgImage = fabricCanvas.getObjects().find(obj => (obj as any).isBackgroundImage);
-        if (bgImage) {
-          const bgIndex = fabricCanvas.getObjects().indexOf(bgImage);
-          fabricCanvas.remove(rightPaver);
-          fabricCanvas.insertAt(bgIndex + 1, rightPaver);
+        // Left label
+        if (paverLeft > 0) {
+          const leftLabel = new Text(`Left: ${leftArea.toFixed(1)} sq ft`, {
+            ...labelStyle,
+            left: centerX - outerLengthPixels / 2 + (paverLeft * scaleReference.pixelLength / scaleReference.length) / 2,
+            top: centerY,
+          });
+          (leftLabel as any).isPaverLabel = true;
+          (leftLabel as any).poolId = poolId;
+          fabricCanvas.add(leftLabel);
+          fabricCanvas.bringObjectToFront(leftLabel);
         }
         
-        const rightText = new Text(`${(rightPaver as any).paverArea.toFixed(2)} sq ft`, {
-          left: rightPaver.left,
-          top: rightPaver.top,
-          fontSize: 12,
-          fontFamily: 'Inter, Arial, sans-serif',
-          fill: '#22c55e',
-          fontWeight: 'bold',
-          selectable: false,
-          evented: false,
-          originX: 'center',
-          originY: 'center',
-          backgroundColor: 'rgba(255, 255, 255, 0.9)',
-          padding: 4,
-        });
-        (rightText as any).paverId = `paver-right-${poolId}`;
-        (rightText as any).isPaverArea = true;
-        fabricCanvas.add(rightText);
-        fabricCanvas.bringObjectToFront(rightText);
-        setPavers(prev => [...prev, rightPaver]);
-      }
-      
-      if (paverTop > 0) {
-        const paverPixelHeight = paverTop * scaleReference.pixelLength / scaleReference.length;
-        const totalWidth = outerWidth + (paverLeft > 0 ? paverLeft * scaleReference.pixelLength / scaleReference.length : 0) + (paverRight > 0 ? paverRight * scaleReference.pixelLength / scaleReference.length : 0);
-        const topPaver = new Rect({
-          left: centerX,
-          top: centerY - outerHeight / 2 - paverPixelHeight / 2,
-          fill: 'rgba(34, 197, 94, 0.2)',
-          stroke: '#22c55e',
-          strokeWidth: 1,
-          width: totalWidth,
-          height: paverPixelHeight,
-          originX: 'center',
-          originY: 'center',
-          selectable: true,
-          evented: true,
-          lockScalingX: true,
-          lockScalingY: true,
-          lockRotation: true,
-        });
-        (topPaver as any).paverId = `paver-top-${poolId}`;
-        (topPaver as any).paverArea = paverTop * (totalWidth * scaleReference.length / scaleReference.pixelLength);
-        
-        // Add delete control to top paver
-        topPaver.controls['deleteControl'] = new Control({
-          x: 0.5,
-          y: -0.5,
-          offsetX: 16,
-          offsetY: -16,
-          cursorStyle: 'pointer',
-          mouseUpHandler: () => {
-            const areaTextObj = fabricCanvas.getObjects().find((obj: any) => 
-              obj.paverId === `paver-top-${poolId}` && obj.isPaverArea
-            );
-            if (areaTextObj) fabricCanvas.remove(areaTextObj);
-            fabricCanvas.remove(topPaver);
-            setPavers(prev => prev.filter(p => p !== topPaver));
-            fabricCanvas.renderAll();
-            return true;
-          },
-          render: (ctx, left, top) => {
-            const size = 20;
-            ctx.save();
-            ctx.translate(left, top);
-            ctx.beginPath();
-            ctx.arc(0, 0, size / 2, 0, 2 * Math.PI);
-            ctx.fillStyle = '#ef4444';
-            ctx.fill();
-            ctx.strokeStyle = '#fff';
-            ctx.lineWidth = 2;
-            ctx.moveTo(-size / 4, -size / 4);
-            ctx.lineTo(size / 4, size / 4);
-            ctx.moveTo(size / 4, -size / 4);
-            ctx.lineTo(-size / 4, size / 4);
-            ctx.stroke();
-            ctx.restore();
-          },
-        });
-        
-        fabricCanvas.add(topPaver);
-        
-        const bgImage = fabricCanvas.getObjects().find(obj => (obj as any).isBackgroundImage);
-        if (bgImage) {
-          const bgIndex = fabricCanvas.getObjects().indexOf(bgImage);
-          fabricCanvas.remove(topPaver);
-          fabricCanvas.insertAt(bgIndex + 1, topPaver);
+        // Right label
+        if (paverRight > 0) {
+          const rightLabel = new Text(`Right: ${rightArea.toFixed(1)} sq ft`, {
+            ...labelStyle,
+            left: centerX + outerLengthPixels / 2 - (paverRight * scaleReference.pixelLength / scaleReference.length) / 2,
+            top: centerY,
+          });
+          (rightLabel as any).isPaverLabel = true;
+          (rightLabel as any).poolId = poolId;
+          fabricCanvas.add(rightLabel);
+          fabricCanvas.bringObjectToFront(rightLabel);
         }
         
-        const topText = new Text(`${(topPaver as any).paverArea.toFixed(2)} sq ft`, {
-          left: topPaver.left,
-          top: topPaver.top,
-          fontSize: 12,
-          fontFamily: 'Inter, Arial, sans-serif',
-          fill: '#22c55e',
-          fontWeight: 'bold',
-          selectable: false,
-          evented: false,
-          originX: 'center',
-          originY: 'center',
-          backgroundColor: 'rgba(255, 255, 255, 0.9)',
-          padding: 4,
-        });
-        (topText as any).paverId = `paver-top-${poolId}`;
-        (topText as any).isPaverArea = true;
-        fabricCanvas.add(topText);
-        fabricCanvas.bringObjectToFront(topText);
-        setPavers(prev => [...prev, topPaver]);
-      }
-      
-      if (paverBottom > 0) {
-        const paverPixelHeight = paverBottom * scaleReference.pixelLength / scaleReference.length;
-        const totalWidth = outerWidth + (paverLeft > 0 ? paverLeft * scaleReference.pixelLength / scaleReference.length : 0) + (paverRight > 0 ? paverRight * scaleReference.pixelLength / scaleReference.length : 0);
-        const bottomPaver = new Rect({
-          left: centerX,
-          top: centerY + outerHeight / 2 + paverPixelHeight / 2,
-          fill: 'rgba(34, 197, 94, 0.2)',
-          stroke: '#22c55e',
-          strokeWidth: 1,
-          width: totalWidth,
-          height: paverPixelHeight,
-          originX: 'center',
-          originY: 'center',
-          selectable: true,
-          evented: true,
-          lockScalingX: true,
-          lockScalingY: true,
-          lockRotation: true,
-        });
-        (bottomPaver as any).paverId = `paver-bottom-${poolId}`;
-        (bottomPaver as any).paverArea = paverBottom * (totalWidth * scaleReference.length / scaleReference.pixelLength);
-        
-        // Add delete control to bottom paver
-        bottomPaver.controls['deleteControl'] = new Control({
-          x: 0.5,
-          y: -0.5,
-          offsetX: 16,
-          offsetY: -16,
-          cursorStyle: 'pointer',
-          mouseUpHandler: () => {
-            const areaTextObj = fabricCanvas.getObjects().find((obj: any) => 
-              obj.paverId === `paver-bottom-${poolId}` && obj.isPaverArea
-            );
-            if (areaTextObj) fabricCanvas.remove(areaTextObj);
-            fabricCanvas.remove(bottomPaver);
-            setPavers(prev => prev.filter(p => p !== bottomPaver));
-            fabricCanvas.renderAll();
-            return true;
-          },
-          render: (ctx, left, top) => {
-            const size = 20;
-            ctx.save();
-            ctx.translate(left, top);
-            ctx.beginPath();
-            ctx.arc(0, 0, size / 2, 0, 2 * Math.PI);
-            ctx.fillStyle = '#ef4444';
-            ctx.fill();
-            ctx.strokeStyle = '#fff';
-            ctx.lineWidth = 2;
-            ctx.moveTo(-size / 4, -size / 4);
-            ctx.lineTo(size / 4, size / 4);
-            ctx.moveTo(size / 4, -size / 4);
-            ctx.lineTo(-size / 4, size / 4);
-            ctx.stroke();
-            ctx.restore();
-          },
-        });
-        
-        fabricCanvas.add(bottomPaver);
-        
-        const bgImage = fabricCanvas.getObjects().find(obj => (obj as any).isBackgroundImage);
-        if (bgImage) {
-          const bgIndex = fabricCanvas.getObjects().indexOf(bgImage);
-          fabricCanvas.remove(bottomPaver);
-          fabricCanvas.insertAt(bgIndex + 1, bottomPaver);
+        // Top label
+        if (paverTop > 0) {
+          const topLabel = new Text(`Top: ${topArea.toFixed(1)} sq ft`, {
+            ...labelStyle,
+            left: centerX,
+            top: centerY - outerWidthPixels / 2 + (paverTop * scaleReference.pixelLength / scaleReference.length) / 2,
+          });
+          (topLabel as any).isPaverLabel = true;
+          (topLabel as any).poolId = poolId;
+          fabricCanvas.add(topLabel);
+          fabricCanvas.bringObjectToFront(topLabel);
         }
         
-        const bottomText = new Text(`${(bottomPaver as any).paverArea.toFixed(2)} sq ft`, {
-          left: bottomPaver.left,
-          top: bottomPaver.top,
-          fontSize: 12,
-          fontFamily: 'Inter, Arial, sans-serif',
-          fill: '#22c55e',
-          fontWeight: 'bold',
-          selectable: false,
-          evented: false,
-          originX: 'center',
-          originY: 'center',
-          backgroundColor: 'rgba(255, 255, 255, 0.9)',
-          padding: 4,
-        });
-        (bottomText as any).paverId = `paver-bottom-${poolId}`;
-        (bottomText as any).isPaverArea = true;
-        fabricCanvas.add(bottomText);
-        fabricCanvas.bringObjectToFront(bottomText);
-        setPavers(prev => [...prev, bottomPaver]);
+        // Bottom label
+        if (paverBottom > 0) {
+          const bottomLabel = new Text(`Bottom: ${bottomArea.toFixed(1)} sq ft`, {
+            ...labelStyle,
+            left: centerX,
+            top: centerY + outerWidthPixels / 2 - (paverBottom * scaleReference.pixelLength / scaleReference.length) / 2,
+          });
+          (bottomLabel as any).isPaverLabel = true;
+          (bottomLabel as any).poolId = poolId;
+          fabricCanvas.add(bottomLabel);
+          fabricCanvas.bringObjectToFront(bottomLabel);
+        }
       }
       
       // Ensure proper layering: image at back, pool above image, measurements on top
