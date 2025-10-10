@@ -45,6 +45,8 @@ export const PoolDesigner: React.FC = () => {
                 onTimeOfDayChange={poolState.onTimeOfDayChange}
                 selectedProvince={poolState.selectedProvince}
                 onSelectedProvinceChange={poolState.onSelectedProvinceChange}
+                bgImageOpacity={poolState.bgImageOpacity}
+                onBgImageOpacityChange={poolState.onBgImageOpacityChange}
               />
             )}
             

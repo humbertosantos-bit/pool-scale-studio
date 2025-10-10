@@ -58,6 +58,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
   const [selectedProvince, setSelectedProvince] = useState<string>('Quebec');
   const solarOverlayRef = useRef<FabricImage | null>(null);
   const northArrowRef = useRef<Group | null>(null);
+  const [bgImageOpacity, setBgImageOpacity] = useState(1);
 
   useEffect(() => {
     if (!canvasRef.current || !containerRef.current) return;
@@ -440,6 +441,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
           lockRotation: false,
           hasControls: true,
           hasBorders: true,
+          opacity: bgImageOpacity,
         });
         
         // Only show rotation control
@@ -469,6 +471,13 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
     };
     reader.readAsDataURL(imageFile);
   }, [fabricCanvas, imageFile]);
+
+  // Update background image opacity when it changes
+  useEffect(() => {
+    if (!bgImageRef.current || !fabricCanvas) return;
+    bgImageRef.current.set({ opacity: bgImageOpacity });
+    fabricCanvas.renderAll();
+  }, [bgImageOpacity, fabricCanvas]);
 
   const addPool = () => {
     if (!fabricCanvas || !scaleReference) return;
@@ -3054,9 +3063,11 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         onTimeOfDayChange: setTimeOfDay,
         selectedProvince,
         onSelectedProvinceChange: setSelectedProvince,
+        bgImageOpacity,
+        onBgImageOpacityChange: setBgImageOpacity,
       });
     }
-  }, [scaleUnit, isSettingScale, scaleReference, poolLengthFeet, poolLengthInches, poolWidthFeet, poolWidthInches, measurementMode, isMeasuring, typedDistanceFeet, typedDistanceInches, typedDistanceMeters, copingSize, paverLeftFeet, paverRightFeet, paverTopFeet, paverBottomFeet, isDrawingFence, isDrawingPaver, showSolarOverlay, timeOfDay, selectedProvince]);
+  }, [scaleUnit, isSettingScale, scaleReference, poolLengthFeet, poolLengthInches, poolWidthFeet, poolWidthInches, measurementMode, isMeasuring, typedDistanceFeet, typedDistanceInches, typedDistanceMeters, copingSize, paverLeftFeet, paverRightFeet, paverTopFeet, paverBottomFeet, isDrawingFence, isDrawingPaver, showSolarOverlay, timeOfDay, selectedProvince, bgImageOpacity]);
 
   return (
     <div className={cn("flex flex-col h-full", className)}>

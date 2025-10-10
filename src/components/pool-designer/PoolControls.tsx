@@ -63,6 +63,10 @@ interface PoolControlsProps {
   onTimeOfDayChange: (time: number) => void;
   selectedProvince: string;
   onSelectedProvinceChange: (province: string) => void;
+  
+  // Background image opacity
+  bgImageOpacity: number;
+  onBgImageOpacityChange: (opacity: number) => void;
 }
 
 export const PoolControls: React.FC<PoolControlsProps> = ({
@@ -119,6 +123,8 @@ export const PoolControls: React.FC<PoolControlsProps> = ({
   onTimeOfDayChange,
   selectedProvince,
   onSelectedProvinceChange,
+  bgImageOpacity,
+  onBgImageOpacityChange,
 }) => {
   return (
     <div className="space-y-4">
@@ -533,6 +539,30 @@ export const PoolControls: React.FC<PoolControlsProps> = ({
               >
                 Delete Selected Paver
               </button>
+            </div>
+          </div>
+
+          {/* Background Image Opacity Section */}
+          <div className="border rounded-lg overflow-hidden">
+            <div className="bg-primary px-4 py-3">
+              <h2 className="text-sm font-semibold text-primary-foreground">🖼️ Image Opacity</h2>
+            </div>
+            <div className="p-4 space-y-2">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="bg-opacity" className="text-sm font-medium">
+                  Background Opacity
+                </Label>
+                <span className="text-sm text-muted-foreground">{Math.round(bgImageOpacity * 100)}%</span>
+              </div>
+              <Slider
+                id="bg-opacity"
+                value={[bgImageOpacity]}
+                onValueChange={(value) => onBgImageOpacityChange(value[0])}
+                min={0}
+                max={1}
+                step={0.01}
+                className="w-full"
+              />
             </div>
           </div>
 
