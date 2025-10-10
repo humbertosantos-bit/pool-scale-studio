@@ -28,6 +28,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
   const [measurementMode, setMeasurementMode] = useState<'draw' | 'type'>('draw');
   const [typedDistanceFeet, setTypedDistanceFeet] = useState('');
   const [typedDistanceInches, setTypedDistanceInches] = useState('');
+  const [typedDistanceMeters, setTypedDistanceMeters] = useState('');
   const [poolLengthFeet, setPoolLengthFeet] = useState('20');
   const [poolLengthInches, setPoolLengthInches] = useState('0');
   const [poolWidthFeet, setPoolWidthFeet] = useState('12');
@@ -578,6 +579,44 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         evented: false,
       });
 
+      // Add delete control (X button)
+      pool.controls['deleteControl'] = new Control({
+        x: -0.5,
+        y: -0.5,
+        offsetX: -16,
+        offsetY: -16,
+        cursorStyle: 'pointer',
+        mouseUpHandler: () => {
+          // Find and delete all related objects (pool, coping, dimension text, pavers)
+          const objects = fabricCanvas.getObjects();
+          const relatedObjects = objects.filter((obj: any) => 
+            obj.poolId === poolId || 
+            (obj.paverId && obj.paverId.includes(`-${poolId}`))
+          );
+          relatedObjects.forEach(obj => fabricCanvas.remove(obj));
+          setPools(prev => prev.filter(p => (p as any).poolId !== poolId));
+          fabricCanvas.renderAll();
+          return true;
+        },
+        render: (ctx, left, top) => {
+          const size = 24;
+          ctx.save();
+          ctx.translate(left, top);
+          ctx.beginPath();
+          ctx.arc(0, 0, size / 2, 0, 2 * Math.PI);
+          ctx.fillStyle = '#ef4444';
+          ctx.fill();
+          ctx.strokeStyle = '#fff';
+          ctx.lineWidth = 2.5;
+          ctx.moveTo(-size / 4, -size / 4);
+          ctx.lineTo(size / 4, size / 4);
+          ctx.moveTo(size / 4, -size / 4);
+          ctx.lineTo(-size / 4, size / 4);
+          ctx.stroke();
+          ctx.restore();
+        },
+      });
+
       (pool as any).poolId = poolId;
       (dimensionText as any).poolId = poolId;
       (dimensionText as any).isDimensionText = true;
@@ -1078,13 +1117,27 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
   const addTypedMeasurement = () => {
     if (!fabricCanvas || !scaleReference) return;
     
-    const distanceFt = parseFloat(typedDistanceFeet) || 0;
-    const distanceIn = parseFloat(typedDistanceInches) || 0;
-    const distance = distanceFt + distanceIn / 12;
+    let distance: number;
     
-    if (distance <= 0) {
-      alert('Please enter a valid positive number for the distance.');
-      return;
+    if (scaleUnit === 'meters') {
+      // Use meters input
+      const distanceM = parseFloat(typedDistanceMeters) || 0;
+      distance = distanceM;
+      
+      if (distance <= 0) {
+        alert('Please enter a valid positive number for the distance in meters.');
+        return;
+      }
+    } else {
+      // Use feet + inches input
+      const distanceFt = parseFloat(typedDistanceFeet) || 0;
+      const distanceIn = parseFloat(typedDistanceInches) || 0;
+      distance = distanceFt + distanceIn / 12;
+      
+      if (distance <= 0) {
+        alert('Please enter a valid positive number for the distance.');
+        return;
+      }
     }
     
     const pixelLength = (distance * scaleReference.pixelLength) / scaleReference.length;
@@ -1157,6 +1210,38 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
       hasBorders: true,
     });
     
+    // Add delete control (X button)
+    measurementGroup.controls['deleteControl'] = new Control({
+      x: 0.5,
+      y: -0.5,
+      offsetX: 16,
+      offsetY: -16,
+      cursorStyle: 'pointer',
+      mouseUpHandler: () => {
+        fabricCanvas.remove(measurementGroup);
+        setMeasurementLines(prev => prev.filter(m => m !== measurementGroup));
+        fabricCanvas.renderAll();
+        return true;
+      },
+      render: (ctx, left, top) => {
+        const size = 20;
+        ctx.save();
+        ctx.translate(left, top);
+        ctx.beginPath();
+        ctx.arc(0, 0, size / 2, 0, 2 * Math.PI);
+        ctx.fillStyle = '#ef4444';
+        ctx.fill();
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        ctx.moveTo(-size / 4, -size / 4);
+        ctx.lineTo(size / 4, size / 4);
+        ctx.moveTo(size / 4, -size / 4);
+        ctx.lineTo(-size / 4, size / 4);
+        ctx.stroke();
+        ctx.restore();
+      },
+    });
+    
     (measurementGroup as any).measurementId = `measurement-${Date.now()}`;
     (measurementGroup as any).measurementData = {
       pixelLength: pixelLength,
@@ -1167,6 +1252,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
     setMeasurementLines(prev => [...prev, measurementGroup]);
     setTypedDistanceFeet('');
     setTypedDistanceInches('');
+    setTypedDistanceMeters('');
     fabricCanvas.renderAll();
   };
 
@@ -1768,6 +1854,43 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         
         (fence as any).fenceId = fenceId;
         
+        // Add delete control (X button) to fence
+        fence.controls['deleteControl'] = new Control({
+          x: 0.5,
+          y: -0.5,
+          offsetX: 16,
+          offsetY: -16,
+          cursorStyle: 'pointer',
+          mouseUpHandler: () => {
+            // Remove fence and its markers
+            const markers = fabricCanvas.getObjects().filter((obj: any) => 
+              obj.fenceId === fenceId && obj.isFenceMarker
+            );
+            markers.forEach(marker => fabricCanvas.remove(marker));
+            fabricCanvas.remove(fence);
+            setFences(prev => prev.filter(f => f !== fence));
+            fabricCanvas.renderAll();
+            return true;
+          },
+          render: (ctx, left, top) => {
+            const size = 20;
+            ctx.save();
+            ctx.translate(left, top);
+            ctx.beginPath();
+            ctx.arc(0, 0, size / 2, 0, 2 * Math.PI);
+            ctx.fillStyle = '#ef4444';
+            ctx.fill();
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.moveTo(-size / 4, -size / 4);
+            ctx.lineTo(size / 4, size / 4);
+            ctx.moveTo(size / 4, -size / 4);
+            ctx.lineTo(-size / 4, size / 4);
+            ctx.stroke();
+            ctx.restore();
+          },
+        });
+        
         // Function to create and add markers for the fence
         const updateFenceMarkers = (fenceObj: Polyline) => {
           if (!scaleReference) return;
@@ -2078,6 +2201,43 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
           });
         });
         
+        // Add delete control (X button) to drawn paver
+        paver.controls['deleteControl'] = new Control({
+          x: 0.5,
+          y: -0.5,
+          offsetX: 16,
+          offsetY: -16,
+          cursorStyle: 'pointer',
+          mouseUpHandler: () => {
+            // Remove paver and its area text
+            const areaTextObj = fabricCanvas.getObjects().find((obj: any) => 
+              obj.paverId === paverId && obj.isPaverArea
+            );
+            if (areaTextObj) fabricCanvas.remove(areaTextObj);
+            fabricCanvas.remove(paver);
+            setPavers(prev => prev.filter(p => p !== paver));
+            fabricCanvas.renderAll();
+            return true;
+          },
+          render: (ctx, left, top) => {
+            const size = 20;
+            ctx.save();
+            ctx.translate(left, top);
+            ctx.beginPath();
+            ctx.arc(0, 0, size / 2, 0, 2 * Math.PI);
+            ctx.fillStyle = '#ef4444';
+            ctx.fill();
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.moveTo(-size / 4, -size / 4);
+            ctx.lineTo(size / 4, size / 4);
+            ctx.moveTo(size / 4, -size / 4);
+            ctx.lineTo(-size / 4, size / 4);
+            ctx.stroke();
+            ctx.restore();
+          },
+        });
+        
         (paver as any).paverId = paverId;
         
         // Calculate and display area
@@ -2371,24 +2531,26 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
       sunX, sunY, sunSourceDistance * 1.5
     );
     
-    // Brighter, more visible colors based on sun altitude
+    // Brighter, more vibrant colors for better visibility
     if (intensity > 0.6) {
-      // High sun - bright yellow/orange
-      gradient.addColorStop(0, `rgba(255, 220, 50, ${0.8 * intensity})`);
-      gradient.addColorStop(0.3, `rgba(255, 200, 80, ${0.6 * intensity})`);
-      gradient.addColorStop(0.6, `rgba(255, 180, 100, ${0.4 * intensity})`);
-      gradient.addColorStop(1, 'rgba(120, 120, 150, 0.1)');
+      // High sun - intense bright yellow/orange
+      gradient.addColorStop(0, `rgba(255, 200, 0, ${1.0 * intensity})`);
+      gradient.addColorStop(0.2, `rgba(255, 210, 40, ${0.9 * intensity})`);
+      gradient.addColorStop(0.5, `rgba(255, 180, 80, ${0.7 * intensity})`);
+      gradient.addColorStop(0.8, `rgba(255, 150, 100, ${0.5 * intensity})`);
+      gradient.addColorStop(1, 'rgba(180, 180, 200, 0.2)');
     } else if (intensity > 0.3) {
-      // Medium sun - yellow
-      gradient.addColorStop(0, `rgba(255, 230, 100, ${0.7 * intensity})`);
-      gradient.addColorStop(0.4, `rgba(255, 210, 120, ${0.5 * intensity})`);
-      gradient.addColorStop(0.7, `rgba(200, 200, 220, ${0.3 * intensity})`);
-      gradient.addColorStop(1, 'rgba(140, 140, 160, 0.1)');
+      // Medium sun - bright yellow
+      gradient.addColorStop(0, `rgba(255, 220, 50, ${0.95 * intensity})`);
+      gradient.addColorStop(0.3, `rgba(255, 200, 80, ${0.8 * intensity})`);
+      gradient.addColorStop(0.6, `rgba(255, 180, 120, ${0.6 * intensity})`);
+      gradient.addColorStop(1, 'rgba(200, 200, 220, 0.2)');
     } else {
-      // Low sun - pale yellow
-      gradient.addColorStop(0, `rgba(255, 240, 150, ${0.5 * intensity})`);
-      gradient.addColorStop(0.5, `rgba(220, 220, 230, ${0.3 * intensity})`);
-      gradient.addColorStop(1, 'rgba(160, 160, 180, 0.05)');
+      // Low sun - warm golden
+      gradient.addColorStop(0, `rgba(255, 230, 100, ${0.8 * intensity})`);
+      gradient.addColorStop(0.4, `rgba(255, 210, 130, ${0.6 * intensity})`);
+      gradient.addColorStop(0.7, `rgba(240, 200, 160, ${0.4 * intensity})`);
+      gradient.addColorStop(1, 'rgba(200, 200, 220, 0.15)');
     }
     
     ctx.fillStyle = gradient;
@@ -2408,7 +2570,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         angle: imgAngle,
         selectable: false,
         evented: false,
-        opacity: 0.85,
+        opacity: 0.95,
         originX: 'left',
         originY: 'top',
       });
@@ -2602,6 +2764,43 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
       });
     });
 
+    // Add delete control (X button) to paver
+    paver.controls['deleteControl'] = new Control({
+      x: 0.5,
+      y: -0.5,
+      offsetX: 16,
+      offsetY: -16,
+      cursorStyle: 'pointer',
+      mouseUpHandler: () => {
+        // Remove paver and its area text
+        const areaTextObj = fabricCanvas.getObjects().find((obj: any) => 
+          obj.paverId === paverId && obj.isPaverArea
+        );
+        if (areaTextObj) fabricCanvas.remove(areaTextObj);
+        fabricCanvas.remove(paver);
+        setPavers(prev => prev.filter(p => p !== paver));
+        fabricCanvas.renderAll();
+        return true;
+      },
+      render: (ctx, left, top) => {
+        const size = 20;
+        ctx.save();
+        ctx.translate(left, top);
+        ctx.beginPath();
+        ctx.arc(0, 0, size / 2, 0, 2 * Math.PI);
+        ctx.fillStyle = '#ef4444';
+        ctx.fill();
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        ctx.moveTo(-size / 4, -size / 4);
+        ctx.lineTo(size / 4, size / 4);
+        ctx.moveTo(size / 4, -size / 4);
+        ctx.lineTo(-size / 4, size / 4);
+        ctx.stroke();
+        ctx.restore();
+      },
+    });
+
     // Calculate area
     const area = widthFeet * lengthFeet;
     (paver as any).paverArea = area;
@@ -2670,8 +2869,10 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         onStartMeasurement: startMeasurement,
         typedDistanceFeet,
         typedDistanceInches,
+        typedDistanceMeters,
         onTypedDistanceFeetChange: setTypedDistanceFeet,
         onTypedDistanceInchesChange: setTypedDistanceInches,
+        onTypedDistanceMetersChange: setTypedDistanceMeters,
         onAddTypedMeasurement: addTypedMeasurement,
         onDeleteSelectedMeasurement: deleteSelectedMeasurement,
         copingSize,
@@ -2699,7 +2900,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         onSelectedProvinceChange: setSelectedProvince,
       });
     }
-  }, [scaleUnit, isSettingScale, scaleReference, poolLengthFeet, poolLengthInches, poolWidthFeet, poolWidthInches, measurementMode, isMeasuring, typedDistanceFeet, typedDistanceInches, copingSize, paverLeftFeet, paverRightFeet, paverTopFeet, paverBottomFeet, isDrawingFence, isDrawingPaver, showSolarOverlay, timeOfDay, selectedProvince]);
+  }, [scaleUnit, isSettingScale, scaleReference, poolLengthFeet, poolLengthInches, poolWidthFeet, poolWidthInches, measurementMode, isMeasuring, typedDistanceFeet, typedDistanceInches, typedDistanceMeters, copingSize, paverLeftFeet, paverRightFeet, paverTopFeet, paverBottomFeet, isDrawingFence, isDrawingPaver, showSolarOverlay, timeOfDay, selectedProvince]);
 
   return (
     <div className={cn("flex flex-col h-full", className)}>

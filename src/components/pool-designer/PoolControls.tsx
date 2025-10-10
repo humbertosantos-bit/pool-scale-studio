@@ -30,8 +30,10 @@ interface PoolControlsProps {
   onStartMeasurement: () => void;
   typedDistanceFeet: string;
   typedDistanceInches: string;
+  typedDistanceMeters: string;
   onTypedDistanceFeetChange: (value: string) => void;
   onTypedDistanceInchesChange: (value: string) => void;
+  onTypedDistanceMetersChange: (value: string) => void;
   onAddTypedMeasurement: () => void;
   onDeleteSelectedMeasurement: () => void;
   copingSize: number | null;
@@ -86,8 +88,10 @@ export const PoolControls: React.FC<PoolControlsProps> = ({
   onStartMeasurement,
   typedDistanceFeet,
   typedDistanceInches,
+  typedDistanceMeters,
   onTypedDistanceFeetChange,
   onTypedDistanceInchesChange,
+  onTypedDistanceMetersChange,
   onAddTypedMeasurement,
   onDeleteSelectedMeasurement,
   copingSize,
@@ -222,6 +226,7 @@ export const PoolControls: React.FC<PoolControlsProps> = ({
               
               <div className="pt-3 border-t">
                 <label className="text-sm font-semibold mb-2 block">Pavers Around Pool (FT)</label>
+                <p className="text-xs text-muted-foreground mb-2">💡 Set before adding pool, or click pool + adjust values to update</p>
                 <div className="grid grid-cols-2 gap-2 mb-2">
                   <div>
                     <label className="text-xs text-muted-foreground mb-1 block">Left</label>
@@ -378,27 +383,43 @@ export const PoolControls: React.FC<PoolControlsProps> = ({
                 </button>
               ) : (
                 <>
-                  <div className="flex items-center gap-1">
-                    <input
-                      type="number"
-                      value={typedDistanceFeet}
-                      onChange={(e) => onTypedDistanceFeetChange(e.target.value)}
-                      placeholder="0"
-                      className="w-16 px-2 py-2 border rounded-md text-sm"
-                      min="0"
-                    />
-                    <span className="text-xs text-muted-foreground">FT</span>
-                    <input
-                      type="number"
-                      value={typedDistanceInches}
-                      onChange={(e) => onTypedDistanceInchesChange(e.target.value)}
-                      placeholder="0"
-                      className="w-16 px-2 py-2 border rounded-md text-sm"
-                      min="0"
-                      max="11"
-                    />
-                    <span className="text-xs text-muted-foreground">IN</span>
-                  </div>
+                  {scaleUnit === 'feet' ? (
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="number"
+                        value={typedDistanceFeet}
+                        onChange={(e) => onTypedDistanceFeetChange(e.target.value)}
+                        placeholder="0"
+                        className="w-16 px-2 py-2 border rounded-md text-sm"
+                        min="0"
+                        step="0.1"
+                      />
+                      <span className="text-xs text-muted-foreground">FT</span>
+                      <input
+                        type="number"
+                        value={typedDistanceInches}
+                        onChange={(e) => onTypedDistanceInchesChange(e.target.value)}
+                        placeholder="0"
+                        className="w-16 px-2 py-2 border rounded-md text-sm"
+                        min="0"
+                        max="11"
+                      />
+                      <span className="text-xs text-muted-foreground">IN</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="number"
+                        value={typedDistanceMeters}
+                        onChange={(e) => onTypedDistanceMetersChange(e.target.value)}
+                        placeholder="0"
+                        className="flex-1 px-3 py-2 border rounded-md text-sm"
+                        min="0"
+                        step="0.1"
+                      />
+                      <span className="text-xs text-muted-foreground">METERS</span>
+                    </div>
+                  )}
                   <button
                     onClick={onAddTypedMeasurement}
                     className="w-full px-4 py-2 bg-foreground text-background rounded-md hover:bg-foreground/90 text-sm"
