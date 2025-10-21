@@ -1,666 +1,444 @@
-import React from 'react';
-
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { FileUpload } from '@/components/ui/file-upload';
-import { Slider } from '@/components/ui/slider';
-import { Switch } from '@/components/ui/switch';
+import React, { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { CANADIAN_PROVINCES, type Province } from '@/utils/solarCalculations';
+import { Switch } from '@/components/ui/switch';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import type { Unit, CopingSize, PoolModel, CustomPoolDimensions, PaverConfig } from '@/types/poolDesigner';
+import { PREDEFINED_MODELS, formatDimension, feetToMeters, metersToFeet } from '@/types/poolDesigner';
 
 interface PoolControlsProps {
-  scaleUnit: 'feet' | 'meters';
-  onUnitChange: (unit: 'feet' | 'meters') => void;
-  isSettingScale: boolean;
+  unit: Unit;
+  onUnitChange: (unit: Unit) => void;
+  selectedModel: PoolModel | null;
+  onModelSelect: (model: PoolModel | null) => void;
+  isCustom: boolean;
+  onIsCustomChange: (isCustom: boolean) => void;
+  customDimensions: CustomPoolDimensions;
+  onCustomDimensionsChange: (dims: CustomPoolDimensions) => void;
+  copingSize: CopingSize;
+  onCopingSizeChange: (size: CopingSize) => void;
+  paverConfig: PaverConfig;
+  onPaverConfigChange: (config: PaverConfig) => void;
   scaleReference: { length: number; pixelLength: number } | null;
   onStartScaleReference: () => void;
-  poolLengthFeet: string;
-  poolLengthInches: string;
-  poolWidthFeet: string;
-  poolWidthInches: string;
-  onPoolLengthFeetChange: (value: string) => void;
-  onPoolLengthInchesChange: (value: string) => void;
-  onPoolWidthFeetChange: (value: string) => void;
-  onPoolWidthInchesChange: (value: string) => void;
-  onAddPool: () => void;
-  onAddPresetPool?: (length: number, width: number) => void;
-  onDeleteSelectedPool: () => void;
-  measurementMode: 'draw' | 'type';
-  onMeasurementModeChange: (mode: 'draw' | 'type') => void;
-  isMeasuring: boolean;
-  onStartMeasurement: () => void;
-  typedDistanceFeet: string;
-  typedDistanceInches: string;
-  typedDistanceMeters: string;
-  onTypedDistanceFeetChange: (value: string) => void;
-  onTypedDistanceInchesChange: (value: string) => void;
-  onTypedDistanceMetersChange: (value: string) => void;
-  onAddTypedMeasurement: () => void;
-  onDeleteSelectedMeasurement: () => void;
-  copingSize: number | null;
-  onCopingSizeChange: (size: number | null) => void;
-  paverLeftFeet: string;
-  paverRightFeet: string;
-  paverTopFeet: string;
-  paverBottomFeet: string;
-  onPaverLeftFeetChange: (value: string) => void;
-  onPaverRightFeetChange: (value: string) => void;
-  onPaverTopFeetChange: (value: string) => void;
-  onPaverBottomFeetChange: (value: string) => void;
-  isDrawingFence: boolean;
-  onStartFenceDrawing: () => void;
-  onDeleteSelectedFence: () => void;
-  isDrawingPaver: boolean;
-  onStartPaverDrawing: () => void;
-  onDeleteSelectedPaver: () => void;
-  onAddRectangularPaver: (widthFeet: number, lengthFeet: number) => void;
-  onAddPaversToSelectedPool: () => void;
-  selectedImage: File;
-  onFileSelect: (file: File) => void;
-  
-  // Solar simulation props
-  showSolarOverlay: boolean;
-  onShowSolarOverlayChange: (show: boolean) => void;
-  timeOfDay: number;
-  onTimeOfDayChange: (time: number) => void;
-  selectedProvince: string;
-  onSelectedProvinceChange: (province: string) => void;
-  
-  // Background image opacity
-  bgImageOpacity: number;
-  onBgImageOpacityChange: (opacity: number) => void;
 }
 
 export const PoolControls: React.FC<PoolControlsProps> = ({
-  scaleUnit,
+  unit,
   onUnitChange,
-  isSettingScale,
-  scaleReference,
-  onStartScaleReference,
-  poolLengthFeet,
-  poolLengthInches,
-  poolWidthFeet,
-  poolWidthInches,
-  onPoolLengthFeetChange,
-  onPoolLengthInchesChange,
-  onPoolWidthFeetChange,
-  onPoolWidthInchesChange,
-  onAddPool,
-  onAddPresetPool,
-  onDeleteSelectedPool,
-  measurementMode,
-  onMeasurementModeChange,
-  isMeasuring,
-  onStartMeasurement,
-  typedDistanceFeet,
-  typedDistanceInches,
-  typedDistanceMeters,
-  onTypedDistanceFeetChange,
-  onTypedDistanceInchesChange,
-  onTypedDistanceMetersChange,
-  onAddTypedMeasurement,
-  onDeleteSelectedMeasurement,
+  selectedModel,
+  onModelSelect,
+  isCustom,
+  onIsCustomChange,
+  customDimensions,
+  onCustomDimensionsChange,
   copingSize,
   onCopingSizeChange,
-  paverLeftFeet,
-  paverRightFeet,
-  paverTopFeet,
-  paverBottomFeet,
-  onPaverLeftFeetChange,
-  onPaverRightFeetChange,
-  onPaverTopFeetChange,
-  onPaverBottomFeetChange,
-  isDrawingFence,
-  onStartFenceDrawing,
-  onDeleteSelectedFence,
-  isDrawingPaver,
-  onStartPaverDrawing,
-  onDeleteSelectedPaver,
-  onAddRectangularPaver,
-  onAddPaversToSelectedPool,
-  selectedImage,
-  onFileSelect,
-  showSolarOverlay,
-  onShowSolarOverlayChange,
-  timeOfDay,
-  onTimeOfDayChange,
-  selectedProvince,
-  onSelectedProvinceChange,
-  bgImageOpacity,
-  onBgImageOpacityChange,
+  paverConfig,
+  onPaverConfigChange,
+  scaleReference,
+  onStartScaleReference,
 }) => {
+  const [customModelName, setCustomModelName] = useState('');
+
   return (
     <div className="space-y-4">
-      {/* Units Section */}
-      <div className="border rounded-lg overflow-hidden">
-        <div className="bg-primary px-4 py-3">
-          <h2 className="text-sm font-semibold text-primary-foreground">Units</h2>
-        </div>
-        <div className="p-4">
-          <select 
-            value={scaleUnit} 
-            onChange={(e) => onUnitChange(e.target.value as 'feet' | 'meters')}
-            className="w-full px-3 py-2 border rounded-md text-sm"
-          >
-            <option value="feet">Feet</option>
-            <option value="meters">Meters</option>
-          </select>
-        </div>
-      </div>
+      {/* Unit Toggle */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm">📏 Units</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <div className="flex items-center gap-4">
+            <Button
+              variant={unit === 'feet' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => onUnitChange('feet')}
+              className="flex-1"
+            >
+              Feet/Inches
+            </Button>
+            <Button
+              variant={unit === 'meters' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => onUnitChange('meters')}
+              className="flex-1"
+            >
+              Meters
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
-      {/* Upload & Scale Reference Section */}
-      <div className="border rounded-lg overflow-hidden">
-        <div className="bg-primary px-4 py-3">
-          <h2 className="text-sm font-semibold text-primary-foreground">📁 Upload Property Image</h2>
-        </div>
-        <div className="p-4 space-y-4">
-          <div>
-            <div className="p-3 bg-pool-light/20 rounded-lg">
-              <p className="text-sm text-foreground font-medium">
-                ✅ {selectedImage.name}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Ready for design
-              </p>
-            </div>
-            <button
-              onClick={() => document.querySelector<HTMLInputElement>('input[type="file"]')?.click()}
-              className="w-full mt-2 px-4 py-2 border rounded-md text-sm hover:bg-muted"
-            >
-              Change Image
-            </button>
-          </div>
-          
-          <div className="pt-4 border-t">
-            <label className="text-sm font-semibold mb-2 block">Scale Reference</label>
-            <button
-              onClick={onStartScaleReference}
-              disabled={isSettingScale}
-              className="w-full px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 text-sm"
-            >
-              {isSettingScale ? 'Click two points...' : scaleReference ? 'Reset Scale' : 'Set Scale'}
-            </button>
-            {scaleReference && (
-              <p className="text-xs text-muted-foreground mt-2">
-                Scale: 1 px = {(scaleReference.length / scaleReference.pixelLength).toFixed(4)} {scaleUnit === 'feet' ? 'FT' : 'M'}
-              </p>
-            )}
-          </div>
-        </div>
-      </div>
+      {/* Scale Reference */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm">📐 Set Scale</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <p className="text-xs text-muted-foreground">
+            Draw a line on a known distance to set the scale.
+          </p>
+          <Button onClick={onStartScaleReference} size="sm" className="w-full">
+            {scaleReference ? 'Reset Scale' : 'Set Scale Reference'}
+          </Button>
+          {scaleReference && (
+            <p className="text-xs text-green-600">
+              ✓ Scale set: {scaleReference.length} {unit === 'feet' ? 'ft' : 'm'}
+            </p>
+          )}
+        </CardContent>
+      </Card>
 
       {scaleReference && (
         <>
-          {/* Pool Size & Coping Section */}
-          <div className="border rounded-lg overflow-hidden">
-            <div className="bg-primary px-4 py-3">
-              <h2 className="text-sm font-semibold text-primary-foreground">Pool Size</h2>
-            </div>
-            <div className="p-4 space-y-2">
-              <div className="mb-3">
-                <label className="text-sm font-semibold mb-2 block">Coping Size</label>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => onCopingSizeChange(null)}
-                    className={`flex-1 px-3 py-2 border rounded-md text-sm transition-colors ${
-                      copingSize === null 
-                        ? 'bg-foreground text-background' 
-                        : 'bg-background hover:bg-muted'
-                    }`}
-                  >
-                    None
-                  </button>
-                  <button
-                    onClick={() => onCopingSizeChange(12)}
-                    className={`flex-1 px-3 py-2 border rounded-md text-sm transition-colors ${
-                      copingSize === 12 
-                        ? 'bg-foreground text-background' 
-                        : 'bg-background hover:bg-muted'
-                    }`}
-                  >
-                    12"
-                  </button>
-                  <button
-                    onClick={() => onCopingSizeChange(16)}
-                    className={`flex-1 px-3 py-2 border rounded-md text-sm transition-colors ${
-                      copingSize === 16 
-                        ? 'bg-foreground text-background' 
-                        : 'bg-background hover:bg-muted'
-                    }`}
-                  >
-                    16"
-                  </button>
-                </div>
-              </div>
-              
-              <div className="pt-3 border-t">
-                <label className="text-sm font-semibold mb-2 block">Pavers Around Pool (FT)</label>
-                <p className="text-xs text-muted-foreground mb-2">💡 Set before adding pool, or click pool + adjust values to update</p>
-                <div className="grid grid-cols-2 gap-2 mb-2">
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Left</label>
-                    <input
-                      type="number"
-                      value={paverLeftFeet}
-                      onChange={(e) => onPaverLeftFeetChange(e.target.value)}
-                      placeholder="0"
-                      className="w-full px-2 py-2 border rounded-md text-sm"
-                      min="0"
-                      step="0.5"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Right</label>
-                    <input
-                      type="number"
-                      value={paverRightFeet}
-                      onChange={(e) => onPaverRightFeetChange(e.target.value)}
-                      placeholder="0"
-                      className="w-full px-2 py-2 border rounded-md text-sm"
-                      min="0"
-                      step="0.5"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Top</label>
-                    <input
-                      type="number"
-                      value={paverTopFeet}
-                      onChange={(e) => onPaverTopFeetChange(e.target.value)}
-                      placeholder="0"
-                      className="w-full px-2 py-2 border rounded-md text-sm"
-                      min="0"
-                      step="0.5"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Bottom</label>
-                    <input
-                      type="number"
-                      value={paverBottomFeet}
-                      onChange={(e) => onPaverBottomFeetChange(e.target.value)}
-                      placeholder="0"
-                      className="w-full px-2 py-2 border rounded-md text-sm"
-                      min="0"
-                      step="0.5"
-                    />
-                  </div>
-                </div>
-              </div>
-              
-              <div className="pt-3 border-t">
-                <label className="text-sm font-semibold mb-2 block">Preset Pools</label>
-                <button
-                  onClick={() => onAddPresetPool?.(24, 12)}
-                  className="w-full px-4 py-2 bg-pool-light text-pool-dark rounded-md hover:bg-pool-light/80 text-sm font-medium"
-                >
-                  12x24
-                </button>
-              </div>
-              
-              <div className="pt-3 border-t">
-                <label className="text-sm font-semibold mb-2 block">Custom Size</label>
-                <div className="space-y-2">
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Length</label>
-                    <div className="flex items-center gap-1">
-                      <input
-                        type="number"
-                        value={poolLengthFeet}
-                        onChange={(e) => onPoolLengthFeetChange(e.target.value)}
-                        placeholder="0"
-                        className="w-16 px-2 py-2 border rounded-md text-sm"
-                        min="0"
-                      />
-                      <span className="text-xs text-muted-foreground">FT</span>
-                      <input
-                        type="number"
-                        value={poolLengthInches}
-                        onChange={(e) => onPoolLengthInchesChange(e.target.value)}
-                        placeholder="0"
-                        className="w-16 px-2 py-2 border rounded-md text-sm"
-                        min="0"
-                        max="11"
-                      />
-                      <span className="text-xs text-muted-foreground">IN</span>
-                    </div>
-                  </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Width</label>
-                    <div className="flex items-center gap-1">
-                      <input
-                        type="number"
-                        value={poolWidthFeet}
-                        onChange={(e) => onPoolWidthFeetChange(e.target.value)}
-                        placeholder="0"
-                        className="w-16 px-2 py-2 border rounded-md text-sm"
-                        min="0"
-                      />
-                      <span className="text-xs text-muted-foreground">FT</span>
-                      <input
-                        type="number"
-                        value={poolWidthInches}
-                        onChange={(e) => onPoolWidthInchesChange(e.target.value)}
-                        placeholder="0"
-                        className="w-16 px-2 py-2 border rounded-md text-sm"
-                        min="0"
-                        max="11"
-                      />
-                      <span className="text-xs text-muted-foreground">IN</span>
-                    </div>
-                  </div>
-                </div>
-                <button
-                  onClick={onAddPool}
-                  className="w-full mt-2 px-4 py-2 bg-pool-light text-pool-dark rounded-md hover:bg-pool-light/80 text-sm"
-                >
-                  Add Pool
-                </button>
-              </div>
-              
-              <button
-                onClick={onDeleteSelectedPool}
-                className="w-full px-4 py-2 bg-destructive text-destructive-foreground rounded-md hover:bg-destructive/90 text-sm"
+          {/* Pool Model Selection */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm">🏊 Pool Model</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <RadioGroup
+                value={isCustom ? 'custom' : selectedModel?.id || ''}
+                onValueChange={(value) => {
+                  if (value === 'custom') {
+                    onIsCustomChange(true);
+                    onModelSelect(null);
+                  } else {
+                    onIsCustomChange(false);
+                    const model = PREDEFINED_MODELS.find((m) => m.id === value);
+                    onModelSelect(model || null);
+                  }
+                }}
               >
-                Delete Selected Pool
-              </button>
-            </div>
-          </div>
+                {PREDEFINED_MODELS.map((model) => (
+                  <div key={model.id} className="flex items-center space-x-2">
+                    <RadioGroupItem value={model.id} id={model.id} />
+                    <Label htmlFor={model.id} className="text-sm cursor-pointer">
+                      {model.name} ({formatDimension(model.widthFeet, unit)} x{' '}
+                      {formatDimension(model.lengthFeet, unit)})
+                    </Label>
+                  </div>
+                ))}
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="custom" id="custom" />
+                  <Label htmlFor="custom" className="text-sm cursor-pointer">
+                    Custom Model
+                  </Label>
+                </div>
+              </RadioGroup>
 
-          {/* Measure Section */}
-          <div className="border rounded-lg overflow-hidden">
-            <div className="bg-primary px-4 py-3">
-              <h2 className="text-sm font-semibold text-primary-foreground">Measure</h2>
-            </div>
-            <div className="p-4 space-y-2">
-              <select 
-                value={measurementMode} 
-                onChange={(e) => onMeasurementModeChange(e.target.value as 'draw' | 'type')}
-                className="w-full px-3 py-2 border rounded-md text-sm"
-              >
-                <option value="draw">Draw</option>
-                <option value="type">Type</option>
-              </select>
-              
-              {measurementMode === 'draw' ? (
-                <button
-                  onClick={onStartMeasurement}
-                  disabled={isMeasuring}
-                  className="w-full px-4 py-2 bg-foreground text-background rounded-md hover:bg-foreground/90 disabled:opacity-50 text-sm"
-                >
-                  {isMeasuring ? 'Click and drag...' : 'Draw Measurement'}
-                </button>
-              ) : (
-                <>
-                  {scaleUnit === 'feet' ? (
-                    <div className="flex items-center gap-1">
-                      <input
-                        type="number"
-                        value={typedDistanceFeet}
-                        onChange={(e) => onTypedDistanceFeetChange(e.target.value)}
-                        placeholder="0"
-                        className="w-16 px-2 py-2 border rounded-md text-sm"
-                        min="0"
-                        step="0.1"
-                      />
-                      <span className="text-xs text-muted-foreground">FT</span>
-                      <input
-                        type="number"
-                        value={typedDistanceInches}
-                        onChange={(e) => onTypedDistanceInchesChange(e.target.value)}
-                        placeholder="0"
-                        className="w-16 px-2 py-2 border rounded-md text-sm"
-                        min="0"
-                        max="11"
-                      />
-                      <span className="text-xs text-muted-foreground">IN</span>
-                    </div>
+              {isCustom && (
+                <div className="space-y-2 pt-2 border-t">
+                  <div>
+                    <Label className="text-xs">Model Name (optional)</Label>
+                    <Input
+                      value={customModelName}
+                      onChange={(e) => setCustomModelName(e.target.value)}
+                      placeholder="e.g., My Custom Pool"
+                      className="text-sm"
+                    />
+                  </div>
+                  
+                  {unit === 'feet' ? (
+                    <>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <Label className="text-xs">Length (ft)</Label>
+                          <Input
+                            type="number"
+                            value={customDimensions.lengthFeet}
+                            onChange={(e) =>
+                              onCustomDimensionsChange({
+                                ...customDimensions,
+                                lengthFeet: parseInt(e.target.value) || 0,
+                              })
+                            }
+                            className="text-sm"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Length (in)</Label>
+                          <Input
+                            type="number"
+                            value={customDimensions.lengthInches}
+                            onChange={(e) =>
+                              onCustomDimensionsChange({
+                                ...customDimensions,
+                                lengthInches: parseInt(e.target.value) || 0,
+                              })
+                            }
+                            className="text-sm"
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <Label className="text-xs">Width (ft)</Label>
+                          <Input
+                            type="number"
+                            value={customDimensions.widthFeet}
+                            onChange={(e) =>
+                              onCustomDimensionsChange({
+                                ...customDimensions,
+                                widthFeet: parseInt(e.target.value) || 0,
+                              })
+                            }
+                            className="text-sm"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Width (in)</Label>
+                          <Input
+                            type="number"
+                            value={customDimensions.widthInches}
+                            onChange={(e) =>
+                              onCustomDimensionsChange({
+                                ...customDimensions,
+                                widthInches: parseInt(e.target.value) || 0,
+                              })
+                            }
+                            className="text-sm"
+                          />
+                        </div>
+                      </div>
+                    </>
                   ) : (
-                    <div className="flex items-center gap-1">
-                      <input
-                        type="number"
-                        value={typedDistanceMeters}
-                        onChange={(e) => onTypedDistanceMetersChange(e.target.value)}
-                        placeholder="0"
-                        className="flex-1 px-3 py-2 border rounded-md text-sm"
-                        min="0"
-                        step="0.1"
-                      />
-                      <span className="text-xs text-muted-foreground">METERS</span>
-                    </div>
+                    <>
+                      <div>
+                        <Label className="text-xs">Length (m)</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={feetToMeters(
+                            customDimensions.lengthFeet + customDimensions.lengthInches / 12
+                          ).toFixed(2)}
+                          onChange={(e) => {
+                            const meters = parseFloat(e.target.value) || 0;
+                            const feet = metersToFeet(meters);
+                            onCustomDimensionsChange({
+                              ...customDimensions,
+                              lengthFeet: Math.floor(feet),
+                              lengthInches: Math.round((feet % 1) * 12),
+                            });
+                          }}
+                          className="text-sm"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Width (m)</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={feetToMeters(
+                            customDimensions.widthFeet + customDimensions.widthInches / 12
+                          ).toFixed(2)}
+                          onChange={(e) => {
+                            const meters = parseFloat(e.target.value) || 0;
+                            const feet = metersToFeet(meters);
+                            onCustomDimensionsChange({
+                              ...customDimensions,
+                              widthFeet: Math.floor(feet),
+                              widthInches: Math.round((feet % 1) * 12),
+                            });
+                          }}
+                          className="text-sm"
+                        />
+                      </div>
+                    </>
                   )}
-                  <button
-                    onClick={onAddTypedMeasurement}
-                    className="w-full px-4 py-2 bg-foreground text-background rounded-md hover:bg-foreground/90 text-sm"
-                  >
-                    Add Measurement
-                  </button>
-                </>
-              )}
-              
-              <button
-                onClick={onDeleteSelectedMeasurement}
-                className="w-full px-4 py-2 bg-destructive text-destructive-foreground rounded-md hover:bg-destructive/90 text-sm"
-              >
-                Delete Selected Measurement
-              </button>
-            </div>
-          </div>
-
-          {/* Fence Section */}
-          <div className="border rounded-lg overflow-hidden">
-            <div className="bg-primary px-4 py-3">
-              <h2 className="text-sm font-semibold text-primary-foreground">Fence</h2>
-            </div>
-            <div className="p-4 space-y-2">
-              <button
-                onClick={onStartFenceDrawing}
-                disabled={isDrawingFence}
-                className="w-full px-4 py-2 bg-foreground text-background rounded-md hover:bg-foreground/90 disabled:opacity-50 text-sm"
-              >
-                {isDrawingFence ? 'Click to add corners...' : 'Draw Fence'}
-              </button>
-              {isDrawingFence && (
-                <p className="text-xs text-muted-foreground">
-                  💡 Hold Shift for 90° & 45° angles<br/>
-                  💡 Double-click, Right-click, or press Enter to finish
-                </p>
-              )}
-              <button
-                onClick={onDeleteSelectedFence}
-                className="w-full px-4 py-2 bg-destructive text-destructive-foreground rounded-md hover:bg-destructive/90 text-sm"
-              >
-                Delete Selected Fence
-              </button>
-            </div>
-          </div>
-
-          {/* Pavers Section */}
-          <div className="border rounded-lg overflow-hidden">
-            <div className="bg-primary px-4 py-3">
-              <h2 className="text-sm font-semibold text-primary-foreground">Pavers</h2>
-            </div>
-            <div className="p-4 space-y-2">
-              <button
-                onClick={onStartPaverDrawing}
-                disabled={isDrawingPaver}
-                className="w-full px-4 py-2 bg-foreground text-background rounded-md hover:bg-foreground/90 disabled:opacity-50 text-sm"
-              >
-                {isDrawingPaver ? 'Click to add corners...' : 'Draw Paver Area'}
-              </button>
-              {isDrawingPaver && (
-                <p className="text-xs text-muted-foreground">
-                  💡 Click to add points<br/>
-                  💡 Hold Shift for straight lines<br/>
-                  💡 Double-click, Right-click, or press Enter to finish
-                </p>
-              )}
-              
-              <div className="pt-3 border-t">
-                <label className="text-sm font-semibold mb-2 block">Rectangular Paver</label>
-                <div className="space-y-2">
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Width (FT)</label>
-                    <input
-                      type="number"
-                      id="paverWidth"
-                      placeholder="0"
-                      className="w-full px-3 py-2 border rounded-md text-sm"
-                      min="0"
-                      step="0.5"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Length (FT)</label>
-                    <input
-                      type="number"
-                      id="paverLength"
-                      placeholder="0"
-                      className="w-full px-3 py-2 border rounded-md text-sm"
-                      min="0"
-                      step="0.5"
-                    />
-                  </div>
-                  <button
-                    onClick={() => {
-                      const width = parseFloat((document.getElementById('paverWidth') as HTMLInputElement)?.value || '0');
-                      const length = parseFloat((document.getElementById('paverLength') as HTMLInputElement)?.value || '0');
-                      if (width > 0 && length > 0) {
-                        onAddRectangularPaver(width, length);
-                      }
-                    }}
-                    className="w-full px-4 py-2 bg-foreground text-background rounded-md hover:bg-foreground/90 text-sm"
-                  >
-                    Add Rectangular Paver
-                  </button>
                 </div>
-              </div>
-              
-              <div className="pt-3 border-t">
-                <label className="text-sm font-semibold mb-2 block">Add to Selected Pool</label>
-                <p className="text-xs text-muted-foreground mb-2">
-                  Select a pool on canvas, then click to add pavers around it using the dimensions below.
-                </p>
-                <button
-                  onClick={onAddPaversToSelectedPool}
-                  className="w-full px-4 py-2 bg-accent text-accent-foreground rounded-md hover:bg-accent/90 text-sm"
-                >
-                  Add Pavers to Selected Pool
-                </button>
-              </div>
-              
-              <button
-                onClick={onDeleteSelectedPaver}
-                className="w-full px-4 py-2 bg-destructive text-destructive-foreground rounded-md hover:bg-destructive/90 text-sm"
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Coping Selection */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm">🔲 Coping</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <RadioGroup
+                value={copingSize.toString()}
+                onValueChange={(value) => onCopingSizeChange(parseInt(value) as CopingSize)}
               >
-                Delete Selected Paver
-              </button>
-            </div>
-          </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="0" id="coping-none" />
+                  <Label htmlFor="coping-none" className="text-sm cursor-pointer">
+                    No Coping
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="12" id="coping-12" />
+                  <Label htmlFor="coping-12" className="text-sm cursor-pointer">
+                    12" Coping
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="16" id="coping-16" />
+                  <Label htmlFor="coping-16" className="text-sm cursor-pointer">
+                    16" Coping
+                  </Label>
+                </div>
+              </RadioGroup>
+            </CardContent>
+          </Card>
 
-          {/* Background Image Opacity Section */}
-          <div className="border rounded-lg overflow-hidden">
-            <div className="bg-primary px-4 py-3">
-              <h2 className="text-sm font-semibold text-primary-foreground">🖼️ Image Opacity</h2>
-            </div>
-            <div className="p-4 space-y-2">
+          {/* Paver Configuration */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm">🔳 Pavers</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
               <div className="flex items-center justify-between">
-                <Label htmlFor="bg-opacity" className="text-sm font-medium">
-                  Background Opacity
-                </Label>
-                <span className="text-sm text-muted-foreground">{Math.round(bgImageOpacity * 100)}%</span>
-              </div>
-              <Slider
-                id="bg-opacity"
-                value={[bgImageOpacity]}
-                onValueChange={(value) => onBgImageOpacityChange(value[0])}
-                min={0}
-                max={1}
-                step={0.01}
-                className="w-full"
-              />
-            </div>
-          </div>
-
-          {/* Solar Simulation Section */}
-          <div className="border rounded-lg overflow-hidden">
-            <div className="bg-primary px-4 py-3">
-              <h2 className="text-sm font-semibold text-primary-foreground">☀️ Solar Simulation</h2>
-            </div>
-            <div className="p-4 space-y-4">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="solar-overlay" className="text-sm font-medium">
-                  Show Sun Overlay
-                </Label>
+                <Label className="text-xs">Same on all sides</Label>
                 <Switch
-                  id="solar-overlay"
-                  checked={showSolarOverlay}
-                  onCheckedChange={onShowSolarOverlayChange}
+                  checked={paverConfig.sameOnAllSides}
+                  onCheckedChange={(checked) => {
+                    if (checked) {
+                      const value = paverConfig.top;
+                      onPaverConfigChange({
+                        top: value,
+                        right: value,
+                        bottom: value,
+                        left: value,
+                        sameOnAllSides: true,
+                      });
+                    } else {
+                      onPaverConfigChange({
+                        ...paverConfig,
+                        sameOnAllSides: false,
+                      });
+                    }
+                  }}
                 />
               </div>
-              
-              {showSolarOverlay && (
-                <>
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium">
-                      Province/Location
-                    </Label>
-                    <select
-                      value={selectedProvince}
-                      onChange={(e) => onSelectedProvinceChange(e.target.value)}
-                      className="w-full px-3 py-2 border rounded-md text-sm"
-                    >
-                      {Object.keys(CANADIAN_PROVINCES).map((province) => (
-                        <option key={province} value={province}>
-                          {province}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-sm font-medium">
-                        Time of Day
-                      </Label>
-                      <span className="text-sm text-muted-foreground">
-                        {timeOfDay}:00
-                      </span>
-                    </div>
-                    <Slider
-                      value={[timeOfDay]}
-                      onValueChange={(value) => onTimeOfDayChange(value[0])}
-                      min={6}
-                      max={20}
-                      step={1}
-                      className="w-full"
-                    />
-                    <div className="flex justify-between text-xs text-muted-foreground">
-                      <span>6:00 AM</span>
-                      <span>8:00 PM</span>
-                    </div>
-                  </div>
-                  
-                  <div className="text-xs text-muted-foreground space-y-1 pt-2 border-t">
-                    <p>💡 Rotate the red north arrow to set orientation</p>
-                    <p>🟡 Yellow/Orange = High sunlight</p>
-                    <p>🔵 Blue/Gray = Low sunlight/shade</p>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
 
-          {/* Tips */}
-          <div className="border rounded-lg overflow-hidden">
-            <div className="bg-primary px-4 py-3">
-              <h2 className="text-sm font-semibold text-primary-foreground">💡 Tips</h2>
-            </div>
-            <div className="p-4 text-xs text-muted-foreground space-y-1">
-              <p>Mouse wheel to zoom</p>
-              <p>Click & drag to pan</p>
-              <p>Rotate with corner handle</p>
-            </div>
-          </div>
+              {paverConfig.sameOnAllSides ? (
+                <div>
+                  <Label className="text-xs">
+                    All Sides ({unit === 'feet' ? 'ft' : 'm'})
+                  </Label>
+                  <Input
+                    type="number"
+                    step={unit === 'feet' ? '1' : '0.1'}
+                    value={
+                      unit === 'feet'
+                        ? paverConfig.top
+                        : feetToMeters(paverConfig.top).toFixed(2)
+                    }
+                    onChange={(e) => {
+                      const value =
+                        unit === 'feet'
+                          ? parseFloat(e.target.value) || 0
+                          : metersToFeet(parseFloat(e.target.value) || 0);
+                      onPaverConfigChange({
+                        top: value,
+                        right: value,
+                        bottom: value,
+                        left: value,
+                        sameOnAllSides: true,
+                      });
+                    }}
+                    className="text-sm"
+                  />
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label className="text-xs">
+                      Top ({unit === 'feet' ? 'ft' : 'm'})
+                    </Label>
+                    <Input
+                      type="number"
+                      step={unit === 'feet' ? '1' : '0.1'}
+                      value={
+                        unit === 'feet'
+                          ? paverConfig.top
+                          : feetToMeters(paverConfig.top).toFixed(2)
+                      }
+                      onChange={(e) => {
+                        const value =
+                          unit === 'feet'
+                            ? parseFloat(e.target.value) || 0
+                            : metersToFeet(parseFloat(e.target.value) || 0);
+                        onPaverConfigChange({ ...paverConfig, top: value });
+                      }}
+                      className="text-sm"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">
+                      Right ({unit === 'feet' ? 'ft' : 'm'})
+                    </Label>
+                    <Input
+                      type="number"
+                      step={unit === 'feet' ? '1' : '0.1'}
+                      value={
+                        unit === 'feet'
+                          ? paverConfig.right
+                          : feetToMeters(paverConfig.right).toFixed(2)
+                      }
+                      onChange={(e) => {
+                        const value =
+                          unit === 'feet'
+                            ? parseFloat(e.target.value) || 0
+                            : metersToFeet(parseFloat(e.target.value) || 0);
+                        onPaverConfigChange({ ...paverConfig, right: value });
+                      }}
+                      className="text-sm"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">
+                      Bottom ({unit === 'feet' ? 'ft' : 'm'})
+                    </Label>
+                    <Input
+                      type="number"
+                      step={unit === 'feet' ? '1' : '0.1'}
+                      value={
+                        unit === 'feet'
+                          ? paverConfig.bottom
+                          : feetToMeters(paverConfig.bottom).toFixed(2)
+                      }
+                      onChange={(e) => {
+                        const value =
+                          unit === 'feet'
+                            ? parseFloat(e.target.value) || 0
+                            : metersToFeet(parseFloat(e.target.value) || 0);
+                        onPaverConfigChange({ ...paverConfig, bottom: value });
+                      }}
+                      className="text-sm"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">
+                      Left ({unit === 'feet' ? 'ft' : 'm'})
+                    </Label>
+                    <Input
+                      type="number"
+                      step={unit === 'feet' ? '1' : '0.1'}
+                      value={
+                        unit === 'feet'
+                          ? paverConfig.left
+                          : feetToMeters(paverConfig.left).toFixed(2)
+                      }
+                      onChange={(e) => {
+                        const value =
+                          unit === 'feet'
+                            ? parseFloat(e.target.value) || 0
+                            : metersToFeet(parseFloat(e.target.value) || 0);
+                        onPaverConfigChange({ ...paverConfig, left: value });
+                      }}
+                      className="text-sm"
+                    />
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </>
       )}
     </div>
