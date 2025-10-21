@@ -15,7 +15,7 @@ interface PoolCanvasProps {
 export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, canvasOnly = false, onStateChange }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [fabricCanvas, setFabricCanvas] = useState<FabricCanvas | null>(null);
-  const [scaleReference, setScaleReference] = useState<{ length: number; pixelLength: number } | null>(null);
+  const [scaleReference, setScaleReference] = useState<{ length: number; pixelLength: number; unit: 'feet' | 'meters' } | null>(null);
   const [isSettingScale, setIsSettingScale] = useState(false);
   const isSettingScaleRef = useRef(false);
   const isDraggingRef = useRef(false);
@@ -607,16 +607,20 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
     const widthFt = parseFloat(poolWidthFeet) || 0;
     const widthIn = parseFloat(poolWidthInches) || 0;
     
-    const length = lengthFt + lengthIn / 12;
-    const width = widthFt + widthIn / 12;
+    let length = lengthFt + lengthIn / 12; // in feet
+    let width = widthFt + widthIn / 12; // in feet
     
     if (length <= 0 || width <= 0) {
       alert('Please enter valid positive numbers for pool dimensions.');
       return;
     }
     
-    const pixelWidth = length * scaleReference.pixelLength / scaleReference.length;
-    const pixelHeight = width * scaleReference.pixelLength / scaleReference.length;
+    // Convert to scale reference units if needed
+    const scaleLengthInFeet = scaleReference.unit === 'meters' ? length / 3.28084 : length;
+    const scaleWidthInFeet = scaleReference.unit === 'meters' ? width / 3.28084 : width;
+    
+    const pixelWidth = scaleLengthInFeet * scaleReference.pixelLength / scaleReference.length;
+    const pixelHeight = scaleWidthInFeet * scaleReference.pixelLength / scaleReference.length;
     
     // Load textures
     Promise.all([
@@ -638,7 +642,10 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
       // Add coping if selected
       if (copingSize) {
         // Convert coping size from inches to feet, then to pixels
-        const copingSizeInFeet = copingSize / 12; // Convert inches to feet
+        let copingSizeInFeet = copingSize / 12; // Convert inches to feet
+        if (scaleReference.unit === 'meters') {
+          copingSizeInFeet = copingSizeInFeet / 3.28084; // Convert to meters if scale is in meters
+        }
         const copingPixelWidth = copingSizeInFeet * scaleReference.pixelLength / scaleReference.length;
         
         // Create coping rectangle with light grey color
@@ -753,10 +760,10 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
       fabricCanvas.add(dimensionText);
       
       // Create pavers around the pool if specified
-      const paverLeft = parseFloat(paverLeftFeet) || 0;
-      const paverRight = parseFloat(paverRightFeet) || 0;
-      const paverTop = parseFloat(paverTopFeet) || 0;
-      const paverBottom = parseFloat(paverBottomFeet) || 0;
+      let paverLeft = parseFloat(paverLeftFeet) || 0;
+      let paverRight = parseFloat(paverRightFeet) || 0;
+      let paverTop = parseFloat(paverTopFeet) || 0;
+      let paverBottom = parseFloat(paverBottomFeet) || 0;
       
       if (paverLeft > 0 || paverRight > 0 || paverTop > 0 || paverBottom > 0) {
         // Calculate dimensions using the formula:
@@ -764,9 +771,20 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         // P_left, P_right, P_top, P_bottom = paver widths
         
         const copingSizeInFeet = copingSize ? copingSize / 12 : 0;
-        const L = lengthFt; // pool length
-        const W = widthFt; // pool width
-        const C = copingSizeInFeet;
+        let L = lengthFt; // pool length in feet
+        let W = widthFt; // pool width in feet
+        let C = copingSizeInFeet;
+        
+        // Convert to scale reference units if needed
+        if (scaleReference.unit === 'meters') {
+          paverLeft = paverLeft / 3.28084;
+          paverRight = paverRight / 3.28084;
+          paverTop = paverTop / 3.28084;
+          paverBottom = paverBottom / 3.28084;
+          L = L / 3.28084;
+          W = W / 3.28084;
+          C = C / 3.28084;
+        }
         
         // Outer total dimensions
         const outerLength = L + (paverLeft + C) + (paverRight + C);
@@ -1166,6 +1184,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
           setScaleReference({
             length: realLength,
             pixelLength: pixelLength,
+            unit: scaleUnit,
           });
         }
         
@@ -1499,7 +1518,14 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
       
       // Calculate measurement
       const pixelLength = Math.sqrt(dx * dx + dy * dy);
-      const realLength = (pixelLength * scaleReference.length) / scaleReference.pixelLength;
+      let realLength = (pixelLength * scaleReference.length) / scaleReference.pixelLength;
+      
+      // Convert to display unit if needed
+      if (scaleReference.unit === 'meters' && scaleUnit === 'feet') {
+        realLength = realLength * 3.28084;
+      } else if (scaleReference.unit === 'feet' && scaleUnit === 'meters') {
+        realLength = realLength / 3.28084;
+      }
       
       // Update text (parallel to line, always upright)
       const midX = (startPoint.x + pointer.x) / 2;
@@ -1559,7 +1585,15 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
       
       // Only create measurement if line has some length
       if (pixelLength > 5) {
-        const realLength = (pixelLength * scaleReference.length) / scaleReference.pixelLength;
+        let realLength = (pixelLength * scaleReference.length) / scaleReference.pixelLength;
+        
+        // Convert to display unit if needed
+        if (scaleReference.unit === 'meters' && scaleUnit === 'feet') {
+          realLength = realLength * 3.28084;
+        } else if (scaleReference.unit === 'feet' && scaleUnit === 'meters') {
+          realLength = realLength / 3.28084;
+        }
+        
         const angle = Math.atan2(dy, dx) * 180 / Math.PI;
         const midX = (startPoint.x + pointer.x) / 2;
         const midY = (startPoint.y + pointer.y) / 2;
@@ -1870,7 +1904,11 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
           
           // Convert pixels to feet using scale reference
           if (scaleReference) {
-            const feetDistance = (pixelDistance * scaleReference.length) / scaleReference.pixelLength;
+            let feetDistance = (pixelDistance * scaleReference.length) / scaleReference.pixelLength;
+            // Convert to feet if scale was in meters
+            if (scaleReference.unit === 'meters') {
+              feetDistance = feetDistance * 3.28084;
+            }
             totalLength += feetDistance;
           }
         }
@@ -1918,8 +1956,8 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
               const polyline = transform.target as Polyline;
               const pt = polyline.points![index] as any;
               
-              // Store initial position on first call
-              if (!transform.offsetX) {
+              // Store initial position on first call (mouse down)
+              if (!transform.offsetX && !transform.offsetY) {
                 const invMatrix = util.invertTransform(
                   util.multiplyTransformMatrices(
                     fabricCanvas.viewportTransform,
@@ -1929,6 +1967,8 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
                 const currentPoint = util.transformPoint({ x, y }, invMatrix);
                 transform.offsetX = (pt.x - polyline.pathOffset!.x) - currentPoint.x;
                 transform.offsetY = (pt.y - polyline.pathOffset!.y) - currentPoint.y;
+                // Return false to not move on first call
+                return false;
               }
               
               // Convert pointer to object local coords and apply offset
@@ -2040,7 +2080,11 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
             const dx = p2.x - p1.x;
             const dy = p2.y - p1.y;
             const pixelDistance = Math.sqrt(dx * dx + dy * dy);
-            const feetDistance = (pixelDistance * scaleReference.length) / scaleReference.pixelLength;
+            let feetDistance = (pixelDistance * scaleReference.length) / scaleReference.pixelLength;
+            // Convert to feet if scale was in meters
+            if (scaleReference.unit === 'meters') {
+              feetDistance = feetDistance * 3.28084;
+            }
             
             const segmentStart = accumulatedDistance;
             const segmentEnd = accumulatedDistance + feetDistance;
@@ -2759,9 +2803,17 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
       return;
     }
 
+    // Convert dimensions to scale reference units
+    let scaleWidth = widthFeet;
+    let scaleLength = lengthFeet;
+    if (scaleReference.unit === 'meters') {
+      scaleWidth = widthFeet / 3.28084;
+      scaleLength = lengthFeet / 3.28084;
+    }
+
     // Convert dimensions to pixels
-    const pixelWidth = widthFeet * scaleReference.pixelLength / scaleReference.length;
-    const pixelLength = lengthFeet * scaleReference.pixelLength / scaleReference.length;
+    const pixelWidth = scaleWidth * scaleReference.pixelLength / scaleReference.length;
+    const pixelLength = scaleLength * scaleReference.pixelLength / scaleReference.length;
 
     // Get canvas center
     const vpt = fabricCanvas.viewportTransform || [1, 0, 0, 1, 0, 0];
@@ -2823,7 +2875,8 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
           const pt = polyline.points![index] as any;
           const lastPt = polyline.points![polyline.points!.length - 1] as any;
 
-          if (!transform.offsetX) {
+          // Store initial position on first call (mouse down)
+          if (!transform.offsetX && !transform.offsetY) {
             const invMatrix = util.invertTransform(
               util.multiplyTransformMatrices(
                 fabricCanvas.viewportTransform,
@@ -2833,6 +2886,8 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
             const currentPoint = util.transformPoint({ x, y }, invMatrix);
             transform.offsetX = (pt.x - polyline.pathOffset!.x) - currentPoint.x;
             transform.offsetY = (pt.y - polyline.pathOffset!.y) - currentPoint.y;
+            // Return false to not move on first call
+            return false;
           }
 
           const invMatrix = util.invertTransform(
@@ -2860,7 +2915,11 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
             }, 0) / 2
           );
 
-          const realArea = (shoelaceArea * scaleReference.length * scaleReference.length) / (scaleReference.pixelLength * scaleReference.pixelLength);
+          let realArea = (shoelaceArea * scaleReference.length * scaleReference.length) / (scaleReference.pixelLength * scaleReference.pixelLength);
+          // Convert to square feet if scale was in meters
+          if (scaleReference.unit === 'meters') {
+            realArea = realArea * 10.7639; // Convert square meters to square feet
+          }
           (polyline as any).paverArea = realArea;
 
           // Update area text
@@ -3016,6 +3075,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         onStartPaverDrawing: startPaverDrawing,
         onDeleteSelectedPaver: deleteSelectedPaver,
         onAddRectangularPaver: addRectangularPaver,
+        onAddPaversToSelectedPool: addPaversToSelectedPool,
         showSolarOverlay,
         onShowSolarOverlayChange: setShowSolarOverlay,
         timeOfDay,
