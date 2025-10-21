@@ -253,14 +253,20 @@ export const PoolCanvas = forwardRef<any, PoolCanvasProps>(({
           top: canvasHeight / 2,
           originX: 'center',
           originY: 'center',
-          selectable: false,
-          evented: false,
+          selectable: true,
+          evented: true,
+          hasControls: true,
+          hasBorders: true,
+          lockScalingFlip: true,
         });
 
         fabricCanvas.add(img);
         fabricCanvas.sendObjectToBack(img);
         bgImageRef.current = img;
+        fabricCanvas.setActiveObject(img);
         fabricCanvas.renderAll();
+        
+        toast.success('Image loaded! You can now move and rotate it freely.');
       });
     };
     reader.readAsDataURL(imageFile);
@@ -442,33 +448,40 @@ export const PoolCanvas = forwardRef<any, PoolCanvasProps>(({
     fabricCanvas.add(group);
     fabricCanvas.setActiveObject(group);
     fabricCanvas.renderAll();
+  }, [fabricCanvas, scaleReference, selectedModel, customDimensions, isCustom, copingSize, paverConfig, isSettingScale]);
 
-    // Keyboard controls
+  // Keyboard controls for any active object
+  useEffect(() => {
+    if (!fabricCanvas) return;
+
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (!group) return;
+      const activeObject = fabricCanvas.getActiveObject();
+      if (!activeObject) return;
       
       const step = e.shiftKey ? 10 : 1;
       
       switch(e.key) {
         case 'ArrowUp':
-          group.top! -= step;
+          activeObject.set('top', (activeObject.top || 0) - step);
           e.preventDefault();
           break;
         case 'ArrowDown':
-          group.top! += step;
+          activeObject.set('top', (activeObject.top || 0) + step);
           e.preventDefault();
           break;
         case 'ArrowLeft':
-          group.left! -= step;
+          activeObject.set('left', (activeObject.left || 0) - step);
           e.preventDefault();
           break;
         case 'ArrowRight':
-          group.left! += step;
+          activeObject.set('left', (activeObject.left || 0) + step);
           e.preventDefault();
           break;
+        default:
+          return;
       }
       
-      group.setCoords();
+      activeObject.setCoords();
       fabricCanvas.renderAll();
     };
 
@@ -477,7 +490,7 @@ export const PoolCanvas = forwardRef<any, PoolCanvasProps>(({
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [fabricCanvas, scaleReference, selectedModel, customDimensions, isCustom, copingSize, paverConfig, isSettingScale]);
+  }, [fabricCanvas]);
 
   // Expose state change for controls
   useEffect(() => {
