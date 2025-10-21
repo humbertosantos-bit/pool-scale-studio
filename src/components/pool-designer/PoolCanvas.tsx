@@ -505,6 +505,14 @@ export const PoolCanvas = forwardRef<any, PoolCanvasProps>(({
   useEffect(() => {
     if (!fabricCanvas || !isSettingScale) return;
 
+    // Disable image selection during scale setting
+    if (bgImageRef.current) {
+      bgImageRef.current.selectable = false;
+      bgImageRef.current.evented = false;
+    }
+    fabricCanvas.discardActiveObject();
+    fabricCanvas.renderAll();
+
     let startPoint: Point | null = null;
     let line: any = null;
 
@@ -553,6 +561,13 @@ export const PoolCanvas = forwardRef<any, PoolCanvasProps>(({
       if (line) {
         fabricCanvas.remove(line);
       }
+      
+      // Re-enable image selection after scale setting
+      if (bgImageRef.current) {
+        bgImageRef.current.selectable = true;
+        bgImageRef.current.evented = true;
+      }
+      
       onIsSettingScaleChange(false);
       startPoint = null;
       line = null;
@@ -567,6 +582,12 @@ export const PoolCanvas = forwardRef<any, PoolCanvasProps>(({
       fabricCanvas.off('mouse:down', handleMouseDown);
       fabricCanvas.off('mouse:move', handleMouseMove);
       fabricCanvas.off('mouse:up', handleMouseUp);
+      
+      // Re-enable image selection if scale setting is cancelled
+      if (bgImageRef.current) {
+        bgImageRef.current.selectable = true;
+        bgImageRef.current.evented = true;
+      }
     };
   }, [fabricCanvas, isSettingScale, unit]);
 
