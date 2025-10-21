@@ -15,6 +15,8 @@ interface PoolCanvasProps {
   unit: Unit;
   copingSize: CopingSize;
   paverConfig: PaverConfig;
+  isSettingScale: boolean;
+  onIsSettingScaleChange: (value: boolean) => void;
 }
 
 export const PoolCanvas: React.FC<PoolCanvasProps> = ({
@@ -28,12 +30,13 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({
   unit,
   copingSize,
   paverConfig,
+  isSettingScale,
+  onIsSettingScaleChange,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [fabricCanvas, setFabricCanvas] = useState<FabricCanvas | null>(null);
   const [scaleReference, setScaleReference] = useState<{ length: number; pixelLength: number } | null>(null);
-  const [isSettingScale, setIsSettingScale] = useState(false);
   const bgImageRef = useRef<FabricImage | null>(null);
 
   // Initialize canvas
@@ -340,11 +343,9 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({
     if (onStateChange && fabricCanvas) {
       onStateChange({
         scaleReference,
-        isSettingScale,
-        onStartScaleReference: () => setIsSettingScale(true),
       });
     }
-  }, [scaleReference, isSettingScale, fabricCanvas, onStateChange]);
+  }, [scaleReference, fabricCanvas, onStateChange]);
 
   // Handle scale reference drawing
   useEffect(() => {
@@ -398,7 +399,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({
       if (line) {
         fabricCanvas.remove(line);
       }
-      setIsSettingScale(false);
+      onIsSettingScaleChange(false);
       startPoint = null;
       line = null;
       fabricCanvas.renderAll();

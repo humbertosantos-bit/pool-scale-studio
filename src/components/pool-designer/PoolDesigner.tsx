@@ -25,7 +25,7 @@ export const PoolDesigner: React.FC = () => {
     sameOnAllSides: false,
   });
   const [scaleReference, setScaleReference] = useState<{ length: number; pixelLength: number } | null>(null);
-  const [onStartScaleReference, setOnStartScaleReference] = useState<(() => void) | null>(null);
+  const [isSettingScale, setIsSettingScale] = useState(false);
 
   const handleFileSelect = (file: File) => {
     setSelectedImage(file);
@@ -34,9 +34,6 @@ export const PoolDesigner: React.FC = () => {
   const handleStateChange = (state: any) => {
     if (state.scaleReference !== undefined) {
       setScaleReference(state.scaleReference);
-    }
-    if (state.onStartScaleReference) {
-      setOnStartScaleReference(() => state.onStartScaleReference);
     }
   };
 
@@ -72,7 +69,7 @@ export const PoolDesigner: React.FC = () => {
                 paverConfig={paverConfig}
                 onPaverConfigChange={setPaverConfig}
                 scaleReference={scaleReference}
-                onStartScaleReference={onStartScaleReference || (() => {})}
+                onStartScaleReference={() => setIsSettingScale(true)}
               />
             ) : (
               <div className="border rounded-lg overflow-hidden">
@@ -102,6 +99,8 @@ export const PoolDesigner: React.FC = () => {
               unit={unit}
               copingSize={copingSize}
               paverConfig={paverConfig}
+              isSettingScale={isSettingScale}
+              onIsSettingScaleChange={setIsSettingScale}
             />
           ) : (
             <div className="h-full flex items-center justify-center">
