@@ -33,6 +33,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({
   isSettingScale,
   onIsSettingScaleChange,
 }) => {
+  console.log('PoolCanvas render - isSettingScale:', isSettingScale);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [fabricCanvas, setFabricCanvas] = useState<FabricCanvas | null>(null);
@@ -351,6 +352,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({
   useEffect(() => {
     if (!fabricCanvas || !isSettingScale) return;
 
+    console.log('Scale reference mode activated');
     let startPoint: Point | null = null;
     let line: any = null;
 
@@ -414,7 +416,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({
       fabricCanvas.off('mouse:move', handleMouseMove);
       fabricCanvas.off('mouse:up', handleMouseUp);
     };
-  }, [fabricCanvas, isSettingScale, unit]);
+  }, [fabricCanvas, isSettingScale, unit, onIsSettingScaleChange]);
 
   return (
     <div ref={containerRef} className={cn('w-full h-full', className)}>

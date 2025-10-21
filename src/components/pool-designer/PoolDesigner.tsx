@@ -69,7 +69,10 @@ export const PoolDesigner: React.FC = () => {
                 paverConfig={paverConfig}
                 onPaverConfigChange={setPaverConfig}
                 scaleReference={scaleReference}
-                onStartScaleReference={() => setIsSettingScale(true)}
+                onStartScaleReference={() => {
+                  console.log('Set Scale button clicked');
+                  setIsSettingScale(true);
+                }}
               />
             ) : (
               <div className="border rounded-lg overflow-hidden">
