@@ -2577,6 +2577,154 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
     }
   };
 
+  const addPaversToSelectedPool = () => {
+    if (!fabricCanvas || !scaleReference) {
+      alert('Please set a scale reference first.');
+      return;
+    }
+    
+    const activeObject = fabricCanvas.getActiveObject();
+    if (!activeObject || !(activeObject as any).poolId || !(activeObject as any).poolId.startsWith('pool-')) {
+      alert('Please select a pool first.');
+      return;
+    }
+    
+    const poolId = (activeObject as any).poolId;
+    
+    // Check if pavers already exist for this pool
+    const existingPavers = fabricCanvas.getObjects().find(obj => 
+      (obj as any).paverId && (obj as any).paverId.includes(`-${poolId}`)
+    );
+    
+    if (existingPavers) {
+      alert('This pool already has pavers. Please delete them first.');
+      return;
+    }
+    
+    // Get pool dimensions in pixels
+    const poolWidth = activeObject.width! * (activeObject.scaleX || 1);
+    const poolHeight = activeObject.height! * (activeObject.scaleY || 1);
+    const centerPoint = activeObject.getCenterPoint();
+    
+    // Convert pixel dimensions to feet
+    let L = (poolWidth * scaleReference.length) / scaleReference.pixelLength;
+    let W = (poolHeight * scaleReference.length) / scaleReference.pixelLength;
+    
+    if (scaleReference.unit === 'meters') {
+      L *= 3.28084;
+      W *= 3.28084;
+    }
+    
+    // Parse paver dimensions
+    let paverLeft = parseFloat(paverLeftFeet) || 0;
+    let paverRight = parseFloat(paverRightFeet) || 0;
+    let paverTop = parseFloat(paverTopFeet) || 0;
+    let paverBottom = parseFloat(paverBottomFeet) || 0;
+    
+    if (paverLeft === 0 && paverRight === 0 && paverTop === 0 && paverBottom === 0) {
+      alert('Please set paver dimensions first.');
+      return;
+    }
+    
+    let C = (copingSize || 0) / 12;
+    
+    // Convert to scale reference units if needed
+    if (scaleReference.unit === 'meters') {
+      paverLeft /= 3.28084;
+      paverRight /= 3.28084;
+      paverTop /= 3.28084;
+      paverBottom /= 3.28084;
+      L /= 3.28084;
+      W /= 3.28084;
+      C /= 3.28084;
+    }
+    
+    // Calculate outer dimensions
+    const outerLength = L + (paverLeft + C) + (paverRight + C);
+    const outerWidth = W + (paverTop + C) + (paverBottom + C);
+    
+    // Convert to pixels
+    const outerLengthPixels = outerLength * scaleReference.pixelLength / scaleReference.length;
+    const outerWidthPixels = outerWidth * scaleReference.pixelLength / scaleReference.length;
+    
+    // Create paver outline
+    const paverOutline = new Rect({
+      fill: 'rgba(34, 197, 94, 0.15)',
+      stroke: '#22c55e',
+      strokeWidth: 2,
+      left: centerPoint.x,
+      top: centerPoint.y,
+      width: outerLengthPixels,
+      height: outerWidthPixels,
+      originX: 'center',
+      originY: 'center',
+      selectable: true,
+      evented: true,
+      lockScalingX: true,
+      lockScalingY: true,
+      lockRotation: true,
+    });
+    
+    (paverOutline as any).paverId = `paver-outline-${poolId}`;
+    (paverOutline as any).poolId = poolId;
+    (paverOutline as any).paverDimensions = {
+      left: parseFloat(paverLeftFeet) || 0,
+      right: parseFloat(paverRightFeet) || 0,
+      top: parseFloat(paverTopFeet) || 0,
+      bottom: parseFloat(paverBottomFeet) || 0,
+    };
+    
+    // Add delete control
+    paverOutline.controls['deleteControl'] = new Control({
+      x: 0.5,
+      y: -0.5,
+      offsetX: 16,
+      offsetY: -16,
+      cursorStyle: 'pointer',
+      mouseUpHandler: () => {
+        const objects = fabricCanvas.getObjects();
+        const paverObjects = objects.filter((obj: any) => 
+          (obj.paverId && obj.paverId.includes(poolId)) || 
+          (obj.isPaverDimensionLabel && obj.poolId === poolId)
+        );
+        paverObjects.forEach(obj => fabricCanvas.remove(obj));
+        setPavers(prev => prev.filter(p => (p as any).poolId !== poolId));
+        fabricCanvas.renderAll();
+        return true;
+      },
+      render: (ctx, left, top) => {
+        const size = 24;
+        ctx.save();
+        ctx.translate(left, top);
+        ctx.beginPath();
+        ctx.arc(0, 0, size / 2, 0, 2 * Math.PI);
+        ctx.fillStyle = '#ef4444';
+        ctx.fill();
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2.5;
+        ctx.moveTo(-size / 4, -size / 4);
+        ctx.lineTo(size / 4, size / 4);
+        ctx.moveTo(size / 4, -size / 4);
+        ctx.lineTo(-size / 4, size / 4);
+        ctx.stroke();
+        ctx.restore();
+      },
+    });
+    
+    fabricCanvas.add(paverOutline);
+    
+    // Position paver behind pool
+    const bgImage = fabricCanvas.getObjects().find(obj => (obj as any).isBackgroundImage);
+    if (bgImage) {
+      const bgIndex = fabricCanvas.getObjects().indexOf(bgImage);
+      fabricCanvas.remove(paverOutline);
+      fabricCanvas.insertAt(bgIndex + 1, paverOutline);
+    }
+    
+    setPavers(prev => [...prev, paverOutline]);
+    fabricCanvas.renderAll();
+  };
+
   // Solar simulation functions
   const createNorthArrow = () => {
     if (!fabricCanvas) return;

@@ -53,6 +53,7 @@ interface PoolControlsProps {
   onStartPaverDrawing: () => void;
   onDeleteSelectedPaver: () => void;
   onAddRectangularPaver: (widthFeet: number, lengthFeet: number) => void;
+  onAddPaversToSelectedPool: () => void;
   selectedImage: File;
   onFileSelect: (file: File) => void;
   
@@ -115,6 +116,7 @@ export const PoolControls: React.FC<PoolControlsProps> = ({
   onStartPaverDrawing,
   onDeleteSelectedPaver,
   onAddRectangularPaver,
+  onAddPaversToSelectedPool,
   selectedImage,
   onFileSelect,
   showSolarOverlay,
@@ -531,6 +533,19 @@ export const PoolControls: React.FC<PoolControlsProps> = ({
                     Add Rectangular Paver
                   </button>
                 </div>
+              </div>
+              
+              <div className="pt-3 border-t">
+                <label className="text-sm font-semibold mb-2 block">Add to Selected Pool</label>
+                <p className="text-xs text-muted-foreground mb-2">
+                  Select a pool on canvas, then click to add pavers around it using the dimensions below.
+                </p>
+                <button
+                  onClick={onAddPaversToSelectedPool}
+                  className="w-full px-4 py-2 bg-accent text-accent-foreground rounded-md hover:bg-accent/90 text-sm"
+                >
+                  Add Pavers to Selected Pool
+                </button>
               </div>
               
               <button
