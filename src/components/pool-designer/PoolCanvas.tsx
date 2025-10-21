@@ -1939,13 +1939,16 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         
         // Enable polyline point editing - show a control for each point
         fence.points?.forEach((point, index) => {
+          let controlInitialized = false;
+          let initialPointer = { x: 0, y: 0 };
+          let initialPointPos = { x: 0, y: 0 };
+
           fence.controls[`p${index}`] = new Control({
             positionHandler: (dim, finalMatrix, fabricObject) => {
               const polyline = fabricObject as Polyline;
               const pt = polyline.points![index] as any;
               const x = pt.x - polyline.pathOffset!.x;
               const y = pt.y - polyline.pathOffset!.y;
-              // Use viewportTransform * objectTransform to place control exactly on vertex
               const matrix = util.multiplyTransformMatrices(
                 fabricCanvas.viewportTransform,
                 polyline.calcTransformMatrix()
@@ -1956,49 +1959,54 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
               const polyline = transform.target as Polyline;
               const pt = polyline.points![index] as any;
               
-              // Store initial position on first call (mouse down)
-              if (!transform.offsetX && !transform.offsetY) {
-                const invMatrix = util.invertTransform(
-                  util.multiplyTransformMatrices(
-                    fabricCanvas.viewportTransform,
-                    polyline.calcTransformMatrix()
-                  )
-                );
-                const currentPoint = util.transformPoint({ x, y }, invMatrix);
-                transform.offsetX = (pt.x - polyline.pathOffset!.x) - currentPoint.x;
-                transform.offsetY = (pt.y - polyline.pathOffset!.y) - currentPoint.y;
-                // Return false to not move on first call
-                return false;
+              // On first call (mousedown), just store initial positions without moving
+              if (!controlInitialized) {
+                controlInitialized = true;
+                initialPointer = { x, y };
+                initialPointPos = { x: pt.x, y: pt.y };
+                return false; // Don't move on mousedown
               }
               
-              // Convert pointer to object local coords and apply offset
+              // Calculate movement delta from initial position
               const invMatrix = util.invertTransform(
                 util.multiplyTransformMatrices(
                   fabricCanvas.viewportTransform,
                   polyline.calcTransformMatrix()
                 )
               );
-              const localPoint = util.transformPoint({ x, y }, invMatrix);
-              // Preserve center to prevent object shift when bounds change
-              const prevCenter = polyline.getCenterPoint();
-              // Apply point change
-              pt.x = localPoint.x + transform.offsetX + polyline.pathOffset!.x;
-              pt.y = localPoint.y + transform.offsetY + polyline.pathOffset!.y;
+              const currentPointer = util.transformPoint({ x, y }, invMatrix);
+              const initialPointerLocal = util.transformPoint(initialPointer, invMatrix);
               
-              // Recompute coords and compensate center shift
+              const dx = currentPointer.x - initialPointerLocal.x;
+              const dy = currentPointer.y - initialPointerLocal.y;
+              
+              // Preserve center to prevent object shift
+              const prevCenter = polyline.getCenterPoint();
+              
+              // Apply movement from initial position
+              pt.x = initialPointPos.x + dx;
+              pt.y = initialPointPos.y + dy;
+              
               polyline.set({ dirty: true });
               polyline.setCoords();
+              
+              // Compensate center shift
               const newCenter = polyline.getCenterPoint();
-              const dx = prevCenter.x - newCenter.x;
-              const dy = prevCenter.y - newCenter.y;
-              polyline.left += dx;
-              polyline.top += dy;
+              const centerDx = prevCenter.x - newCenter.x;
+              const centerDy = prevCenter.y - newCenter.y;
+              polyline.left += centerDx;
+              polyline.top += centerDy;
               polyline.setCoords();
               
               fabricCanvas.requestRenderAll();
               updateFenceMarkers(polyline);
               
               return true;
+            },
+            mouseUpHandler: () => {
+              // Reset for next interaction
+              controlInitialized = false;
+              return false;
             },
             cursorStyle: 'pointer',
             render: (ctx, left, top, styleOverride, fabricObject) => {
@@ -2914,6 +2922,166 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
     });
   };
 
+  // Segment dragging functionality - drag two connected points together
+  useEffect(() => {
+    if (!fabricCanvas) return;
+
+    // Helper function to calculate distance from point to line segment
+    const distanceToSegment = (p: { x: number; y: number }, v: { x: number; y: number }, w: { x: number; y: number }): number => {
+      const l2 = Math.pow(w.x - v.x, 2) + Math.pow(w.y - v.y, 2);
+      if (l2 === 0) return Math.sqrt(Math.pow(p.x - v.x, 2) + Math.pow(p.y - v.y, 2));
+      
+      let t = ((p.x - v.x) * (w.x - v.x) + (p.y - v.y) * (w.y - v.y)) / l2;
+      t = Math.max(0, Math.min(1, t));
+      
+      const projection = {
+        x: v.x + t * (w.x - v.x),
+        y: v.y + t * (w.y - v.y)
+      };
+      
+      return Math.sqrt(Math.pow(p.x - projection.x, 2) + Math.pow(p.y - projection.y, 2));
+    };
+
+    let segmentDragging: {
+      active: boolean;
+      polyline: Polyline;
+      pointIndices: [number, number];
+      initialPoints: [{ x: number; y: number }, { x: number; y: number }];
+      initialMouse: { x: number; y: number };
+    } | null = null;
+
+    const handleMouseDown = (options: any) => {
+      if (!options.target) return;
+      
+      const target = options.target;
+      
+      // Only handle polylines and polygons (pavers/fences)
+      if (target.type !== 'polyline' && target.type !== 'polygon') return;
+      
+      const poly = target as Polyline;
+      if (!poly.points || poly.points.length < 2) return;
+      
+      // Get mouse position in canvas coordinates
+      const pointer = fabricCanvas.getPointer(options.e);
+      
+      // Convert to object local coordinates
+      const invMatrix = util.invertTransform(
+        util.multiplyTransformMatrices(
+          fabricCanvas.viewportTransform,
+          poly.calcTransformMatrix()
+        )
+      );
+      const localPointer = util.transformPoint(pointer, invMatrix);
+      const clickPoint = {
+        x: localPointer.x + poly.pathOffset!.x,
+        y: localPointer.y + poly.pathOffset!.y,
+      };
+      
+      // Check if click is near a segment (not on a control point)
+      let nearestSegment: { index: number; distance: number } | null = null;
+      const threshold = 15; // pixels threshold for segment detection
+      
+      for (let i = 0; i < poly.points.length - 1; i++) {
+        const p1 = poly.points[i] as { x: number; y: number };
+        const p2 = poly.points[i + 1] as { x: number; y: number };
+        
+        const distance = distanceToSegment(clickPoint, p1, p2);
+        
+        if (distance < threshold && (!nearestSegment || distance < nearestSegment.distance)) {
+          nearestSegment = { index: i, distance };
+        }
+      }
+      
+      // If clicked on segment, set up dragging for both points
+      if (nearestSegment !== null && !poly.__corner) {
+        const idx1 = nearestSegment.index;
+        const idx2 = (nearestSegment.index + 1) % poly.points.length;
+        
+        segmentDragging = {
+          active: true,
+          polyline: poly,
+          pointIndices: [idx1, idx2],
+          initialPoints: [
+            { ...(poly.points[idx1] as { x: number; y: number }) },
+            { ...(poly.points[idx2] as { x: number; y: number }) }
+          ],
+          initialMouse: { ...pointer }
+        };
+        
+        fabricCanvas.selection = false;
+        poly.selectable = false;
+      }
+    };
+
+    const handleMouseMove = (options: any) => {
+      if (!segmentDragging || !segmentDragging.active) return;
+      
+      const pointer = fabricCanvas.getPointer(options.e);
+      const poly = segmentDragging.polyline;
+      
+      // Calculate mouse movement delta
+      const dx = pointer.x - segmentDragging.initialMouse.x;
+      const dy = pointer.y - segmentDragging.initialMouse.y;
+      
+      // Convert delta to local coordinates
+      const invMatrix = util.invertTransform(
+        util.multiplyTransformMatrices(
+          fabricCanvas.viewportTransform,
+          poly.calcTransformMatrix()
+        )
+      );
+      const localDelta = util.transformPoint({ x: dx, y: dy }, invMatrix);
+      const zeroDelta = util.transformPoint({ x: 0, y: 0 }, invMatrix);
+      const localDx = localDelta.x - zeroDelta.x;
+      const localDy = localDelta.y - zeroDelta.y;
+      
+      // Move both points
+      const [idx1, idx2] = segmentDragging.pointIndices;
+      (poly.points![idx1] as any).x = segmentDragging.initialPoints[0].x + localDx;
+      (poly.points![idx1] as any).y = segmentDragging.initialPoints[0].y + localDy;
+      (poly.points![idx2] as any).x = segmentDragging.initialPoints[1].x + localDx;
+      (poly.points![idx2] as any).y = segmentDragging.initialPoints[1].y + localDy;
+      
+      // If it's a closed polygon, update the closing point
+      if (poly.type === 'polygon' || (idx1 === 0 && poly.points!.length > 2)) {
+        const lastIdx = poly.points!.length - 1;
+        if (idx1 === 0) {
+          (poly.points![lastIdx] as any).x = (poly.points![0] as any).x;
+          (poly.points![lastIdx] as any).y = (poly.points![0] as any).y;
+        }
+      }
+      
+      poly.set({ dirty: true });
+      poly.setCoords();
+      fabricCanvas.renderAll();
+      
+      // Trigger modified event for fence markers update
+      if ((poly as any).isFence) {
+        poly.fire('modified');
+      }
+    };
+
+    const handleMouseUp = () => {
+      if (segmentDragging) {
+        const poly = segmentDragging.polyline;
+        poly.selectable = true;
+        fabricCanvas.selection = true;
+        segmentDragging = null;
+        fabricCanvas.renderAll();
+      }
+    };
+
+    fabricCanvas.on('mouse:down', handleMouseDown);
+    fabricCanvas.on('mouse:move', handleMouseMove);
+    fabricCanvas.on('mouse:up', handleMouseUp);
+
+    return () => {
+      fabricCanvas.off('mouse:down', handleMouseDown);
+      fabricCanvas.off('mouse:move', handleMouseMove);
+      fabricCanvas.off('mouse:up', handleMouseUp);
+    };
+  }, [fabricCanvas]);
+
   // Update solar overlay when settings change
   useEffect(() => {
     updateSolarOverlay();
@@ -3006,6 +3174,10 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
     paver.points?.forEach((point, index) => {
       if (index === paver.points!.length - 1) return; // Skip the last point (duplicate of first)
 
+      let controlInitialized = false;
+      let initialPointer = { x: 0, y: 0 };
+      let initialPointPos = { x: 0, y: 0 };
+
       paver.controls[`p${index}`] = new Control({
         positionHandler: (dim, finalMatrix, fabricObject) => {
           const polyline = fabricObject as Polyline;
@@ -3023,31 +3195,30 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
           const pt = polyline.points![index] as any;
           const lastPt = polyline.points![polyline.points!.length - 1] as any;
 
-          // Store initial position on first call (mouse down)
-          if (!transform.offsetX && !transform.offsetY) {
-            const invMatrix = util.invertTransform(
-              util.multiplyTransformMatrices(
-                fabricCanvas.viewportTransform,
-                polyline.calcTransformMatrix()
-              )
-            );
-            const currentPoint = util.transformPoint({ x, y }, invMatrix);
-            transform.offsetX = (pt.x - polyline.pathOffset!.x) - currentPoint.x;
-            transform.offsetY = (pt.y - polyline.pathOffset!.y) - currentPoint.y;
-            // Return false to not move on first call
-            return false;
+          // On first call (mousedown), just store initial positions without moving
+          if (!controlInitialized) {
+            controlInitialized = true;
+            initialPointer = { x, y };
+            initialPointPos = { x: pt.x, y: pt.y };
+            return false; // Don't move on mousedown
           }
 
+          // Calculate movement delta from initial position
           const invMatrix = util.invertTransform(
             util.multiplyTransformMatrices(
               fabricCanvas.viewportTransform,
               polyline.calcTransformMatrix()
             )
           );
-          const newPoint = util.transformPoint({ x, y }, invMatrix);
+          const currentPointer = util.transformPoint({ x, y }, invMatrix);
+          const initialPointerLocal = util.transformPoint(initialPointer, invMatrix);
+          
+          const dx = currentPointer.x - initialPointerLocal.x;
+          const dy = currentPointer.y - initialPointerLocal.y;
 
-          pt.x = newPoint.x + transform.offsetX + polyline.pathOffset!.x;
-          pt.y = newPoint.y + transform.offsetY + polyline.pathOffset!.y;
+          // Apply movement from initial position
+          pt.x = initialPointPos.x + dx;
+          pt.y = initialPointPos.y + dy;
 
           // Update the last point to match the first point
           if (index === 0) {
@@ -3080,6 +3251,11 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
           }
 
           return true;
+        },
+        mouseUpHandler: () => {
+          // Reset for next interaction
+          controlInitialized = false;
+          return false;
         },
         render: (ctx, left, top, styleOverride, fabricObject) => {
           ctx.save();
