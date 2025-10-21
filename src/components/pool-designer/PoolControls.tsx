@@ -5,6 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Download } from 'lucide-react';
 import type { Unit, CopingSize, PoolModel, CustomPoolDimensions, PaverConfig } from '@/types/poolDesigner';
 import { PREDEFINED_MODELS, formatDimension, feetToMeters, metersToFeet } from '@/types/poolDesigner';
 
@@ -23,6 +24,7 @@ interface PoolControlsProps {
   onPaverConfigChange: (config: PaverConfig) => void;
   scaleReference: { length: number; pixelLength: number } | null;
   onStartScaleReference: () => void;
+  onExportLayout: () => void;
 }
 
 export const PoolControls: React.FC<PoolControlsProps> = ({
@@ -40,6 +42,7 @@ export const PoolControls: React.FC<PoolControlsProps> = ({
   onPaverConfigChange,
   scaleReference,
   onStartScaleReference,
+  onExportLayout,
 }) => {
   const [customModelName, setCustomModelName] = useState('');
 
@@ -437,6 +440,26 @@ export const PoolControls: React.FC<PoolControlsProps> = ({
                   </div>
                 </div>
               )}
+            </CardContent>
+          </Card>
+
+          {/* Export Button */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm">💾 Export</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Button 
+                onClick={onExportLayout} 
+                className="w-full"
+                size="sm"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Export Layout
+              </Button>
+              <p className="text-xs text-muted-foreground mt-2">
+                Exports PNG image and PDF with dimensions
+              </p>
             </CardContent>
           </Card>
         </>

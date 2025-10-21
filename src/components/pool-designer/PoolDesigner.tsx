@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { FileUpload } from '@/components/ui/file-upload';
 import { PoolCanvas } from './PoolCanvas';
 import { PoolControls } from './PoolControls';
@@ -26,6 +26,7 @@ export const PoolDesigner: React.FC = () => {
   });
   const [scaleReference, setScaleReference] = useState<{ length: number; pixelLength: number } | null>(null);
   const [isSettingScale, setIsSettingScale] = useState(false);
+  const canvasRef = useRef<any>(null);
 
   const handleFileSelect = (file: File) => {
     setSelectedImage(file);
@@ -34,6 +35,12 @@ export const PoolDesigner: React.FC = () => {
   const handleStateChange = (state: any) => {
     if (state.scaleReference !== undefined) {
       setScaleReference(state.scaleReference);
+    }
+  };
+
+  const handleExportLayout = () => {
+    if (canvasRef.current?.exportLayout) {
+      canvasRef.current.exportLayout();
     }
   };
 
@@ -70,9 +77,9 @@ export const PoolDesigner: React.FC = () => {
                 onPaverConfigChange={setPaverConfig}
                 scaleReference={scaleReference}
                 onStartScaleReference={() => {
-                  console.log('Set Scale button clicked');
                   setIsSettingScale(true);
                 }}
+                onExportLayout={handleExportLayout}
               />
             ) : (
               <div className="border rounded-lg overflow-hidden">
@@ -93,6 +100,7 @@ export const PoolDesigner: React.FC = () => {
         <div className="w-3/4 bg-gradient-to-br from-background to-primary/5 overflow-auto">
           {selectedImage ? (
             <PoolCanvas
+              ref={canvasRef}
               imageFile={selectedImage}
               canvasOnly
               onStateChange={handleStateChange}

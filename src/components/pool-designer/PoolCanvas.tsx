@@ -1,8 +1,12 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Canvas as FabricCanvas, FabricImage, Rect, Point, Text, Line } from 'fabric';
+import React, { useEffect, useRef, useState, forwardRef, useImperativeHandle } from 'react';
+import { Canvas as FabricCanvas, FabricImage, Rect, Point, Text, Line, Group } from 'fabric';
+import * as fabric from 'fabric';
 import { cn } from '@/lib/utils';
 import type { Unit, CopingSize, PoolModel, CustomPoolDimensions, PaverConfig } from '@/types/poolDesigner';
 import { feetToMeters, formatDimension, inchesToFeet } from '@/types/poolDesigner';
+import { toast } from 'sonner';
+import { jsPDF } from 'jspdf';
+import logo from '@/assets/piscineriviera-logo.png';
 
 interface PoolCanvasProps {
   imageFile: File | null;
@@ -19,7 +23,7 @@ interface PoolCanvasProps {
   onIsSettingScaleChange: (value: boolean) => void;
 }
 
-export const PoolCanvas: React.FC<PoolCanvasProps> = ({
+export const PoolCanvas = forwardRef<any, PoolCanvasProps>(({
   imageFile,
   className,
   canvasOnly = false,
@@ -32,13 +36,114 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({
   paverConfig,
   isSettingScale,
   onIsSettingScaleChange,
-}) => {
-  console.log('PoolCanvas render - isSettingScale:', isSettingScale);
+}, ref) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [fabricCanvas, setFabricCanvas] = useState<FabricCanvas | null>(null);
   const [scaleReference, setScaleReference] = useState<{ length: number; pixelLength: number } | null>(null);
   const bgImageRef = useRef<FabricImage | null>(null);
+
+  // Expose export method via ref
+  useImperativeHandle(ref, () => ({
+    exportLayout: () => {
+      if (!fabricCanvas || !scaleReference) {
+        toast.error('Please set scale reference before exporting');
+        return;
+      }
+
+      try {
+        // Export as PNG
+        const dataURL = fabricCanvas.toDataURL({
+          format: 'png',
+          quality: 1,
+          multiplier: 2,
+        });
+        
+        const link = document.createElement('a');
+        link.download = 'pool-layout.png';
+        link.href = dataURL;
+        link.click();
+
+        // Generate PDF
+        const pdf = new jsPDF();
+        const pageWidth = pdf.internal.pageSize.getWidth();
+        const pageHeight = pdf.internal.pageSize.getHeight();
+        
+        // Add header
+        pdf.setFontSize(18);
+        pdf.text('Piscine Riviera – Pool Layout Preview', pageWidth / 2, 20, { align: 'center' });
+        
+        // Add canvas image
+        const imgWidth = pageWidth - 40;
+        const imgHeight = (fabricCanvas.height! / fabricCanvas.width!) * imgWidth;
+        pdf.addImage(dataURL, 'PNG', 20, 30, imgWidth, Math.min(imgHeight, 120));
+        
+        let yPos = 30 + Math.min(imgHeight, 120) + 15;
+        
+        // Add details
+        pdf.setFontSize(12);
+        pdf.text('Layout Details:', 20, yPos);
+        yPos += 10;
+        
+        pdf.setFontSize(10);
+        
+        // Model name
+        let modelName = '';
+        if (isCustom) {
+          modelName = 'Custom Pool';
+        } else if (selectedModel) {
+          modelName = selectedModel.name;
+        }
+        pdf.text(`Model: ${modelName}`, 20, yPos);
+        yPos += 7;
+        
+        // Dimensions
+        if (isCustom && customDimensions) {
+          const length = customDimensions.lengthFeet + inchesToFeet(customDimensions.lengthInches);
+          const width = customDimensions.widthFeet + inchesToFeet(customDimensions.widthInches);
+          pdf.text(`Dimensions: ${formatDimension(width, unit)} x ${formatDimension(length, unit)}`, 20, yPos);
+        } else if (selectedModel) {
+          pdf.text(`Dimensions: ${formatDimension(selectedModel.widthFeet, unit)} x ${formatDimension(selectedModel.lengthFeet, unit)}`, 20, yPos);
+        }
+        yPos += 7;
+        
+        // Coping
+        if (copingSize > 0) {
+          pdf.text(`Coping: ${copingSize}" (${formatDimension(inchesToFeet(copingSize), unit)})`, 20, yPos);
+          yPos += 7;
+        }
+        
+        // Pavers
+        if (paverConfig.top > 0 || paverConfig.right > 0 || paverConfig.bottom > 0 || paverConfig.left > 0) {
+          pdf.text('Pavers:', 20, yPos);
+          yPos += 7;
+          if (paverConfig.sameOnAllSides) {
+            pdf.text(`  All sides: ${formatDimension(paverConfig.top, unit)}`, 20, yPos);
+            yPos += 7;
+          } else {
+            pdf.text(`  Top: ${formatDimension(paverConfig.top, unit)}`, 20, yPos);
+            yPos += 7;
+            pdf.text(`  Right: ${formatDimension(paverConfig.right, unit)}`, 20, yPos);
+            yPos += 7;
+            pdf.text(`  Bottom: ${formatDimension(paverConfig.bottom, unit)}`, 20, yPos);
+            yPos += 7;
+            pdf.text(`  Left: ${formatDimension(paverConfig.left, unit)}`, 20, yPos);
+            yPos += 7;
+          }
+        }
+        
+        // Scale info
+        pdf.text(`Scale: ${scaleReference.length} ${unit === 'feet' ? 'ft' : 'm'} reference`, 20, yPos);
+        
+        pdf.save('pool-layout.pdf');
+        
+        toast.success('Layout exported successfully!');
+      } catch (error) {
+        console.error('Export error:', error);
+        toast.error('Failed to export layout');
+      }
+    },
+  }));
 
   // Initialize canvas
   useEffect(() => {
@@ -161,14 +266,15 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({
     reader.readAsDataURL(imageFile);
   }, [fabricCanvas, imageFile]);
 
-  // Render pool, coping, and pavers
+  // Render pool, coping, and pavers as a group
   useEffect(() => {
     if (!fabricCanvas || !scaleReference) return;
+    if (isSettingScale) return; // Don't render while setting scale
 
     // Clear existing pool objects
     const objects = fabricCanvas.getObjects();
     objects.forEach((obj: any) => {
-      if (obj.poolElement) {
+      if (obj.poolElement || obj.poolGroup) {
         fabricCanvas.remove(obj);
       }
     });
@@ -201,66 +307,60 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({
 
     // Draw pool
     const pool = new Rect({
-      left: centerX - poolLengthPx / 2,
-      top: centerY - poolWidthPx / 2,
+      left: -poolLengthPx / 2,
+      top: -poolWidthPx / 2,
       width: poolLengthPx,
       height: poolWidthPx,
       fill: '#4A90E2',
       stroke: '#2E5C8A',
       strokeWidth: 2,
       selectable: false,
-      poolElement: true,
     } as any);
     fabricCanvas.add(pool);
 
     // Draw pool name label
     const nameLabel = new Text(modelName, {
-      left: centerX,
-      top: centerY,
+      left: 0,
+      top: 0,
       fontSize: Math.min(poolLengthPx / 10, poolWidthPx / 5, 40),
       fill: '#ffffff',
       originX: 'center',
       originY: 'center',
       fontWeight: 'bold',
       selectable: false,
-      poolElement: true,
     } as any);
     fabricCanvas.add(nameLabel);
 
     // Draw coping if selected
-    if (copingSize > 0) {
-      const copingFeet = inchesToFeet(copingSize);
-      const copingPx = copingFeet * pixelsPerFoot;
+    const copingFeet = inchesToFeet(copingSize);
+    const copingPx = copingFeet * pixelsPerFoot;
 
+    if (copingSize > 0) {
       const coping = new Rect({
-        left: centerX - (poolLengthPx + copingPx * 2) / 2,
-        top: centerY - (poolWidthPx + copingPx * 2) / 2,
+        left: -(poolLengthPx + copingPx * 2) / 2,
+        top: -(poolWidthPx + copingPx * 2) / 2,
         width: poolLengthPx + copingPx * 2,
         height: poolWidthPx + copingPx * 2,
         fill: 'transparent',
         stroke: '#8B4513',
         strokeWidth: copingPx,
         selectable: false,
-        poolElement: true,
       } as any);
       fabricCanvas.add(coping);
       fabricCanvas.sendObjectBackwards(coping);
     }
 
     // Draw pavers
-    const copingFeet = inchesToFeet(copingSize);
-    const copingPx = copingFeet * pixelsPerFoot;
-
     const paverTop = paverConfig.top * pixelsPerFoot;
     const paverRight = paverConfig.right * pixelsPerFoot;
     const paverBottom = paverConfig.bottom * pixelsPerFoot;
     const paverLeft = paverConfig.left * pixelsPerFoot;
 
     // Pool bounds including coping
-    const poolWithCopingLeft = centerX - (poolLengthPx + copingPx * 2) / 2;
-    const poolWithCopingTop = centerY - (poolWidthPx + copingPx * 2) / 2;
-    const poolWithCopingRight = centerX + (poolLengthPx + copingPx * 2) / 2;
-    const poolWithCopingBottom = centerY + (poolWidthPx + copingPx * 2) / 2;
+    const poolWithCopingLeft = -(poolLengthPx + copingPx * 2) / 2;
+    const poolWithCopingTop = -(poolWidthPx + copingPx * 2) / 2;
+    const poolWithCopingRight = (poolLengthPx + copingPx * 2) / 2;
+    const poolWithCopingBottom = (poolWidthPx + copingPx * 2) / 2;
 
     if (paverTop > 0) {
       const paver = new Rect({
@@ -320,24 +420,64 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({
         stroke: '#666',
         strokeWidth: 1,
         selectable: false,
-        poolElement: true,
       } as any);
       fabricCanvas.add(paver);
       fabricCanvas.sendObjectBackwards(paver);
     }
 
-    // Calculate total paver area
-    const totalPaverAreaFeet = calculatePaverArea(
-      poolLengthFeet,
-      poolWidthFeet,
-      copingFeet,
-      paverConfig
-    );
+    // Create a group with all objects
+    const allObjects = fabricCanvas.getObjects();
+    const group = new fabric.Group(allObjects, {
+      left: centerX,
+      top: centerY,
+      selectable: true,
+      hasControls: true,
+      hasBorders: true,
+      lockScalingX: false,
+      lockScalingY: false,
+      poolGroup: true,
+    } as any);
 
-    console.log(`Total paver area: ${totalPaverAreaFeet.toFixed(2)} sq ft`);
-
+    fabricCanvas.clear();
+    fabricCanvas.add(group);
+    fabricCanvas.setActiveObject(group);
     fabricCanvas.renderAll();
-  }, [fabricCanvas, scaleReference, selectedModel, customDimensions, isCustom, copingSize, paverConfig]);
+
+    // Keyboard controls
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!group) return;
+      
+      const step = e.shiftKey ? 10 : 1;
+      
+      switch(e.key) {
+        case 'ArrowUp':
+          group.top! -= step;
+          e.preventDefault();
+          break;
+        case 'ArrowDown':
+          group.top! += step;
+          e.preventDefault();
+          break;
+        case 'ArrowLeft':
+          group.left! -= step;
+          e.preventDefault();
+          break;
+        case 'ArrowRight':
+          group.left! += step;
+          e.preventDefault();
+          break;
+      }
+      
+      group.setCoords();
+      fabricCanvas.renderAll();
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [fabricCanvas, scaleReference, selectedModel, customDimensions, isCustom, copingSize, paverConfig, isSettingScale]);
 
   // Expose state change for controls
   useEffect(() => {
@@ -352,7 +492,6 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({
   useEffect(() => {
     if (!fabricCanvas || !isSettingScale) return;
 
-    console.log('Scale reference mode activated');
     let startPoint: Point | null = null;
     let line: any = null;
 
@@ -416,14 +555,14 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({
       fabricCanvas.off('mouse:move', handleMouseMove);
       fabricCanvas.off('mouse:up', handleMouseUp);
     };
-  }, [fabricCanvas, isSettingScale, unit, onIsSettingScaleChange]);
+  }, [fabricCanvas, isSettingScale, unit]);
 
   return (
     <div ref={containerRef} className={cn('w-full h-full', className)}>
       <canvas ref={canvasRef} />
     </div>
   );
-};
+});
 
 function calculatePaverArea(
   poolLengthFeet: number,
