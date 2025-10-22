@@ -39,13 +39,21 @@ interface PoolControlsProps {
   copingSize: number | null;
   onCopingSizeChange: (size: number | null) => void;
   paverLeftFeet: string;
+  paverLeftInches: string;
   paverRightFeet: string;
+  paverRightInches: string;
   paverTopFeet: string;
+  paverTopInches: string;
   paverBottomFeet: string;
+  paverBottomInches: string;
   onPaverLeftFeetChange: (value: string) => void;
+  onPaverLeftInchesChange: (value: string) => void;
   onPaverRightFeetChange: (value: string) => void;
+  onPaverRightInchesChange: (value: string) => void;
   onPaverTopFeetChange: (value: string) => void;
+  onPaverTopInchesChange: (value: string) => void;
   onPaverBottomFeetChange: (value: string) => void;
+  onPaverBottomInchesChange: (value: string) => void;
   isDrawingFence: boolean;
   onStartFenceDrawing: () => void;
   onDeleteSelectedFence: () => void;
@@ -101,13 +109,21 @@ export const PoolControls: React.FC<PoolControlsProps> = ({
   copingSize,
   onCopingSizeChange,
   paverLeftFeet,
+  paverLeftInches,
   paverRightFeet,
+  paverRightInches,
   paverTopFeet,
+  paverTopInches,
   paverBottomFeet,
+  paverBottomInches,
   onPaverLeftFeetChange,
+  onPaverLeftInchesChange,
   onPaverRightFeetChange,
+  onPaverRightInchesChange,
   onPaverTopFeetChange,
+  onPaverTopInchesChange,
   onPaverBottomFeetChange,
+  onPaverBottomInchesChange,
   isDrawingFence,
   onStartFenceDrawing,
   onDeleteSelectedFence,
@@ -247,9 +263,19 @@ export const PoolControls: React.FC<PoolControlsProps> = ({
                         placeholder="0"
                         className="w-12 px-1 py-1 border rounded text-xs text-center"
                         min="0"
-                        step="0.5"
+                        step="1"
                       />
                       <span className="text-xs text-muted-foreground">FT</span>
+                      <input
+                        type="number"
+                        value={paverTopInches}
+                        onChange={(e) => onPaverTopInchesChange(e.target.value)}
+                        placeholder="0"
+                        className="w-12 px-1 py-1 border rounded text-xs text-center"
+                        min="0"
+                        max="11"
+                      />
+                      <span className="text-xs text-muted-foreground">IN</span>
                     </div>
                   </div>
                   
@@ -264,9 +290,19 @@ export const PoolControls: React.FC<PoolControlsProps> = ({
                         placeholder="0"
                         className="w-12 px-1 py-1 border rounded text-xs text-center"
                         min="0"
-                        step="0.5"
+                        step="1"
                       />
                       <span className="text-xs text-muted-foreground">FT</span>
+                      <input
+                        type="number"
+                        value={paverLeftInches}
+                        onChange={(e) => onPaverLeftInchesChange(e.target.value)}
+                        placeholder="0"
+                        className="w-12 px-1 py-1 border rounded text-xs text-center"
+                        min="0"
+                        max="11"
+                      />
+                      <span className="text-xs text-muted-foreground">IN</span>
                     </div>
                     
                     {/* Pool Visual */}
@@ -283,9 +319,19 @@ export const PoolControls: React.FC<PoolControlsProps> = ({
                         placeholder="0"
                         className="w-12 px-1 py-1 border rounded text-xs text-center"
                         min="0"
-                        step="0.5"
+                        step="1"
                       />
                       <span className="text-xs text-muted-foreground">FT</span>
+                      <input
+                        type="number"
+                        value={paverRightInches}
+                        onChange={(e) => onPaverRightInchesChange(e.target.value)}
+                        placeholder="0"
+                        className="w-12 px-1 py-1 border rounded text-xs text-center"
+                        min="0"
+                        max="11"
+                      />
+                      <span className="text-xs text-muted-foreground">IN</span>
                     </div>
                   </div>
                   
@@ -299,9 +345,19 @@ export const PoolControls: React.FC<PoolControlsProps> = ({
                         placeholder="0"
                         className="w-12 px-1 py-1 border rounded text-xs text-center"
                         min="0"
-                        step="0.5"
+                        step="1"
                       />
                       <span className="text-xs text-muted-foreground">FT</span>
+                      <input
+                        type="number"
+                        value={paverBottomInches}
+                        onChange={(e) => onPaverBottomInchesChange(e.target.value)}
+                        placeholder="0"
+                        className="w-12 px-1 py-1 border rounded text-xs text-center"
+                        min="0"
+                        max="11"
+                      />
+                      <span className="text-xs text-muted-foreground">IN</span>
                     </div>
                   </div>
                   

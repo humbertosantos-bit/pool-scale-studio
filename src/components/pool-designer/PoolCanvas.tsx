@@ -35,9 +35,14 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
   const [poolWidthInches, setPoolWidthInches] = useState('0');
   const [copingSize, setCopingSize] = useState<number | null>(null);
   const [paverLeftFeet, setPaverLeftFeet] = useState('0');
+  const [paverLeftInches, setPaverLeftInches] = useState('0');
   const [paverRightFeet, setPaverRightFeet] = useState('0');
+  const [paverRightInches, setPaverRightInches] = useState('0');
   const [paverTopFeet, setPaverTopFeet] = useState('0');
+  const [paverTopInches, setPaverTopInches] = useState('0');
   const [paverBottomFeet, setPaverBottomFeet] = useState('0');
+  const [paverBottomInches, setPaverBottomInches] = useState('0');
+  const [selectedPoolId, setSelectedPoolId] = useState<string | null>(null);
   const [isDrawingFence, setIsDrawingFence] = useState(false);
   const isDrawingFenceRef = useRef(false);
   const [fences, setFences] = useState<any[]>([]);
@@ -206,8 +211,17 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
     canvas.on('object:modified', ensureBackgroundAtBack);
     canvas.on('object:rotating', ensureBackgroundAtBack);
     canvas.on('object:scaling', ensureBackgroundAtBack);
-    canvas.on('selection:created', ensureBackgroundAtBack);
-    canvas.on('selection:updated', ensureBackgroundAtBack);
+    canvas.on('selection:created', (e) => {
+      ensureBackgroundAtBack();
+      handlePoolSelection(e);
+    });
+    canvas.on('selection:updated', (e) => {
+      ensureBackgroundAtBack();
+      handlePoolSelection(e);
+    });
+    canvas.on('selection:cleared', () => {
+      setSelectedPoolId(null);
+    });
     canvas.on('mouse:up', ensureBackgroundAtBack);
     canvas.on('after:render', ensureBackgroundAtBack);
 
@@ -1047,10 +1061,10 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
       groupElements.push(dimensionText);
       
       // Create pavers around the pool if specified
-      const paverLeft = parseFloat(paverLeftFeet) || 0;
-      const paverRight = parseFloat(paverRightFeet) || 0;
-      const paverTop = parseFloat(paverTopFeet) || 0;
-      const paverBottom = parseFloat(paverBottomFeet) || 0;
+      const paverLeft = (parseFloat(paverLeftFeet) || 0) + (parseFloat(paverLeftInches) || 0) / 12;
+      const paverRight = (parseFloat(paverRightFeet) || 0) + (parseFloat(paverRightInches) || 0) / 12;
+      const paverTop = (parseFloat(paverTopFeet) || 0) + (parseFloat(paverTopInches) || 0) / 12;
+      const paverBottom = (parseFloat(paverBottomFeet) || 0) + (parseFloat(paverBottomInches) || 0) / 12;
       
       if (paverLeft > 0 || paverRight > 0 || paverTop > 0 || paverBottom > 0) {
         const copingSizeInFeet = copingSize ? copingSize / 12 : 0;
@@ -1096,16 +1110,31 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         
         (paverOutline as any).isPaver = true;
         (paverOutline as any).paverDimensions = {
-          left: paverLeft,
-          right: paverRight,
-          top: paverTop,
-          bottom: paverBottom,
+          leftFeet: parseFloat(paverLeftFeet) || 0,
+          leftInches: parseFloat(paverLeftInches) || 0,
+          rightFeet: parseFloat(paverRightFeet) || 0,
+          rightInches: parseFloat(paverRightInches) || 0,
+          topFeet: parseFloat(paverTopFeet) || 0,
+          topInches: parseFloat(paverTopInches) || 0,
+          bottomFeet: parseFloat(paverBottomFeet) || 0,
+          bottomInches: parseFloat(paverBottomInches) || 0,
         };
         
         groupElements.unshift(paverOutline); // Add paver at beginning so it's behind everything
         
         // Add paver dimension labels
-        const paverLabels = createPaverLabels(outerLengthPixels, outerWidthPixels, paverLeft, paverRight, paverTop, paverBottom);
+        const paverLabels = createPaverLabels(
+          outerLengthPixels, 
+          outerWidthPixels, 
+          parseFloat(paverLeftFeet) || 0,
+          parseFloat(paverLeftInches) || 0,
+          parseFloat(paverRightFeet) || 0,
+          parseFloat(paverRightInches) || 0,
+          parseFloat(paverTopFeet) || 0,
+          parseFloat(paverTopInches) || 0,
+          parseFloat(paverBottomFeet) || 0,
+          parseFloat(paverBottomInches) || 0
+        );
         groupElements.push(...paverLabels);
       }
       
@@ -1136,6 +1165,22 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
       });
       
       (poolGroup as any).poolId = poolId;
+      (poolGroup as any).poolData = {
+        length,
+        width,
+        poolName,
+        copingSize,
+        paverDimensions: {
+          leftFeet: parseFloat(paverLeftFeet) || 0,
+          leftInches: parseFloat(paverLeftInches) || 0,
+          rightFeet: parseFloat(paverRightFeet) || 0,
+          rightInches: parseFloat(paverRightInches) || 0,
+          topFeet: parseFloat(paverTopFeet) || 0,
+          topInches: parseFloat(paverTopInches) || 0,
+          bottomFeet: parseFloat(paverBottomFeet) || 0,
+          bottomInches: parseFloat(paverBottomInches) || 0,
+        }
+      };
       
       fabricCanvas.add(poolGroup);
       
@@ -1153,12 +1198,30 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
     });
   };
   
-  const createPaverLabels = (outerLengthPixels: number, outerWidthPixels: number, left: number, right: number, top: number, bottom: number) => {
+  const createPaverLabels = (
+    outerLengthPixels: number, 
+    outerWidthPixels: number, 
+    leftFt: number, 
+    leftIn: number,
+    rightFt: number,
+    rightIn: number,
+    topFt: number,
+    topIn: number,
+    bottomFt: number,
+    bottomIn: number
+  ) => {
     const labels: any[] = [];
     const offset = 15;
     
-    if (left > 0) {
-      const label = new Text(`${left}'`, {
+    const formatDimension = (ft: number, inches: number) => {
+      if (inches > 0) {
+        return `${ft}' ${inches}"`;
+      }
+      return `${ft}'`;
+    };
+    
+    if (leftFt > 0 || leftIn > 0) {
+      const label = new Text(formatDimension(leftFt, leftIn), {
         left: -outerLengthPixels / 2 - offset,
         top: 0,
         fontSize: 8,
@@ -1171,8 +1234,8 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
       labels.push(label);
     }
     
-    if (right > 0) {
-      const label = new Text(`${right}'`, {
+    if (rightFt > 0 || rightIn > 0) {
+      const label = new Text(formatDimension(rightFt, rightIn), {
         left: outerLengthPixels / 2 + offset,
         top: 0,
         fontSize: 8,
@@ -1185,8 +1248,8 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
       labels.push(label);
     }
     
-    if (top > 0) {
-      const label = new Text(`${top}'`, {
+    if (topFt > 0 || topIn > 0) {
+      const label = new Text(formatDimension(topFt, topIn), {
         left: 0,
         top: -outerWidthPixels / 2 - offset,
         fontSize: 8,
@@ -1199,8 +1262,8 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
       labels.push(label);
     }
     
-    if (bottom > 0) {
-      const label = new Text(`${bottom}'`, {
+    if (bottomFt > 0 || bottomIn > 0) {
+      const label = new Text(formatDimension(bottomFt, bottomIn), {
         left: 0,
         top: outerWidthPixels / 2 + offset,
         fontSize: 8,
@@ -1214,6 +1277,275 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
     }
     
     return labels;
+  };
+
+  // Handle pool selection to load paver dimensions
+  const handlePoolSelection = (e: any) => {
+    const target = e.selected?.[0];
+    if (target && (target as any).poolData) {
+      const poolData = (target as any).poolData;
+      const paverDims = poolData.paverDimensions;
+      
+      if (paverDims) {
+        setSelectedPoolId((target as any).poolId);
+        setPaverLeftFeet(String(paverDims.leftFeet || 0));
+        setPaverLeftInches(String(paverDims.leftInches || 0));
+        setPaverRightFeet(String(paverDims.rightFeet || 0));
+        setPaverRightInches(String(paverDims.rightInches || 0));
+        setPaverTopFeet(String(paverDims.topFeet || 0));
+        setPaverTopInches(String(paverDims.topInches || 0));
+        setPaverBottomFeet(String(paverDims.bottomFeet || 0));
+        setPaverBottomInches(String(paverDims.bottomInches || 0));
+      }
+    }
+  };
+
+  // Update pool pavers when dimensions change
+  const updatePoolPavers = (poolId: string) => {
+    if (!fabricCanvas || !scaleReference) return;
+    
+    const pool = pools.find(p => (p as any).poolId === poolId);
+    if (!pool || !(pool as any).poolData) return;
+    
+    const poolData = (pool as any).poolData;
+    const { length, width, poolName, copingSize: poolCopingSize } = poolData;
+    
+    // Remove old pool group
+    fabricCanvas.remove(pool);
+    
+    // Store current position and angle
+    const currentLeft = pool.left;
+    const currentTop = pool.top;
+    const currentAngle = pool.angle;
+    
+    // Re-create pool with new paver dimensions
+    const pixelWidth = length * scaleReference.pixelLength / scaleReference.length;
+    const pixelHeight = width * scaleReference.pixelLength / scaleReference.length;
+    
+    FabricImage.fromURL(pool12x24Image).then((poolImg) => {
+      const scaleX = pixelWidth / poolImg.width!;
+      const scaleY = pixelHeight / poolImg.height!;
+      poolImg.set({ scaleX, scaleY });
+      
+      const groupElements: any[] = [];
+      
+      // Add coping if exists
+      if (poolCopingSize) {
+        const copingSizeInFeet = poolCopingSize / 12;
+        const copingPixelWidth = copingSizeInFeet * scaleReference.pixelLength / scaleReference.length;
+        
+        const coping = new Rect({
+          left: 0,
+          top: 0,
+          fill: '#D3D3D3',
+          stroke: '#000000',
+          strokeWidth: 0.5,
+          width: pixelWidth + (copingPixelWidth * 2),
+          height: pixelHeight + (copingPixelWidth * 2),
+          originX: 'center',
+          originY: 'center',
+        });
+        
+        (coping as any).isCoping = true;
+        groupElements.push(coping);
+      }
+      
+      poolImg.set({
+        left: 0,
+        top: 0,
+        originX: 'center',
+        originY: 'center',
+      });
+      
+      groupElements.push(poolImg);
+      
+      const dimensionText = new Text(poolName, {
+        left: 0,
+        top: 0,
+        fontSize: 10,
+        fontFamily: 'Arial',
+        fontWeight: 'bold',
+        fill: '#000000',
+        originX: 'center',
+        originY: 'center',
+      });
+      
+      (dimensionText as any).isDimensionText = true;
+      groupElements.push(dimensionText);
+      
+      // Add pavers with new dimensions
+      const paverLeft = (parseFloat(paverLeftFeet) || 0) + (parseFloat(paverLeftInches) || 0) / 12;
+      const paverRight = (parseFloat(paverRightFeet) || 0) + (parseFloat(paverRightInches) || 0) / 12;
+      const paverTop = (parseFloat(paverTopFeet) || 0) + (parseFloat(paverTopInches) || 0) / 12;
+      const paverBottom = (parseFloat(paverBottomFeet) || 0) + (parseFloat(paverBottomInches) || 0) / 12;
+      
+      if (paverLeft > 0 || paverRight > 0 || paverTop > 0 || paverBottom > 0) {
+        const copingSizeInFeet = poolCopingSize ? poolCopingSize / 12 : 0;
+        const actualPaverLeft = Math.max(0, paverLeft - copingSizeInFeet);
+        const actualPaverRight = Math.max(0, paverRight - copingSizeInFeet);
+        const actualPaverTop = Math.max(0, paverTop - copingSizeInFeet);
+        const actualPaverBottom = Math.max(0, paverBottom - copingSizeInFeet);
+        
+        const outerLength = length + (actualPaverLeft + copingSizeInFeet) + (actualPaverRight + copingSizeInFeet);
+        const outerWidth = width + (actualPaverTop + copingSizeInFeet) + (actualPaverBottom + copingSizeInFeet);
+        
+        const outerLengthPixels = outerLength * scaleReference.pixelLength / scaleReference.length;
+        const outerWidthPixels = outerWidth * scaleReference.pixelLength / scaleReference.length;
+        
+        const horizontalOffset = ((actualPaverRight - actualPaverLeft) / 2) * scaleReference.pixelLength / scaleReference.length;
+        const verticalOffset = ((actualPaverBottom - actualPaverTop) / 2) * scaleReference.pixelLength / scaleReference.length;
+        
+        groupElements.forEach(element => {
+          element.set({
+            left: (element.left || 0) + horizontalOffset,
+            top: (element.top || 0) + verticalOffset,
+          });
+        });
+        
+        const paverOutline = new Rect({
+          left: 0,
+          top: 0,
+          fill: 'rgba(34, 197, 94, 0.15)',
+          stroke: '#22c55e',
+          strokeWidth: 2,
+          width: outerLengthPixels,
+          height: outerWidthPixels,
+          originX: 'center',
+          originY: 'center',
+        });
+        
+        (paverOutline as any).isPaver = true;
+        groupElements.unshift(paverOutline);
+        
+        const paverLabels = createPaverLabels(
+          outerLengthPixels,
+          outerWidthPixels,
+          parseFloat(paverLeftFeet) || 0,
+          parseFloat(paverLeftInches) || 0,
+          parseFloat(paverRightFeet) || 0,
+          parseFloat(paverRightInches) || 0,
+          parseFloat(paverTopFeet) || 0,
+          parseFloat(paverTopInches) || 0,
+          parseFloat(paverBottomFeet) || 0,
+          parseFloat(paverBottomInches) || 0
+        );
+        groupElements.push(...paverLabels);
+      }
+      
+      const poolGroup = new Group(groupElements, {
+        left: currentLeft,
+        top: currentTop,
+        angle: currentAngle,
+        originX: 'center',
+        originY: 'center',
+        lockScalingX: true,
+        lockScalingY: true,
+        lockRotation: false,
+        hasControls: true,
+        hasBorders: true,
+      });
+      
+      poolGroup.setControlsVisibility({
+        mt: false,
+        mb: false,
+        ml: false,
+        mr: false,
+        bl: false,
+        br: false,
+        tl: false,
+        tr: false,
+        mtr: true,
+      });
+      
+      (poolGroup as any).poolId = poolId;
+      (poolGroup as any).poolData = {
+        length,
+        width,
+        poolName,
+        copingSize: poolCopingSize,
+        paverDimensions: {
+          leftFeet: parseFloat(paverLeftFeet) || 0,
+          leftInches: parseFloat(paverLeftInches) || 0,
+          rightFeet: parseFloat(paverRightFeet) || 0,
+          rightInches: parseFloat(paverRightInches) || 0,
+          topFeet: parseFloat(paverTopFeet) || 0,
+          topInches: parseFloat(paverTopInches) || 0,
+          bottomFeet: parseFloat(paverBottomFeet) || 0,
+          bottomInches: parseFloat(paverBottomInches) || 0,
+        }
+      };
+      
+      fabricCanvas.add(poolGroup);
+      
+      fabricCanvas.getObjects().forEach((obj) => {
+        if ((obj as any).isBackgroundImage) {
+          fabricCanvas.sendObjectToBack(obj);
+        } else if ((obj as any).measurementId) {
+          fabricCanvas.bringObjectToFront(obj);
+        }
+      });
+      
+      setPools(prev => prev.map(p => (p as any).poolId === poolId ? poolGroup : p));
+      fabricCanvas.setActiveObject(poolGroup);
+      fabricCanvas.renderAll();
+    });
+  };
+
+  // Paver change handlers
+  const handlePaverLeftFeetChange = (value: string) => {
+    setPaverLeftFeet(value);
+    if (selectedPoolId) {
+      setTimeout(() => updatePoolPavers(selectedPoolId), 100);
+    }
+  };
+
+  const handlePaverLeftInchesChange = (value: string) => {
+    setPaverLeftInches(value);
+    if (selectedPoolId) {
+      setTimeout(() => updatePoolPavers(selectedPoolId), 100);
+    }
+  };
+
+  const handlePaverRightFeetChange = (value: string) => {
+    setPaverRightFeet(value);
+    if (selectedPoolId) {
+      setTimeout(() => updatePoolPavers(selectedPoolId), 100);
+    }
+  };
+
+  const handlePaverRightInchesChange = (value: string) => {
+    setPaverRightInches(value);
+    if (selectedPoolId) {
+      setTimeout(() => updatePoolPavers(selectedPoolId), 100);
+    }
+  };
+
+  const handlePaverTopFeetChange = (value: string) => {
+    setPaverTopFeet(value);
+    if (selectedPoolId) {
+      setTimeout(() => updatePoolPavers(selectedPoolId), 100);
+    }
+  };
+
+  const handlePaverTopInchesChange = (value: string) => {
+    setPaverTopInches(value);
+    if (selectedPoolId) {
+      setTimeout(() => updatePoolPavers(selectedPoolId), 100);
+    }
+  };
+
+  const handlePaverBottomFeetChange = (value: string) => {
+    setPaverBottomFeet(value);
+    if (selectedPoolId) {
+      setTimeout(() => updatePoolPavers(selectedPoolId), 100);
+    }
+  };
+
+  const handlePaverBottomInchesChange = (value: string) => {
+    setPaverBottomInches(value);
+    if (selectedPoolId) {
+      setTimeout(() => updatePoolPavers(selectedPoolId), 100);
+    }
   };
 
   const startScaleReference = () => {
@@ -3134,13 +3466,21 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         copingSize,
         onCopingSizeChange: setCopingSize,
         paverLeftFeet,
+        paverLeftInches,
         paverRightFeet,
+        paverRightInches,
         paverTopFeet,
+        paverTopInches,
         paverBottomFeet,
-        onPaverLeftFeetChange: setPaverLeftFeet,
-        onPaverRightFeetChange: setPaverRightFeet,
-        onPaverTopFeetChange: setPaverTopFeet,
-        onPaverBottomFeetChange: setPaverBottomFeet,
+        paverBottomInches,
+        onPaverLeftFeetChange: handlePaverLeftFeetChange,
+        onPaverLeftInchesChange: handlePaverLeftInchesChange,
+        onPaverRightFeetChange: handlePaverRightFeetChange,
+        onPaverRightInchesChange: handlePaverRightInchesChange,
+        onPaverTopFeetChange: handlePaverTopFeetChange,
+        onPaverTopInchesChange: handlePaverTopInchesChange,
+        onPaverBottomFeetChange: handlePaverBottomFeetChange,
+        onPaverBottomInchesChange: handlePaverBottomInchesChange,
         isDrawingFence,
         onStartFenceDrawing: startFenceDrawing,
         onDeleteSelectedFence: deleteSelectedFence,
@@ -3158,7 +3498,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         onBgImageOpacityChange: setBgImageOpacity,
       });
     }
-  }, [scaleUnit, isSettingScale, scaleReference, poolLengthFeet, poolLengthInches, poolWidthFeet, poolWidthInches, measurementMode, isMeasuring, typedDistanceFeet, typedDistanceInches, typedDistanceMeters, copingSize, paverLeftFeet, paverRightFeet, paverTopFeet, paverBottomFeet, isDrawingFence, isDrawingPaver, showSolarOverlay, timeOfDay, selectedProvince, bgImageOpacity]);
+  }, [scaleUnit, isSettingScale, scaleReference, poolLengthFeet, poolLengthInches, poolWidthFeet, poolWidthInches, measurementMode, isMeasuring, typedDistanceFeet, typedDistanceInches, typedDistanceMeters, copingSize, paverLeftFeet, paverLeftInches, paverRightFeet, paverRightInches, paverTopFeet, paverTopInches, paverBottomFeet, paverBottomInches, isDrawingFence, isDrawingPaver, showSolarOverlay, timeOfDay, selectedProvince, bgImageOpacity]);
 
   return (
     <div className={cn("flex flex-col h-full", className)}>
