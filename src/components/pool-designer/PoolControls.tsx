@@ -288,70 +288,10 @@ export const PoolControls: React.FC<PoolControlsProps> = ({
               <div className="pt-3 border-t">
                 <label className="text-sm font-semibold mb-2 block">Preset Pools</label>
                 <button
-                  onClick={() => onAddPresetPool?.(24, 12)}
+                  onClick={() => onAddPresetPool?.(23, 11)}
                   className="w-full px-4 py-2 bg-pool-light text-pool-dark rounded-md hover:bg-pool-light/80 text-sm font-medium"
                 >
-                  12x24
-                </button>
-              </div>
-              
-              <div className="pt-3 border-t">
-                <label className="text-sm font-semibold mb-2 block">Custom Size</label>
-                <div className="space-y-2">
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Length</label>
-                    <div className="flex items-center gap-1">
-                      <input
-                        type="number"
-                        value={poolLengthFeet}
-                        onChange={(e) => onPoolLengthFeetChange(e.target.value)}
-                        placeholder="0"
-                        className="w-16 px-2 py-2 border rounded-md text-sm"
-                        min="0"
-                      />
-                      <span className="text-xs text-muted-foreground">FT</span>
-                      <input
-                        type="number"
-                        value={poolLengthInches}
-                        onChange={(e) => onPoolLengthInchesChange(e.target.value)}
-                        placeholder="0"
-                        className="w-16 px-2 py-2 border rounded-md text-sm"
-                        min="0"
-                        max="11"
-                      />
-                      <span className="text-xs text-muted-foreground">IN</span>
-                    </div>
-                  </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Width</label>
-                    <div className="flex items-center gap-1">
-                      <input
-                        type="number"
-                        value={poolWidthFeet}
-                        onChange={(e) => onPoolWidthFeetChange(e.target.value)}
-                        placeholder="0"
-                        className="w-16 px-2 py-2 border rounded-md text-sm"
-                        min="0"
-                      />
-                      <span className="text-xs text-muted-foreground">FT</span>
-                      <input
-                        type="number"
-                        value={poolWidthInches}
-                        onChange={(e) => onPoolWidthInchesChange(e.target.value)}
-                        placeholder="0"
-                        className="w-16 px-2 py-2 border rounded-md text-sm"
-                        min="0"
-                        max="11"
-                      />
-                      <span className="text-xs text-muted-foreground">IN</span>
-                    </div>
-                  </div>
-                </div>
-                <button
-                  onClick={onAddPool}
-                  className="w-full mt-2 px-4 py-2 bg-pool-light text-pool-dark rounded-md hover:bg-pool-light/80 text-sm"
-                >
-                  Add Pool
+                  Azoria Topaze 12x24
                 </button>
               </div>
               
