@@ -22,7 +22,7 @@ interface PoolControlsProps {
   onPoolWidthFeetChange: (value: string) => void;
   onPoolWidthInchesChange: (value: string) => void;
   onAddPool: () => void;
-  onAddPresetPool?: (length: number, width: number) => void;
+  onAddPresetPool?: (length: number, width: number, poolName: string) => void;
   onDeleteSelectedPool: () => void;
   measurementMode: 'draw' | 'type';
   onMeasurementModeChange: (mode: 'draw' | 'type') => void;
@@ -231,64 +231,87 @@ export const PoolControls: React.FC<PoolControlsProps> = ({
               </div>
               
               <div className="pt-3 border-t">
-                <label className="text-sm font-semibold mb-2 block">Pavers Around Pool (FT)</label>
-                <p className="text-xs text-muted-foreground mb-2">💡 Set before adding pool, or click pool + adjust values to update</p>
-                <div className="grid grid-cols-2 gap-2 mb-2">
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Left</label>
-                    <input
-                      type="number"
-                      value={paverLeftFeet}
-                      onChange={(e) => onPaverLeftFeetChange(e.target.value)}
-                      placeholder="0"
-                      className="w-full px-2 py-2 border rounded-md text-sm"
-                      min="0"
-                      step="0.5"
-                    />
+                <label className="text-sm font-semibold mb-2 block">Pavers Around Pool</label>
+                <p className="text-xs text-muted-foreground mb-3">💡 Set before adding pool, or click pool + adjust values to update</p>
+                
+                {/* Visual Pool Diagram with Input Areas */}
+                <div className="relative flex flex-col items-center gap-2 bg-muted/30 p-4 rounded-lg">
+                  
+                  {/* Top Input */}
+                  <div className="flex flex-col items-center gap-1">
+                    <div className="flex items-center gap-1 bg-background p-2 rounded border-2 border-primary/20">
+                      <input
+                        type="number"
+                        value={paverTopFeet}
+                        onChange={(e) => onPaverTopFeetChange(e.target.value)}
+                        placeholder="0"
+                        className="w-12 px-1 py-1 border rounded text-xs text-center"
+                        min="0"
+                        step="0.5"
+                      />
+                      <span className="text-xs text-muted-foreground">FT</span>
+                    </div>
                   </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Right</label>
-                    <input
-                      type="number"
-                      value={paverRightFeet}
-                      onChange={(e) => onPaverRightFeetChange(e.target.value)}
-                      placeholder="0"
-                      className="w-full px-2 py-2 border rounded-md text-sm"
-                      min="0"
-                      step="0.5"
-                    />
+                  
+                  {/* Middle Row: Left + Pool + Right */}
+                  <div className="flex items-center gap-2">
+                    {/* Left Input */}
+                    <div className="flex items-center gap-1 bg-background p-2 rounded border-2 border-primary/20">
+                      <input
+                        type="number"
+                        value={paverLeftFeet}
+                        onChange={(e) => onPaverLeftFeetChange(e.target.value)}
+                        placeholder="0"
+                        className="w-12 px-1 py-1 border rounded text-xs text-center"
+                        min="0"
+                        step="0.5"
+                      />
+                      <span className="text-xs text-muted-foreground">FT</span>
+                    </div>
+                    
+                    {/* Pool Visual */}
+                    <div className="w-32 h-20 bg-pool-light/30 border-2 border-pool-dark rounded flex items-center justify-center">
+                      <span className="text-xs font-semibold text-pool-dark">POOL</span>
+                    </div>
+                    
+                    {/* Right Input */}
+                    <div className="flex items-center gap-1 bg-background p-2 rounded border-2 border-primary/20">
+                      <input
+                        type="number"
+                        value={paverRightFeet}
+                        onChange={(e) => onPaverRightFeetChange(e.target.value)}
+                        placeholder="0"
+                        className="w-12 px-1 py-1 border rounded text-xs text-center"
+                        min="0"
+                        step="0.5"
+                      />
+                      <span className="text-xs text-muted-foreground">FT</span>
+                    </div>
                   </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Top</label>
-                    <input
-                      type="number"
-                      value={paverTopFeet}
-                      onChange={(e) => onPaverTopFeetChange(e.target.value)}
-                      placeholder="0"
-                      className="w-full px-2 py-2 border rounded-md text-sm"
-                      min="0"
-                      step="0.5"
-                    />
+                  
+                  {/* Bottom Input */}
+                  <div className="flex flex-col items-center gap-1">
+                    <div className="flex items-center gap-1 bg-background p-2 rounded border-2 border-primary/20">
+                      <input
+                        type="number"
+                        value={paverBottomFeet}
+                        onChange={(e) => onPaverBottomFeetChange(e.target.value)}
+                        placeholder="0"
+                        className="w-12 px-1 py-1 border rounded text-xs text-center"
+                        min="0"
+                        step="0.5"
+                      />
+                      <span className="text-xs text-muted-foreground">FT</span>
+                    </div>
                   </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Bottom</label>
-                    <input
-                      type="number"
-                      value={paverBottomFeet}
-                      onChange={(e) => onPaverBottomFeetChange(e.target.value)}
-                      placeholder="0"
-                      className="w-full px-2 py-2 border rounded-md text-sm"
-                      min="0"
-                      step="0.5"
-                    />
-                  </div>
+                  
                 </div>
               </div>
               
               <div className="pt-3 border-t">
                 <label className="text-sm font-semibold mb-2 block">Preset Pools</label>
                 <button
-                  onClick={() => onAddPresetPool?.(23, 11)}
+                  onClick={() => onAddPresetPool?.(23, 11, "Azoria Topaze 12x24")}
                   className="w-full px-4 py-2 bg-pool-light text-pool-dark rounded-md hover:bg-pool-light/80 text-sm font-medium"
                 >
                   Azoria Topaze 12x24

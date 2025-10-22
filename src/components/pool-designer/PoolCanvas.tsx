@@ -978,7 +978,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
     });
   };
 
-  const addPresetPool = (length: number, width: number) => {
+  const addPresetPool = (length: number, width: number, poolName: string) => {
     if (!fabricCanvas || !scaleReference) return;
 
     const pixelWidth = length * scaleReference.pixelLength / scaleReference.length;
@@ -1047,10 +1047,8 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         mtr: true,
       });
 
-      // Add dimension text in the center of the pool
-      const lengthStr = Number.isInteger(length) ? length.toString() : length.toFixed(1);
-      const widthStr = Number.isInteger(width) ? width.toString() : width.toFixed(1);
-      const dimensionText = new Text(`${lengthStr} x ${widthStr}`, {
+      // Add pool name text in the center of the pool
+      const dimensionText = new Text(poolName, {
         left: centerX,
         top: centerY,
         fontSize: 10,
@@ -1069,6 +1067,91 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
       
       fabricCanvas.add(poolImg);
       fabricCanvas.add(dimensionText);
+      
+      // Create pavers around the pool if specified
+      const paverLeft = parseFloat(paverLeftFeet) || 0;
+      const paverRight = parseFloat(paverRightFeet) || 0;
+      const paverTop = parseFloat(paverTopFeet) || 0;
+      const paverBottom = parseFloat(paverBottomFeet) || 0;
+      
+      if (paverLeft > 0 || paverRight > 0 || paverTop > 0 || paverBottom > 0) {
+        const copingSizeInFeet = copingSize ? copingSize / 12 : 0;
+        const L = length;
+        const W = width;
+        const C = copingSizeInFeet;
+        
+        const outerLength = L + (paverLeft + C) + (paverRight + C);
+        const outerWidth = W + (paverTop + C) + (paverBottom + C);
+        
+        const outerLengthPixels = outerLength * scaleReference.pixelLength / scaleReference.length;
+        const outerWidthPixels = outerWidth * scaleReference.pixelLength / scaleReference.length;
+        
+        const paverOutline = new Rect({
+          left: centerX,
+          top: centerY,
+          fill: 'rgba(34, 197, 94, 0.15)',
+          stroke: '#22c55e',
+          strokeWidth: 2,
+          width: outerLengthPixels,
+          height: outerWidthPixels,
+          originX: 'center',
+          originY: 'center',
+          selectable: true,
+          evented: true,
+          lockScalingX: true,
+          lockScalingY: true,
+          lockRotation: true,
+        });
+        
+        (paverOutline as any).paverId = `paver-outline-${poolId}`;
+        (paverOutline as any).poolId = poolId;
+        (paverOutline as any).paverDimensions = {
+          left: paverLeft,
+          right: paverRight,
+          top: paverTop,
+          bottom: paverBottom,
+        };
+        
+        paverOutline.controls['deleteControl'] = new Control({
+          x: 0.5,
+          y: -0.5,
+          offsetX: 16,
+          offsetY: -16,
+          cursorStyle: 'pointer',
+          mouseUpHandler: () => {
+            const objects = fabricCanvas.getObjects();
+            const paverObjects = objects.filter((obj: any) => 
+              (obj.paverId && obj.paverId.includes(poolId)) || 
+              (obj.isPaverDimensionLabel && obj.poolId === poolId)
+            );
+            paverObjects.forEach(obj => fabricCanvas.remove(obj));
+            setPavers(prev => prev.filter(p => (p as any).poolId !== poolId));
+            fabricCanvas.renderAll();
+            return true;
+          },
+          render: (ctx, left, top) => {
+            const size = 24;
+            ctx.save();
+            ctx.translate(left, top);
+            ctx.beginPath();
+            ctx.arc(0, 0, size / 2, 0, 2 * Math.PI);
+            ctx.fillStyle = '#ef4444';
+            ctx.fill();
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2.5;
+            ctx.moveTo(-size / 4, -size / 4);
+            ctx.lineTo(size / 4, size / 4);
+            ctx.moveTo(size / 4, -size / 4);
+            ctx.lineTo(-size / 4, size / 4);
+            ctx.stroke();
+            ctx.restore();
+          },
+        });
+        
+        fabricCanvas.add(paverOutline);
+        setPavers(prev => [...prev, paverOutline]);
+        updatePaverOutline(paverOutline, poolId, poolImg, centerX, centerY, L, W, C);
+      }
       
       // Ensure proper layering: image at back, pool above image, measurements on top
       fabricCanvas.getObjects().forEach((obj) => {
