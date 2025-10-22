@@ -1058,8 +1058,14 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         const W = width;
         const C = copingSizeInFeet;
         
-        const outerLength = L + (paverLeft + C) + (paverRight + C);
-        const outerWidth = W + (paverTop + C) + (paverBottom + C);
+        // Paver dimensions include the coping, so subtract coping from paver input
+        const actualPaverLeft = Math.max(0, paverLeft - C);
+        const actualPaverRight = Math.max(0, paverRight - C);
+        const actualPaverTop = Math.max(0, paverTop - C);
+        const actualPaverBottom = Math.max(0, paverBottom - C);
+        
+        const outerLength = L + (actualPaverLeft + C) + (actualPaverRight + C);
+        const outerWidth = W + (actualPaverTop + C) + (actualPaverBottom + C);
         
         const outerLengthPixels = outerLength * scaleReference.pixelLength / scaleReference.length;
         const outerWidthPixels = outerWidth * scaleReference.pixelLength / scaleReference.length;
