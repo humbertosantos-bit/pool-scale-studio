@@ -995,6 +995,9 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
       const scaleY = pixelHeight / poolImg.height!;
       poolImg.set({ scaleX, scaleY });
       
+      // Array to hold all elements that will be grouped
+      const groupElements: any[] = [];
+      
       // Add coping if selected
       if (copingSize) {
         // Convert coping size from inches to feet, then to pixels
@@ -1003,8 +1006,8 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         
         // Create coping rectangle with light grey color
         const coping = new Rect({
-          left: centerX,
-          top: centerY,
+          left: 0,
+          top: 0,
           fill: '#D3D3D3', // Light grey color
           stroke: '#000000',
           strokeWidth: 0.5,
@@ -1012,61 +1015,36 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
           height: pixelHeight + (copingPixelWidth * 2), // Add coping height to top and bottom
           originX: 'center',
           originY: 'center',
-          selectable: false,
-          evented: false,
         });
         
-        (coping as any).poolId = poolId;
         (coping as any).isCoping = true;
-        fabricCanvas.add(coping);
+        groupElements.push(coping);
       }
       
-      // Set pool image properties
+      // Set pool image properties (relative to group center)
       poolImg.set({
-        left: centerX,
-        top: centerY,
+        left: 0,
+        top: 0,
         originX: 'center',
         originY: 'center',
-        lockScalingX: true,
-        lockScalingY: true,
-        lockRotation: false,
-        hasControls: true,
-        hasBorders: true,
       });
       
-      // Only show rotation control
-      (poolImg as any).setControlsVisibility?.({
-        mt: false,
-        mb: false,
-        ml: false,
-        mr: false,
-        bl: false,
-        br: false,
-        tl: false,
-        tr: false,
-        mtr: true,
-      });
+      groupElements.push(poolImg);
 
       // Add pool name text in the center of the pool
       const dimensionText = new Text(poolName, {
-        left: centerX,
-        top: centerY,
+        left: 0,
+        top: 0,
         fontSize: 10,
         fontFamily: 'Arial',
         fontWeight: 'bold',
         fill: '#000000',
         originX: 'center',
         originY: 'center',
-        selectable: false,
-        evented: false,
       });
 
-      (poolImg as any).poolId = poolId;
-      (dimensionText as any).poolId = poolId;
       (dimensionText as any).isDimensionText = true;
-      
-      fabricCanvas.add(poolImg);
-      fabricCanvas.add(dimensionText);
+      groupElements.push(dimensionText);
       
       // Create pavers around the pool if specified
       const paverLeft = parseFloat(paverLeftFeet) || 0;
@@ -1087,8 +1065,8 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         const outerWidthPixels = outerWidth * scaleReference.pixelLength / scaleReference.length;
         
         const paverOutline = new Rect({
-          left: centerX,
-          top: centerY,
+          left: 0,
+          top: 0,
           fill: 'rgba(34, 197, 94, 0.15)',
           stroke: '#22c55e',
           strokeWidth: 2,
@@ -1096,15 +1074,9 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
           height: outerWidthPixels,
           originX: 'center',
           originY: 'center',
-          selectable: true,
-          evented: true,
-          lockScalingX: true,
-          lockScalingY: true,
-          lockRotation: true,
         });
         
-        (paverOutline as any).paverId = `paver-outline-${poolId}`;
-        (paverOutline as any).poolId = poolId;
+        (paverOutline as any).isPaver = true;
         (paverOutline as any).paverDimensions = {
           left: paverLeft,
           right: paverRight,
@@ -1112,46 +1084,42 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
           bottom: paverBottom,
         };
         
-        paverOutline.controls['deleteControl'] = new Control({
-          x: 0.5,
-          y: -0.5,
-          offsetX: 16,
-          offsetY: -16,
-          cursorStyle: 'pointer',
-          mouseUpHandler: () => {
-            const objects = fabricCanvas.getObjects();
-            const paverObjects = objects.filter((obj: any) => 
-              (obj.paverId && obj.paverId.includes(poolId)) || 
-              (obj.isPaverDimensionLabel && obj.poolId === poolId)
-            );
-            paverObjects.forEach(obj => fabricCanvas.remove(obj));
-            setPavers(prev => prev.filter(p => (p as any).poolId !== poolId));
-            fabricCanvas.renderAll();
-            return true;
-          },
-          render: (ctx, left, top) => {
-            const size = 24;
-            ctx.save();
-            ctx.translate(left, top);
-            ctx.beginPath();
-            ctx.arc(0, 0, size / 2, 0, 2 * Math.PI);
-            ctx.fillStyle = '#ef4444';
-            ctx.fill();
-            ctx.strokeStyle = '#fff';
-            ctx.lineWidth = 2.5;
-            ctx.moveTo(-size / 4, -size / 4);
-            ctx.lineTo(size / 4, size / 4);
-            ctx.moveTo(size / 4, -size / 4);
-            ctx.lineTo(-size / 4, size / 4);
-            ctx.stroke();
-            ctx.restore();
-          },
-        });
+        groupElements.unshift(paverOutline); // Add paver at beginning so it's behind everything
         
-        fabricCanvas.add(paverOutline);
-        setPavers(prev => [...prev, paverOutline]);
-        updatePaverOutline(paverOutline, poolId, poolImg, centerX, centerY, L, W, C);
+        // Add paver dimension labels
+        const paverLabels = createPaverLabels(outerLengthPixels, outerWidthPixels, paverLeft, paverRight, paverTop, paverBottom);
+        groupElements.push(...paverLabels);
       }
+      
+      // Create a group with all elements
+      const poolGroup = new Group(groupElements, {
+        left: centerX,
+        top: centerY,
+        originX: 'center',
+        originY: 'center',
+        lockScalingX: true,
+        lockScalingY: true,
+        lockRotation: false,
+        hasControls: true,
+        hasBorders: true,
+      });
+      
+      // Only show rotation control
+      poolGroup.setControlsVisibility({
+        mt: false,
+        mb: false,
+        ml: false,
+        mr: false,
+        bl: false,
+        br: false,
+        tl: false,
+        tr: false,
+        mtr: true,
+      });
+      
+      (poolGroup as any).poolId = poolId;
+      
+      fabricCanvas.add(poolGroup);
       
       // Ensure proper layering: image at back, pool above image, measurements on top
       fabricCanvas.getObjects().forEach((obj) => {
@@ -1162,9 +1130,72 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         }
       });
       
-      setPools(prev => [...prev, poolImg]);
+      setPools(prev => [...prev, poolGroup]);
       fabricCanvas.renderAll();
     });
+  };
+  
+  const createPaverLabels = (outerLengthPixels: number, outerWidthPixels: number, left: number, right: number, top: number, bottom: number) => {
+    const labels: any[] = [];
+    const offset = 15;
+    
+    if (left > 0) {
+      const label = new Text(`${left}'`, {
+        left: -outerLengthPixels / 2 - offset,
+        top: 0,
+        fontSize: 8,
+        fontFamily: 'Arial',
+        fill: '#22c55e',
+        originX: 'center',
+        originY: 'center',
+      });
+      (label as any).isPaverLabel = true;
+      labels.push(label);
+    }
+    
+    if (right > 0) {
+      const label = new Text(`${right}'`, {
+        left: outerLengthPixels / 2 + offset,
+        top: 0,
+        fontSize: 8,
+        fontFamily: 'Arial',
+        fill: '#22c55e',
+        originX: 'center',
+        originY: 'center',
+      });
+      (label as any).isPaverLabel = true;
+      labels.push(label);
+    }
+    
+    if (top > 0) {
+      const label = new Text(`${top}'`, {
+        left: 0,
+        top: -outerWidthPixels / 2 - offset,
+        fontSize: 8,
+        fontFamily: 'Arial',
+        fill: '#22c55e',
+        originX: 'center',
+        originY: 'center',
+      });
+      (label as any).isPaverLabel = true;
+      labels.push(label);
+    }
+    
+    if (bottom > 0) {
+      const label = new Text(`${bottom}'`, {
+        left: 0,
+        top: outerWidthPixels / 2 + offset,
+        fontSize: 8,
+        fontFamily: 'Arial',
+        fill: '#22c55e',
+        originX: 'center',
+        originY: 'center',
+      });
+      (label as any).isPaverLabel = true;
+      labels.push(label);
+    }
+    
+    return labels;
   };
 
   const startScaleReference = () => {
