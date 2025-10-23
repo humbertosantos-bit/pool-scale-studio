@@ -30,8 +30,8 @@ export const PoolDesigner: React.FC = () => {
 
       {/* Main Content */}
       <div className="flex h-[calc(100vh-88px)]">
-        {/* Left Sidebar - 1/4 width */}
-        <div className="w-1/4 border-r bg-white overflow-y-auto">
+        {/* Left Sidebar - 1/3 width */}
+        <div className="w-1/3 border-r bg-white overflow-y-auto">
           <div className="p-6 space-y-4">
             {/* Tools Section - shown when image is uploaded */}
             {selectedImage && poolState && (
@@ -64,8 +64,8 @@ export const PoolDesigner: React.FC = () => {
           </div>
         </div>
 
-        {/* Right Canvas - 3/4 width */}
-        <div className="w-3/4 bg-gradient-to-br from-background to-pool-light/20 overflow-auto">
+        {/* Right Canvas - 2/3 width */}
+        <div className="w-2/3 bg-gradient-to-br from-background to-pool-light/20 overflow-auto">
           {selectedImage ? (
             <PoolCanvas imageFile={selectedImage} canvasOnly onStateChange={handleStateChange} />
           ) : (
