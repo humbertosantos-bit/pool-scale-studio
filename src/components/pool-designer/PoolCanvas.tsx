@@ -3034,16 +3034,30 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
       strokeWidth: 2,
     });
     
-    // Group arrow components
+    // Group arrow components with custom controls for rotation
     const northArrow = new Group([compassBg, arrowLine, arrowHead, northText], {
       left: 100,
       top: 100,
       selectable: true,
-      hasControls: false,
+      hasControls: true,
       hasBorders: true,
       lockScalingX: true,
       lockScalingY: true,
-      lockRotation: false,
+      lockMovementX: false,
+      lockMovementY: false,
+    });
+    
+    // Enable only the rotation control
+    northArrow.setControlsVisibility({
+      mt: false,
+      mb: false,
+      ml: false,
+      mr: false,
+      bl: false,
+      br: false,
+      tl: false,
+      tr: false,
+      mtr: true, // Only rotation control
     });
     
     (northArrow as any).isNorthArrow = true;
@@ -3051,6 +3065,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
     
     fabricCanvas.add(northArrow);
     fabricCanvas.bringObjectToFront(northArrow);
+    fabricCanvas.setActiveObject(northArrow);
     fabricCanvas.renderAll();
   };
 
@@ -3091,45 +3106,32 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
       evented: false,
     });
     
-    // Gradient overlay for sunlight area
-    const gradientRect = new Rect({
-      left: centerX - radius * 1.5,
-      top: centerY - radius * 0.3,
-      width: radius * 3,
-      height: radius * 1.5,
-      fill: 'rgba(255, 220, 100, 0.15)',
-      selectable: false,
-      evented: false,
-      angle: northAngle,
-      originX: 'center',
-      originY: 'top',
-    });
+    // Create multiple gradient layers for blur effect
+    const blurLayers: Rect[] = [];
+    const blurSteps = 8;
     
-    // Sun icons at key positions (morning, noon, evening)
-    const sunPositions = [
-      { angle: -90 + northAngle, label: '🌅' }, // Morning (East)
-      { angle: 0 + northAngle, label: '☀️' }, // Noon (South)
-      { angle: 90 + northAngle, label: '🌇' }, // Evening (West)
-    ];
-    
-    const sunIcons = sunPositions.map(({ angle, label }) => {
-      const rad = (angle * Math.PI) / 180;
-      const x = centerX + radius * Math.cos(rad);
-      const y = centerY + radius * Math.sin(rad);
+    for (let i = 0; i < blurSteps; i++) {
+      const opacity = 0.08 - (i * 0.008); // Decreasing opacity for blur effect
+      const offset = i * 10;
       
-      return new Text(label, {
-        left: x,
-        top: y,
-        fontSize: 24,
-        originX: 'center',
-        originY: 'center',
+      const blurRect = new Rect({
+        left: centerX - (radius * 1.5 + offset),
+        top: centerY - (radius * 0.3 + offset),
+        width: radius * 3 + (offset * 2),
+        height: radius * 1.5 + (offset * 2),
+        fill: `rgba(255, 220, 100, ${opacity})`,
         selectable: false,
         evented: false,
+        angle: northAngle,
+        originX: 'center',
+        originY: 'top',
       });
-    });
+      
+      blurLayers.push(blurRect);
+    }
     
-    // Group all sun path elements
-    const sunPathGroup = new Group([gradientRect, sunPathArc, ...sunIcons], {
+    // Group all sun path elements (blur layers first, then arc)
+    const sunPathGroup = new Group([...blurLayers.reverse(), sunPathArc], {
       selectable: false,
       evented: false,
     });
@@ -3158,10 +3160,24 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
   useEffect(() => {
     if (showSunPath && fabricCanvas && bgImageRef.current) {
       createSunPath();
-    } else if (sunPathRef.current && fabricCanvas) {
-      fabricCanvas.remove(sunPathRef.current);
-      sunPathRef.current = null;
-      fabricCanvas.renderAll();
+      // Show north arrow when sun path is enabled
+      if (!northArrowRef.current) {
+        createNorthArrow();
+      } else if (northArrowRef.current) {
+        northArrowRef.current.set({ visible: true });
+        fabricCanvas.renderAll();
+      }
+    } else if (fabricCanvas) {
+      // Hide sun path
+      if (sunPathRef.current) {
+        fabricCanvas.remove(sunPathRef.current);
+        sunPathRef.current = null;
+      }
+      // Hide north arrow when sun path is disabled
+      if (northArrowRef.current) {
+        northArrowRef.current.set({ visible: false });
+        fabricCanvas.renderAll();
+      }
     }
   }, [showSunPath, fabricCanvas]);
 
@@ -3461,6 +3477,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         isSettingNorth,
         onSetNorth: () => {
           setIsSettingNorth(true);
+          setShowSunPath(true); // Enable sun path when setting north
           if (!northArrowRef.current) {
             createNorthArrow();
           }
