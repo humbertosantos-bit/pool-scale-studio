@@ -12,6 +12,7 @@ interface PoolControlsProps {
   onUnitChange: (unit: 'feet' | 'meters') => void;
   isSettingScale: boolean;
   scaleReference: { length: number; pixelLength: number } | null;
+  canvasReady?: boolean;
   onStartScaleReference: () => void;
   poolLengthFeet: string;
   poolLengthInches: string;
@@ -82,6 +83,7 @@ export const PoolControls: React.FC<PoolControlsProps> = ({
   onUnitChange,
   isSettingScale,
   scaleReference,
+  canvasReady = true,
   onStartScaleReference,
   poolLengthFeet,
   poolLengthInches,
@@ -188,7 +190,7 @@ export const PoolControls: React.FC<PoolControlsProps> = ({
             <label className="text-sm font-semibold mb-2 block">Scale Reference</label>
             <button
               onClick={onStartScaleReference}
-              disabled={isSettingScale}
+              disabled={isSettingScale || !canvasReady}
               className="w-full px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 text-sm"
             >
               {isSettingScale ? 'Click two points...' : scaleReference ? 'Reset Scale' : 'Set Scale'}

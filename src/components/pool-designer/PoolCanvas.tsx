@@ -1549,7 +1549,10 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
   };
 
   const startScaleReference = () => {
-    if (!fabricCanvas) return;
+    if (!fabricCanvas) {
+      console.warn('Canvas not ready');
+      return;
+    }
     
     setIsSettingScale(true);
     isSettingScaleRef.current = true;
@@ -3439,6 +3442,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         onUnitChange: handleUnitChange,
         isSettingScale,
         scaleReference,
+        canvasReady: !!fabricCanvas,
         onStartScaleReference: startScaleReference,
         poolLengthFeet,
         poolLengthInches,
@@ -3498,7 +3502,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         onBgImageOpacityChange: setBgImageOpacity,
       });
     }
-  }, [scaleUnit, isSettingScale, scaleReference, poolLengthFeet, poolLengthInches, poolWidthFeet, poolWidthInches, measurementMode, isMeasuring, typedDistanceFeet, typedDistanceInches, typedDistanceMeters, copingSize, paverLeftFeet, paverLeftInches, paverRightFeet, paverRightInches, paverTopFeet, paverTopInches, paverBottomFeet, paverBottomInches, isDrawingFence, isDrawingPaver, showSolarOverlay, timeOfDay, selectedProvince, bgImageOpacity]);
+  }, [scaleUnit, isSettingScale, scaleReference, fabricCanvas, poolLengthFeet, poolLengthInches, poolWidthFeet, poolWidthInches, measurementMode, isMeasuring, typedDistanceFeet, typedDistanceInches, typedDistanceMeters, copingSize, paverLeftFeet, paverLeftInches, paverRightFeet, paverRightInches, paverTopFeet, paverTopInches, paverBottomFeet, paverBottomInches, isDrawingFence, isDrawingPaver, showSolarOverlay, timeOfDay, selectedProvince, bgImageOpacity]);
 
   return (
     <div className={cn("flex flex-col h-full", className)}>
