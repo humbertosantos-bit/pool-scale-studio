@@ -1086,7 +1086,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         
         // Calculate offset to position pool asymmetrically within pavers
         const horizontalOffset = ((actualPaverRight - actualPaverLeft) / 2) * scaleReference.pixelLength / scaleReference.length;
-        const verticalOffset = ((actualPaverBottom - actualPaverTop) / 2) * scaleReference.pixelLength / scaleReference.length;
+        const verticalOffset = ((actualPaverTop - actualPaverBottom) / 2) * scaleReference.pixelLength / scaleReference.length;
         
         // Offset all existing elements (coping, pool, text) by the calculated offset
         groupElements.forEach(element => {
@@ -1393,7 +1393,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         const outerWidthPixels = outerWidth * scaleReference.pixelLength / scaleReference.length;
         
         const horizontalOffset = ((actualPaverRight - actualPaverLeft) / 2) * scaleReference.pixelLength / scaleReference.length;
-        const verticalOffset = ((actualPaverBottom - actualPaverTop) / 2) * scaleReference.pixelLength / scaleReference.length;
+        const verticalOffset = ((actualPaverTop - actualPaverBottom) / 2) * scaleReference.pixelLength / scaleReference.length;
         
         groupElements.forEach(element => {
           element.set({
