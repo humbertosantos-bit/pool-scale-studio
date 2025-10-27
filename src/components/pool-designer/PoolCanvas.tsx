@@ -3,7 +3,6 @@ import { Canvas as FabricCanvas, FabricImage, Line, Ellipse, Rect, Circle, Point
 import { cn } from '@/lib/utils';
 import poolWaterTexture from '@/assets/pool-water.png';
 import pool12x24Image from '@/assets/pool-12x24.png';
-import { calculateSunPosition, getSunlightIntensity, getHeatmapColor, CANADIAN_PROVINCES, type Province } from '@/utils/solarCalculations';
 
 interface PoolCanvasProps {
   imageFile: File | null;
@@ -52,17 +51,11 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
   const bgImageRef = useRef<FabricImage | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   
-  // Solar simulation states
-  const [showSolarOverlay, setShowSolarOverlay] = useState(false);
-  const [timeOfDay, setTimeOfDay] = useState(12); // 0-23 hours
-  const [northRotation, setNorthRotation] = useState(0); // degrees
-  const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number }>({ 
-    latitude: 45.5017, // Default: Montreal
-    longitude: -73.5673 
-  });
-  const [selectedProvince, setSelectedProvince] = useState<string>('Quebec');
-  const solarOverlayRef = useRef<FabricImage | null>(null);
+  // Sun path states
+  const [showSunPath, setShowSunPath] = useState(false);
+  const [isSettingNorth, setIsSettingNorth] = useState(false);
   const northArrowRef = useRef<Group | null>(null);
+  const sunPathRef = useRef<Group | null>(null);
   const [bgImageOpacity, setBgImageOpacity] = useState(1);
 
   useEffect(() => {
@@ -476,9 +469,6 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         fabricCanvas.clear();
         fabricCanvas.add(img);
         fabricCanvas.sendObjectToBack(img); // Ensure image stays at the back
-        
-        // Add north arrow after image is loaded
-        createNorthArrow();
         
         fabricCanvas.renderAll();
       });
@@ -3000,7 +2990,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
     }
   };
 
-  // Solar simulation functions
+  // Sun path functions
   const createNorthArrow = () => {
     if (!fabricCanvas) return;
     
@@ -3010,38 +3000,46 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
     }
     
     // Create arrow shape
-    const arrowLine = new Line([0, 20, 0, -20], {
+    const arrowLine = new Line([0, 30, 0, -30], {
       stroke: '#ef4444',
-      strokeWidth: 3,
+      strokeWidth: 4,
     });
     
     const arrowHead = new Triangle({
-      width: 12,
-      height: 15,
+      width: 16,
+      height: 20,
       fill: '#ef4444',
-      top: -20,
+      top: -30,
       left: 0,
       originX: 'center',
       originY: 'bottom',
     });
     
     const northText = new Text('N', {
-      fontSize: 14,
+      fontSize: 18,
       fontFamily: 'Inter, Arial, sans-serif',
       fill: '#ef4444',
       fontWeight: 'bold',
-      top: -35,
+      top: -50,
       left: 0,
       originX: 'center',
       originY: 'center',
     });
     
+    // Compass circle background
+    const compassBg = new Circle({
+      radius: 35,
+      fill: 'rgba(255, 255, 255, 0.9)',
+      stroke: '#ef4444',
+      strokeWidth: 2,
+    });
+    
     // Group arrow components
-    const northArrow = new Group([arrowLine, arrowHead, northText], {
+    const northArrow = new Group([compassBg, arrowLine, arrowHead, northText], {
       left: 100,
       top: 100,
       selectable: true,
-      hasControls: true,
+      hasControls: false,
       hasBorders: true,
       lockScalingX: true,
       lockScalingY: true,
@@ -3056,151 +3054,124 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
     fabricCanvas.renderAll();
   };
 
-  const updateSolarOverlay = () => {
-    if (!fabricCanvas || !showSolarOverlay || !bgImageRef.current) {
-      // Remove overlay if it exists and shouldn't be shown
-      if (solarOverlayRef.current) {
-        fabricCanvas?.remove(solarOverlayRef.current);
-        solarOverlayRef.current = null;
-        fabricCanvas?.renderAll();
-      }
-      return;
+  const createSunPath = () => {
+    if (!fabricCanvas || !bgImageRef.current) return;
+    
+    // Remove existing sun path if any
+    if (sunPathRef.current) {
+      fabricCanvas.remove(sunPathRef.current);
     }
     
     const bgImage = bgImageRef.current;
+    const centerX = (bgImage.left || 0) + bgImage.getScaledWidth() / 2;
+    const centerY = (bgImage.top || 0) + bgImage.getScaledHeight() / 2;
+    const radius = Math.min(bgImage.getScaledWidth(), bgImage.getScaledHeight()) * 0.35;
     
-    // Get background image dimensions and position
-    const imgWidth = bgImage.getScaledWidth();
-    const imgHeight = bgImage.getScaledHeight();
-    const imgLeft = bgImage.left || 0;
-    const imgTop = bgImage.top || 0;
-    const imgAngle = bgImage.angle || 0;
+    // Get north arrow angle or default to 0
+    const northAngle = northArrowRef.current?.angle || 0;
     
-    // Calculate sun position
-    const currentDate = new Date();
-    const sunPosition = calculateSunPosition(userLocation, currentDate, timeOfDay);
+    // Create sun path arc (semi-circle from east to west through south)
+    const pathPoints: Point[] = [];
+    const startAngle = -90 + northAngle; // East
+    const endAngle = 90 + northAngle; // West
     
-    // If sun is below horizon, show no sunlight
-    if (sunPosition.altitude <= 0) {
-      if (solarOverlayRef.current) {
-        fabricCanvas.remove(solarOverlayRef.current);
-        solarOverlayRef.current = null;
-        fabricCanvas.renderAll();
-      }
-      return;
+    for (let angle = startAngle; angle <= endAngle; angle += 5) {
+      const rad = (angle * Math.PI) / 180;
+      const x = centerX + radius * Math.cos(rad);
+      const y = centerY + radius * Math.sin(rad);
+      pathPoints.push(new Point(x, y));
     }
     
-    // Get north arrow rotation if it exists
-    const northRotationAngle = northArrowRef.current?.angle || northRotation;
+    // Sun path arc
+    const sunPathArc = new Polyline(pathPoints, {
+      fill: '',
+      stroke: 'rgba(255, 200, 50, 0.8)',
+      strokeWidth: 4,
+      selectable: false,
+      evented: false,
+    });
     
-    // Create canvas for gradient overlay (same size as background image)
-    const tempCanvas = document.createElement('canvas');
-    tempCanvas.width = imgWidth;
-    tempCanvas.height = imgHeight;
-    const ctx = tempCanvas.getContext('2d')!;
+    // Gradient overlay for sunlight area
+    const gradientRect = new Rect({
+      left: centerX - radius * 1.5,
+      top: centerY - radius * 0.3,
+      width: radius * 3,
+      height: radius * 1.5,
+      fill: 'rgba(255, 220, 100, 0.15)',
+      selectable: false,
+      evented: false,
+      angle: northAngle,
+      originX: 'center',
+      originY: 'top',
+    });
     
-    // Calculate adjusted sun azimuth and position
-    // Account for both north arrow rotation AND background image rotation
-    const totalRotation = (northRotationAngle - imgAngle + 360) % 360;
-    const sunAzimuthAdjusted = (sunPosition.azimuth - totalRotation + 360) % 360;
-    const sunRadians = (sunAzimuthAdjusted * Math.PI) / 180;
+    // Sun icons at key positions (morning, noon, evening)
+    const sunPositions = [
+      { angle: -90 + northAngle, label: '🌅' }, // Morning (East)
+      { angle: 0 + northAngle, label: '☀️' }, // Noon (South)
+      { angle: 90 + northAngle, label: '🌇' }, // Evening (West)
+    ];
     
-    // Calculate where the sun is "coming from" (extended beyond image)
-    const centerX = imgWidth / 2;
-    const centerY = imgHeight / 2;
-    const maxDim = Math.max(imgWidth, imgHeight);
-    const sunSourceDistance = maxDim * 2; // Far away to simulate directional light
-    const sunX = centerX + Math.sin(sunRadians) * sunSourceDistance;
-    const sunY = centerY - Math.cos(sunRadians) * sunSourceDistance;
-    
-    // Calculate intensity based on altitude (0-90 degrees)
-    const intensity = Math.pow(sunPosition.altitude / 90, 0.7); // 0-1, with curve
-    
-    // Create gradient from sun source toward image center
-    const gradient = ctx.createRadialGradient(
-      sunX, sunY, 0,
-      sunX, sunY, sunSourceDistance * 1.5
-    );
-    
-    // Brighter, more vibrant colors for better visibility
-    if (intensity > 0.6) {
-      // High sun - intense bright yellow/orange
-      gradient.addColorStop(0, `rgba(255, 200, 0, ${1.0 * intensity})`);
-      gradient.addColorStop(0.2, `rgba(255, 210, 40, ${0.9 * intensity})`);
-      gradient.addColorStop(0.5, `rgba(255, 180, 80, ${0.7 * intensity})`);
-      gradient.addColorStop(0.8, `rgba(255, 150, 100, ${0.5 * intensity})`);
-      gradient.addColorStop(1, 'rgba(180, 180, 200, 0.2)');
-    } else if (intensity > 0.3) {
-      // Medium sun - bright yellow
-      gradient.addColorStop(0, `rgba(255, 220, 50, ${0.95 * intensity})`);
-      gradient.addColorStop(0.3, `rgba(255, 200, 80, ${0.8 * intensity})`);
-      gradient.addColorStop(0.6, `rgba(255, 180, 120, ${0.6 * intensity})`);
-      gradient.addColorStop(1, 'rgba(200, 200, 220, 0.2)');
-    } else {
-      // Low sun - warm golden
-      gradient.addColorStop(0, `rgba(255, 230, 100, ${0.8 * intensity})`);
-      gradient.addColorStop(0.4, `rgba(255, 210, 130, ${0.6 * intensity})`);
-      gradient.addColorStop(0.7, `rgba(240, 200, 160, ${0.4 * intensity})`);
-      gradient.addColorStop(1, 'rgba(200, 200, 220, 0.15)');
-    }
-    
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, imgWidth, imgHeight);
-    
-    // Create or update overlay
-    FabricImage.fromURL(tempCanvas.toDataURL()).then((overlayImg) => {
-      if (solarOverlayRef.current) {
-        fabricCanvas.remove(solarOverlayRef.current);
-      }
+    const sunIcons = sunPositions.map(({ angle, label }) => {
+      const rad = (angle * Math.PI) / 180;
+      const x = centerX + radius * Math.cos(rad);
+      const y = centerY + radius * Math.sin(rad);
       
-      overlayImg.set({
-        left: imgLeft,
-        top: imgTop,
-        scaleX: 1,
-        scaleY: 1,
-        angle: imgAngle,
+      return new Text(label, {
+        left: x,
+        top: y,
+        fontSize: 24,
+        originX: 'center',
+        originY: 'center',
         selectable: false,
         evented: false,
-        opacity: 0.95,
-        originX: 'left',
-        originY: 'top',
       });
-      
-      (overlayImg as any).isSolarOverlay = true;
-      (overlayImg as any).linkedToBackground = true;
-      solarOverlayRef.current = overlayImg;
-      
-      fabricCanvas.add(overlayImg);
-      
-      // Layer: background < solar overlay < pavers < pools < measurements < north arrow
-      const bgImageObj = fabricCanvas.getObjects().find(obj => (obj as any).isBackgroundImage);
-      if (bgImageObj) {
-        const bgIndex = fabricCanvas.getObjects().indexOf(bgImageObj);
-        fabricCanvas.remove(overlayImg);
-        fabricCanvas.insertAt(bgIndex + 1, overlayImg);
-      }
-      
-      // Bring north arrow to front
-      if (northArrowRef.current) {
-        fabricCanvas.bringObjectToFront(northArrowRef.current);
-      }
-      
-      fabricCanvas.renderAll();
     });
+    
+    // Group all sun path elements
+    const sunPathGroup = new Group([gradientRect, sunPathArc, ...sunIcons], {
+      selectable: false,
+      evented: false,
+    });
+    
+    (sunPathGroup as any).isSunPath = true;
+    sunPathRef.current = sunPathGroup;
+    
+    fabricCanvas.add(sunPathGroup);
+    
+    // Ensure layering: background < sun path < other objects < north arrow
+    const bgImageObj = fabricCanvas.getObjects().find(obj => (obj as any).isBackgroundImage);
+    if (bgImageObj) {
+      const bgIndex = fabricCanvas.getObjects().indexOf(bgImageObj);
+      fabricCanvas.remove(sunPathGroup);
+      fabricCanvas.insertAt(bgIndex + 1, sunPathGroup);
+    }
+    
+    if (northArrowRef.current) {
+      fabricCanvas.bringObjectToFront(northArrowRef.current);
+    }
+    
+    fabricCanvas.renderAll();
   };
 
-  // Update solar overlay when settings change
+  // Update sun path when north arrow is rotated or sun path is toggled
   useEffect(() => {
-    updateSolarOverlay();
-  }, [showSolarOverlay, timeOfDay, userLocation, northRotation, fabricCanvas]);
+    if (showSunPath && fabricCanvas && bgImageRef.current) {
+      createSunPath();
+    } else if (sunPathRef.current && fabricCanvas) {
+      fabricCanvas.remove(sunPathRef.current);
+      sunPathRef.current = null;
+      fabricCanvas.renderAll();
+    }
+  }, [showSunPath, fabricCanvas]);
 
-  // Update north rotation when arrow is rotated
+  // Listen for north arrow rotation to update sun path
   useEffect(() => {
     if (!fabricCanvas || !northArrowRef.current) return;
     
-    const handleArrowRotation = (e: any) => {
-      if (e.target === northArrowRef.current) {
-        setNorthRotation(e.target.angle || 0);
+    const handleArrowRotation = () => {
+      if (showSunPath) {
+        createSunPath();
       }
     };
     
@@ -3211,14 +3182,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
       fabricCanvas.off('object:rotating', handleArrowRotation);
       fabricCanvas.off('object:modified', handleArrowRotation);
     };
-  }, [fabricCanvas]);
-
-  // Update location when province changes
-  useEffect(() => {
-    if (selectedProvince && CANADIAN_PROVINCES[selectedProvince as Province]) {
-      setUserLocation(CANADIAN_PROVINCES[selectedProvince as Province]);
-    }
-  }, [selectedProvince]);
+  }, [fabricCanvas, showSunPath]);
 
   const addRectangularPaver = (widthFeet: number, lengthFeet: number) => {
     if (!fabricCanvas || !scaleReference) {
@@ -3492,17 +3456,20 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         onStartPaverDrawing: startPaverDrawing,
         onDeleteSelectedPaver: deleteSelectedPaver,
         onAddRectangularPaver: addRectangularPaver,
-        showSolarOverlay,
-        onShowSolarOverlayChange: setShowSolarOverlay,
-        timeOfDay,
-        onTimeOfDayChange: setTimeOfDay,
-        selectedProvince,
-        onSelectedProvinceChange: setSelectedProvince,
+        showSunPath,
+        onShowSunPathChange: setShowSunPath,
+        isSettingNorth,
+        onSetNorth: () => {
+          setIsSettingNorth(true);
+          if (!northArrowRef.current) {
+            createNorthArrow();
+          }
+        },
         bgImageOpacity,
         onBgImageOpacityChange: setBgImageOpacity,
       });
     }
-  }, [scaleUnit, isSettingScale, scaleReference, fabricCanvas, poolLengthFeet, poolLengthInches, poolWidthFeet, poolWidthInches, measurementMode, isMeasuring, typedDistanceFeet, typedDistanceInches, typedDistanceMeters, copingSize, paverLeftFeet, paverLeftInches, paverRightFeet, paverRightInches, paverTopFeet, paverTopInches, paverBottomFeet, paverBottomInches, isDrawingFence, isDrawingPaver, showSolarOverlay, timeOfDay, selectedProvince, bgImageOpacity]);
+  }, [scaleUnit, isSettingScale, scaleReference, fabricCanvas, poolLengthFeet, poolLengthInches, poolWidthFeet, poolWidthInches, measurementMode, isMeasuring, typedDistanceFeet, typedDistanceInches, typedDistanceMeters, copingSize, paverLeftFeet, paverLeftInches, paverRightFeet, paverRightInches, paverTopFeet, paverTopInches, paverBottomFeet, paverBottomInches, isDrawingFence, isDrawingPaver, showSunPath, bgImageOpacity]);
 
   return (
     <div className={cn("flex flex-col h-full", className)}>
