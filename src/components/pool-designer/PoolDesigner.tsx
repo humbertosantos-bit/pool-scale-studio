@@ -39,12 +39,16 @@ export const PoolDesigner: React.FC = () => {
                 {...poolState} 
                 selectedImage={selectedImage}
                 onFileSelect={handleFileSelect}
-                showSolarOverlay={poolState.showSolarOverlay}
-                onShowSolarOverlayChange={poolState.onShowSolarOverlayChange}
+                showSunPath={poolState.showSunPath}
+                onShowSunPathChange={poolState.onShowSunPathChange}
+                isSettingNorth={poolState.isSettingNorth}
+                onSetNorth={poolState.onSetNorth}
+                location={poolState.location}
+                onLocationChange={poolState.onLocationChange}
+                selectedDate={poolState.selectedDate}
+                onDateChange={poolState.onDateChange}
                 timeOfDay={poolState.timeOfDay}
                 onTimeOfDayChange={poolState.onTimeOfDayChange}
-                selectedProvince={poolState.selectedProvince}
-                onSelectedProvinceChange={poolState.onSelectedProvinceChange}
                 bgImageOpacity={poolState.bgImageOpacity}
                 onBgImageOpacityChange={poolState.onBgImageOpacityChange}
               />

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { FileUpload } from '@/components/ui/file-upload';
@@ -6,6 +6,12 @@ import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { format } from 'date-fns';
+import { CalendarIcon, MapPin } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface PoolControlsProps {
   scaleUnit: 'feet' | 'meters';
@@ -70,6 +76,12 @@ interface PoolControlsProps {
   onShowSunPathChange: (show: boolean) => void;
   isSettingNorth: boolean;
   onSetNorth: () => void;
+  location: { lat: number; lng: number } | null;
+  onLocationChange: (location: { lat: number; lng: number } | null) => void;
+  selectedDate: Date;
+  onDateChange: (date: Date) => void;
+  timeOfDay: number;
+  onTimeOfDayChange: (time: number) => void;
   
   // Background image opacity
   bgImageOpacity: number;
@@ -137,9 +149,45 @@ export const PoolControls: React.FC<PoolControlsProps> = ({
   onShowSunPathChange,
   isSettingNorth,
   onSetNorth,
+  location,
+  onLocationChange,
+  selectedDate,
+  onDateChange,
+  timeOfDay,
+  onTimeOfDayChange,
   bgImageOpacity,
   onBgImageOpacityChange,
 }) => {
+  const [address, setAddress] = useState('');
+  const [isGeocoding, setIsGeocoding] = useState(false);
+
+  const handleGeocode = async () => {
+    if (!address.trim()) {
+      toast.error('Please enter an address');
+      return;
+    }
+
+    setIsGeocoding(true);
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`
+      );
+      const data = await response.json();
+
+      if (data && data.length > 0) {
+        const { lat, lon } = data[0];
+        onLocationChange({ lat: parseFloat(lat), lng: parseFloat(lon) });
+        toast.success('Location found!');
+      } else {
+        toast.error('Location not found');
+      }
+    } catch (error) {
+      console.error('Geocoding error:', error);
+      toast.error('Failed to find location');
+    } finally {
+      setIsGeocoding(false);
+    }
+  };
   return (
     <div className="space-y-4">
       {/* Units Section */}
@@ -583,36 +631,95 @@ export const PoolControls: React.FC<PoolControlsProps> = ({
             </div>
           </div>
 
-          {/* Sun Path Section */}
+          {/* Sun Simulation Section */}
           <div className="border rounded-lg overflow-hidden">
             <div className="bg-primary px-4 py-3">
-              <h2 className="text-sm font-semibold text-primary-foreground">☀️ Sun Path</h2>
+              <h2 className="text-sm font-semibold text-primary-foreground">☀️ Sun Simulation</h2>
             </div>
             <div className="p-4 space-y-4">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="sun-path" className="text-sm font-medium">
-                  Show Sun Path
-                </Label>
-                <Switch
-                  id="sun-path"
-                  checked={showSunPath}
-                  onCheckedChange={onShowSunPathChange}
-                />
+              {/* Location Input */}
+              <div className="space-y-2">
+                <Label htmlFor="address">Property Address</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="address"
+                    placeholder="Enter address or coordinates"
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleGeocode()}
+                  />
+                  <Button
+                    onClick={handleGeocode}
+                    disabled={isGeocoding}
+                    size="icon"
+                    variant="outline"
+                  >
+                    <MapPin className="h-4 w-4" />
+                  </Button>
+                </div>
+                {location && (
+                  <p className="text-xs text-muted-foreground">
+                    📍 {location.lat.toFixed(4)}, {location.lng.toFixed(4)}
+                  </p>
+                )}
               </div>
-              
+
+              {/* Date Picker */}
+              <div className="space-y-2">
+                <Label>Date</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-full justify-start">
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {format(selectedDate, 'PPP')}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0">
+                    <Calendar
+                      mode="single"
+                      selected={selectedDate}
+                      onSelect={(date) => date && onDateChange(date)}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              {/* Time of Day Slider */}
+              <div className="space-y-2">
+                <Label>Time of Day: {timeOfDay}:00</Label>
+                <Slider
+                  value={[timeOfDay]}
+                  onValueChange={([value]) => onTimeOfDayChange(value)}
+                  min={0}
+                  max={23}
+                  step={1}
+                  className="w-full"
+                />
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>🌅 Sunrise</span>
+                  <span>☀️ Noon</span>
+                  <span>🌇 Sunset</span>
+                </div>
+              </div>
+
+              {/* North Direction */}
               <Button
                 onClick={onSetNorth}
                 variant="outline"
                 className="w-full"
+                disabled={isSettingNorth}
               >
-                🧭 Set North Direction
+                🧭 {isSettingNorth ? 'Click & Drag Arrow' : 'Set North Direction'}
               </Button>
-              
-              <div className="text-xs text-muted-foreground space-y-1 pt-2 border-t">
-                <p>💡 Click "Set North" to place a compass arrow</p>
-                <p>🔄 Rotate the arrow to match north direction</p>
-                <p>🌅 Sun path shows: Morning → Noon → Evening</p>
-                <p>☀️ Yellow arc indicates sunlight area during the day</p>
+
+              {/* Show/Hide Toggle */}
+              <div className="flex items-center justify-between pt-2 border-t">
+                <Label htmlFor="show-sun-path">Show Sun Path</Label>
+                <Switch
+                  id="show-sun-path"
+                  checked={showSunPath}
+                  onCheckedChange={onShowSunPathChange}
+                />
               </div>
             </div>
           </div>

@@ -3,6 +3,7 @@ import { Canvas as FabricCanvas, FabricImage, Line, Ellipse, Rect, Circle, Point
 import { cn } from '@/lib/utils';
 import poolWaterTexture from '@/assets/pool-water.png';
 import pool12x24Image from '@/assets/pool-12x24.png';
+import * as SunCalc from 'suncalc';
 
 interface PoolCanvasProps {
   imageFile: File | null;
@@ -54,6 +55,9 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
   // Sun path states
   const [showSunPath, setShowSunPath] = useState(false);
   const [isSettingNorth, setIsSettingNorth] = useState(false);
+  const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [timeOfDay, setTimeOfDay] = useState(12); // Hour of day (0-23)
   const northArrowRef = useRef<Group | null>(null);
   const sunPathRef = useRef<Group | null>(null);
   const [bgImageOpacity, setBgImageOpacity] = useState(1);
@@ -3070,87 +3074,117 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
   };
 
   const createSunPath = () => {
-    if (!fabricCanvas || !bgImageRef.current) return;
+    if (!fabricCanvas || !bgImageRef.current || !northArrowRef.current || !location) return;
     
-    // Remove existing sun path if any
+    // Remove existing sun path
     if (sunPathRef.current) {
       fabricCanvas.remove(sunPathRef.current);
     }
     
-    const bgImage = bgImageRef.current;
-    const centerX = (bgImage.left || 0) + bgImage.getScaledWidth() / 2;
-    const centerY = (bgImage.top || 0) + bgImage.getScaledHeight() / 2;
-    const radius = Math.min(bgImage.getScaledWidth(), bgImage.getScaledHeight()) * 0.35;
+    const northAngle = northArrowRef.current.angle || 0;
+    const canvasWidth = fabricCanvas.width || 800;
+    const canvasHeight = fabricCanvas.height || 600;
+    const centerX = canvasWidth / 2;
+    const centerY = canvasHeight / 2;
     
-    // Get north arrow angle or default to 0
-    const northAngle = northArrowRef.current?.angle || 0;
+    // Calculate current sun position
+    const currentDateTime = new Date(selectedDate);
+    currentDateTime.setHours(timeOfDay, 0, 0, 0);
     
-    // Create sun path arc (semi-circle from east to west through south)
-    const pathPoints: Point[] = [];
-    const startAngle = -90 + northAngle; // East
-    const endAngle = 90 + northAngle; // West
+    const sunPos = SunCalc.getPosition(currentDateTime, location.lat, location.lng);
+    const sunAzimuth = sunPos.azimuth * (180 / Math.PI); // Convert to degrees
+    const sunAltitude = sunPos.altitude * (180 / Math.PI);
     
-    for (let angle = startAngle; angle <= endAngle; angle += 5) {
-      const rad = (angle * Math.PI) / 180;
-      const x = centerX + radius * Math.cos(rad);
-      const y = centerY + radius * Math.sin(rad);
-      pathPoints.push(new Point(x, y));
-    }
+    // Adjust azimuth relative to north arrow
+    // Azimuth from SunCalc is measured from south, clockwise
+    // We need to adjust for north arrow rotation
+    const adjustedAzimuth = sunAzimuth - 180 + northAngle;
     
-    // Sun path arc
-    const sunPathArc = new Polyline(pathPoints, {
-      fill: '',
-      stroke: 'rgba(255, 200, 50, 0.8)',
-      strokeWidth: 4,
-      selectable: false,
-      evented: false,
-    });
-    
-    // Create multiple gradient layers for blur effect
-    const blurLayers: Rect[] = [];
-    const blurSteps = 8;
-    
-    for (let i = 0; i < blurSteps; i++) {
-      const opacity = 0.08 - (i * 0.008); // Decreasing opacity for blur effect
-      const offset = i * 10;
+    // Only show sun if it's above horizon
+    if (sunAltitude > 0) {
+      // Calculate sun position on canvas
+      const distance = Math.min(canvasWidth, canvasHeight) * 0.3 * (1 - sunAltitude / 90);
+      const rad = (adjustedAzimuth * Math.PI) / 180;
+      const sunX = centerX + distance * Math.sin(rad);
+      const sunY = centerY - distance * Math.cos(rad);
       
-      const blurRect = new Rect({
-        left: centerX - (radius * 1.5 + offset),
-        top: centerY - (radius * 0.3 + offset),
-        width: radius * 3 + (offset * 2),
-        height: radius * 1.5 + (offset * 2),
-        fill: `rgba(255, 220, 100, ${opacity})`,
+      // Create sun icon
+      const sunCircle = new Circle({
+        left: sunX,
+        top: sunY,
+        radius: 20,
+        fill: 'rgba(255, 220, 50, 0.9)',
+        originX: 'center',
+        originY: 'center',
         selectable: false,
         evented: false,
-        angle: northAngle,
-        originX: 'center',
-        originY: 'top',
       });
       
-      blurLayers.push(blurRect);
-    }
-    
-    // Group all sun path elements (blur layers first, then arc)
-    const sunPathGroup = new Group([...blurLayers.reverse(), sunPathArc], {
-      selectable: false,
-      evented: false,
-    });
-    
-    (sunPathGroup as any).isSunPath = true;
-    sunPathRef.current = sunPathGroup;
-    
-    fabricCanvas.add(sunPathGroup);
-    
-    // Ensure layering: background < sun path < other objects < north arrow
-    const bgImageObj = fabricCanvas.getObjects().find(obj => (obj as any).isBackgroundImage);
-    if (bgImageObj) {
-      const bgIndex = fabricCanvas.getObjects().indexOf(bgImageObj);
-      fabricCanvas.remove(sunPathGroup);
-      fabricCanvas.insertAt(bgIndex + 1, sunPathGroup);
-    }
-    
-    if (northArrowRef.current) {
-      fabricCanvas.bringObjectToFront(northArrowRef.current);
+      // Create sun rays
+      const rays: Line[] = [];
+      for (let i = 0; i < 8; i++) {
+        const angle = (i * 45 * Math.PI) / 180;
+        const rayLength = 15;
+        rays.push(
+          new Line(
+            [
+              sunX + Math.cos(angle) * 25,
+              sunY + Math.sin(angle) * 25,
+              sunX + Math.cos(angle) * (25 + rayLength),
+              sunY + Math.sin(angle) * (25 + rayLength),
+            ],
+            {
+              stroke: 'rgba(255, 220, 50, 0.8)',
+              strokeWidth: 2,
+              selectable: false,
+              evented: false,
+            }
+          )
+        );
+      }
+      
+      // Create light beam/blur effect
+      const blurLayers: Rect[] = [];
+      const blurSteps = 12;
+      const beamWidth = 200 + (sunAltitude / 90) * 100;
+      const beamLength = Math.max(canvasWidth, canvasHeight) * 0.8;
+      
+      for (let i = 0; i < blurSteps; i++) {
+        const opacity = (0.05 - i * 0.003) * (sunAltitude / 90);
+        const widthMultiplier = 1 + i * 0.15;
+        
+        const blurRect = new Rect({
+          left: sunX,
+          top: sunY,
+          width: beamWidth * widthMultiplier,
+          height: beamLength,
+          fill: `rgba(255, 220, 100, ${opacity})`,
+          selectable: false,
+          evented: false,
+          angle: adjustedAzimuth,
+          originX: 'center',
+          originY: 'top',
+        });
+        
+        blurLayers.push(blurRect);
+      }
+      
+      // Group all elements
+      const sunPathGroup = new Group([...blurLayers.reverse(), ...rays, sunCircle], {
+        selectable: false,
+        evented: false,
+      });
+      
+      (sunPathGroup as any).isSunPath = true;
+      sunPathRef.current = sunPathGroup;
+      
+      fabricCanvas.add(sunPathGroup);
+      fabricCanvas.sendObjectToBack(sunPathGroup);
+      
+      // Make sure background image is behind everything
+      if (bgImageRef.current) {
+        fabricCanvas.sendObjectToBack(bgImageRef.current);
+      }
     }
     
     fabricCanvas.renderAll();
@@ -3158,7 +3192,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
 
   // Update sun path when north arrow is rotated or sun path is toggled
   useEffect(() => {
-    if (showSunPath && fabricCanvas && bgImageRef.current) {
+    if (showSunPath && fabricCanvas && bgImageRef.current && location) {
       createSunPath();
       // Show north arrow when sun path is enabled
       if (!northArrowRef.current) {
@@ -3179,7 +3213,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         fabricCanvas.renderAll();
       }
     }
-  }, [showSunPath, fabricCanvas]);
+  }, [showSunPath, fabricCanvas, location, selectedDate, timeOfDay]);
 
   // Listen for north arrow rotation to update sun path
   useEffect(() => {
@@ -3477,11 +3511,17 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         isSettingNorth,
         onSetNorth: () => {
           setIsSettingNorth(true);
-          setShowSunPath(true); // Enable sun path when setting north
+          setShowSunPath(true);
           if (!northArrowRef.current) {
             createNorthArrow();
           }
         },
+        location,
+        onLocationChange: setLocation,
+        selectedDate,
+        onDateChange: setSelectedDate,
+        timeOfDay,
+        onTimeOfDayChange: setTimeOfDay,
         bgImageOpacity,
         onBgImageOpacityChange: setBgImageOpacity,
       });
