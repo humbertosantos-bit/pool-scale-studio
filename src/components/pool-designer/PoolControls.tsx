@@ -12,6 +12,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { format } from 'date-fns';
 import { CalendarIcon, MapPin } from 'lucide-react';
 import { toast } from 'sonner';
+import pool8x14Image from '@/assets/pool-8x14-top.png';
 
 interface PoolControlsProps {
   scaleUnit: 'feet' | 'meters';
@@ -354,7 +355,7 @@ export const PoolControls: React.FC<PoolControlsProps> = ({
                     {/* Pool Visual - Replace with actual pool image */}
                     <div className="w-24 h-16 rounded flex items-center justify-center overflow-hidden">
                       <img 
-                        src={require('@/assets/pool-8x14-top.png')} 
+                        src={pool8x14Image} 
                         alt="Pool"
                         className="w-full h-full object-contain"
                       />
