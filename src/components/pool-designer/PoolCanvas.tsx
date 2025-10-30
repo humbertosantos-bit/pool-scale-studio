@@ -3,7 +3,7 @@ import { Canvas as FabricCanvas, FabricImage, Line, Ellipse, Rect, Circle, Point
 import { cn } from '@/lib/utils';
 import poolWaterTexture from '@/assets/pool-water.png';
 import pool12x24Image from '@/assets/pool-12x24.png';
-import * as SunCalc from 'suncalc';
+import { calculateSunPosition } from '@/utils/solarCalculations';
 
 interface PoolCanvasProps {
   imageFile: File | null;
@@ -3029,18 +3029,18 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
     const centerX = canvasWidth / 2;
     const centerY = canvasHeight / 2;
     
-    // Calculate current sun position
-    const currentDateTime = new Date(selectedDate);
-    currentDateTime.setHours(timeOfDay, 0, 0, 0);
-    
-    const sunPos = SunCalc.getPosition(currentDateTime, location.lat, location.lng);
-    const sunAzimuth = sunPos.azimuth * (180 / Math.PI); // Convert to degrees
-    const sunAltitude = sunPos.altitude * (180 / Math.PI);
+    // Calculate current sun position using our browser-compatible function
+    const sunPos = calculateSunPosition(
+      { latitude: location.lat, longitude: location.lng },
+      selectedDate,
+      timeOfDay
+    );
+    const sunAzimuth = sunPos.azimuth; // Already in degrees from north
+    const sunAltitude = sunPos.altitude; // Already in degrees
     
     // Adjust azimuth relative to north arrow
-    // Azimuth from SunCalc is measured from south, clockwise
-    // We need to adjust for north arrow rotation
-    const adjustedAzimuth = sunAzimuth - 180 + northAngle;
+    // Our function returns azimuth from north (0-360), so we just add the north arrow rotation
+    const adjustedAzimuth = sunAzimuth + northAngle;
     
     // Only show sun if it's above horizon
     if (sunAltitude > 0) {
