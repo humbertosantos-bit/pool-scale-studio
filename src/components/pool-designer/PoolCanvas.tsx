@@ -33,7 +33,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
   const [poolLengthInches, setPoolLengthInches] = useState('0');
   const [poolWidthFeet, setPoolWidthFeet] = useState('12');
   const [poolWidthInches, setPoolWidthInches] = useState('0');
-  const [copingSize, setCopingSize] = useState<number | null>(null);
+  const [copingSize, setCopingSize] = useState<number | null>(16);
   const [paverLeftFeet, setPaverLeftFeet] = useState('0');
   const [paverLeftInches, setPaverLeftInches] = useState('0');
   const [paverRightFeet, setPaverRightFeet] = useState('0');
@@ -802,8 +802,8 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         const paverOutline = new Rect({
           left: centerX,
           top: centerY,
-          fill: 'rgba(34, 197, 94, 0.15)',
-          stroke: '#22c55e',
+          fill: 'transparent',
+          stroke: '#808080',
           strokeWidth: 2,
           width: outerLengthPixels,
           height: outerWidthPixels,
@@ -885,7 +885,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
           const label = new Text(text, {
             fontSize: 13,
             fontFamily: 'Inter, Arial, sans-serif',
-            fill: '#22c55e',
+            fill: '#000000',
             fontWeight: 'bold',
             selectable: true,
             evented: true,
@@ -900,7 +900,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
             lockRotation: true,
             hasControls: false,
             hasBorders: true,
-            borderColor: '#22c55e',
+            borderColor: '#000000',
           });
           
           (label as any).isPaverDimensionLabel = true;
@@ -1039,11 +1039,34 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
       
       groupElements.push(poolImg);
 
-      // Add pool name text in the center of the pool
+      // Add pool name text in the center of the pool - sized to fit with padding
+      const maxWidth = pixelWidth * 0.85; // 85% of pool width for padding
+      const maxHeight = pixelHeight * 0.6; // 60% of pool height for padding
+      
+      // Calculate appropriate font size
+      let fontSize = 10;
+      const testText = new Text(poolName, {
+        fontSize: fontSize,
+        fontFamily: 'Arial',
+        fontWeight: 'bold',
+      });
+      
+      // Scale up font size until it fits
+      while (testText.width! < maxWidth && testText.height! < maxHeight && fontSize < 50) {
+        fontSize += 1;
+        testText.set({ fontSize });
+      }
+      
+      // Scale down if too large
+      while ((testText.width! > maxWidth || testText.height! > maxHeight) && fontSize > 6) {
+        fontSize -= 1;
+        testText.set({ fontSize });
+      }
+      
       const dimensionText = new Text(poolName, {
         left: 0,
         top: 0,
-        fontSize: 10,
+        fontSize: fontSize,
         fontFamily: 'Arial',
         fontWeight: 'bold',
         fill: '#000000',
@@ -1093,8 +1116,8 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         const paverOutline = new Rect({
           left: 0,
           top: 0,
-          fill: 'rgba(34, 197, 94, 0.15)',
-          stroke: '#22c55e',
+          fill: 'transparent',
+          stroke: '#808080',
           strokeWidth: 2,
           width: outerLengthPixels,
           height: outerWidthPixels,
@@ -1220,7 +1243,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         top: 0,
         fontSize: 8,
         fontFamily: 'Arial',
-        fill: '#22c55e',
+        fill: '#000000',
         originX: 'center',
         originY: 'center',
       });
@@ -1234,7 +1257,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         top: 0,
         fontSize: 8,
         fontFamily: 'Arial',
-        fill: '#22c55e',
+        fill: '#000000',
         originX: 'center',
         originY: 'center',
       });
@@ -1248,7 +1271,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         top: -outerWidthPixels / 2 - offset,
         fontSize: 8,
         fontFamily: 'Arial',
-        fill: '#22c55e',
+        fill: '#000000',
         originX: 'center',
         originY: 'center',
       });
@@ -1262,7 +1285,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         top: outerWidthPixels / 2 + offset,
         fontSize: 8,
         fontFamily: 'Arial',
-        fill: '#22c55e',
+        fill: '#000000',
         originX: 'center',
         originY: 'center',
       });
@@ -1353,6 +1376,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
       
       groupElements.push(poolImg);
       
+      
       const dimensionText = new Text(poolName, {
         left: 0,
         top: 0,
@@ -1399,8 +1423,8 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         const paverOutline = new Rect({
           left: 0,
           top: 0,
-          fill: 'rgba(34, 197, 94, 0.15)',
-          stroke: '#22c55e',
+          fill: 'transparent',
+          stroke: '#808080',
           strokeWidth: 2,
           width: outerLengthPixels,
           height: outerWidthPixels,
@@ -2195,18 +2219,18 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
       lastClickPos = newPoint;
       
       // Add visual marker at this point - larger and more visible
-      const marker = new Circle({
-        left: newPoint.x,
-        top: newPoint.y,
-        radius: 4,
-        fill: '#666666',
-        stroke: '#ffffff',
-        strokeWidth: 2,
-        selectable: false,
-        evented: false,
-        originX: 'center',
-        originY: 'center',
-      });
+        const marker = new Circle({
+          left: newPoint.x,
+          top: newPoint.y,
+          radius: 4,
+          fill: '#808080',
+          stroke: '#ffffff',
+          strokeWidth: 2,
+          selectable: false,
+          evented: false,
+          originX: 'center',
+          originY: 'center',
+        });
       tempCircles.push(marker);
       fabricCanvas.add(marker);
       
@@ -2214,7 +2238,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
       if (fencePoints.length > 1) {
         const prevPoint = fencePoints[fencePoints.length - 2];
         const line = new Line([prevPoint.x, prevPoint.y, newPoint.x, newPoint.y], {
-          stroke: '#666666',
+          stroke: '#808080',
           strokeWidth: 2,
           strokeDashArray: [5, 5],
           selectable: false,
@@ -2341,10 +2365,14 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         
         const fenceId = `fence-${Date.now()}`;
         
+        // Ask for fence name
+        const fenceName = prompt('Enter fence name (optional):');
+        
         // Create fence polyline with editable points
         const fence = new Polyline(polylinePoints, {
-          stroke: '#666666',
+          stroke: '#808080',
           strokeWidth: 2,
+          strokeDashArray: [5, 5],
           fill: 'transparent',
           selectable: true,
           evented: true,
@@ -2359,6 +2387,11 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
           hasControls: true,
           hasBorders: true,
         });
+        
+        (fence as any).fenceId = fenceId;
+        if (fenceName) {
+          (fence as any).fenceName = fenceName;
+        }
         
         // Enable polyline point editing - show a control for each point
         fence.points?.forEach((point, index) => {
@@ -2688,18 +2721,14 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         const closedPoints = [...paverPoints, paverPoints[0]];
         const polylinePoints = closedPoints.map(p => ({ x: p.x, y: p.y }));
         
-        // Create paver polygon
+        // Create paver polygon - grey with 2px stroke, no point editing
         const paver = new Polyline(polylinePoints, {
-          stroke: '#22c55e',
-          strokeWidth: 1,
-          fill: 'rgba(34, 197, 94, 0.2)',
+          stroke: '#808080',
+          strokeWidth: 2,
+          fill: 'transparent',
           selectable: true,
           evented: true,
           objectCaching: false,
-          cornerStyle: 'circle',
-          cornerColor: '#22c55e',
-          cornerSize: 8,
-          transparentCorners: false,
           lockScalingX: true,
           lockScalingY: true,
           lockRotation: true,
@@ -2707,83 +2736,24 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
           hasBorders: true,
         });
         
-        // Enable polyline point editing
-        paver.points?.forEach((point, index) => {
-          if (index === paver.points!.length - 1) return; // Skip the last point (duplicate of first)
-          
-          paver.controls[`p${index}`] = new Control({
-            positionHandler: (dim, finalMatrix, fabricObject) => {
-              const polyline = fabricObject as Polyline;
-              const pt = polyline.points![index] as any;
-              const x = pt.x - polyline.pathOffset!.x;
-              const y = pt.y - polyline.pathOffset!.y;
-              const matrix = util.multiplyTransformMatrices(
-                fabricCanvas.viewportTransform,
-                polyline.calcTransformMatrix()
-              );
-              return util.transformPoint({ x, y }, matrix);
-            },
-            actionHandler: (eventData, transform, x, y) => {
-              const polyline = transform.target as Polyline;
-              const pt = polyline.points![index] as any;
-              const lastPt = polyline.points![polyline.points!.length - 1] as any;
-              
-              if (!transform.offsetX) {
-                const invMatrix = util.invertTransform(
-                  util.multiplyTransformMatrices(
-                    fabricCanvas.viewportTransform,
-                    polyline.calcTransformMatrix()
-                  )
-                );
-                const currentPoint = util.transformPoint({ x, y }, invMatrix);
-                transform.offsetX = (pt.x - polyline.pathOffset!.x) - currentPoint.x;
-                transform.offsetY = (pt.y - polyline.pathOffset!.y) - currentPoint.y;
-              }
-              
-              const invMatrix = util.invertTransform(
-                util.multiplyTransformMatrices(
-                  fabricCanvas.viewportTransform,
-                  polyline.calcTransformMatrix()
-                )
-              );
-              const localPoint = util.transformPoint({ x, y }, invMatrix);
-              const prevCenter = polyline.getCenterPoint();
-              
-              pt.x = localPoint.x + transform.offsetX + polyline.pathOffset!.x;
-              pt.y = localPoint.y + transform.offsetY + polyline.pathOffset!.y;
-              
-              // Update the closing point to match the first point
-              lastPt.x = pt.x;
-              lastPt.y = pt.y;
-              
-              polyline.set({ dirty: true });
-              polyline.setCoords();
-              const newCenter = polyline.getCenterPoint();
-              const dx = prevCenter.x - newCenter.x;
-              const dy = prevCenter.y - newCenter.y;
-              polyline.left += dx;
-              polyline.top += dy;
-              polyline.setCoords();
-              
-              fabricCanvas.requestRenderAll();
-              updatePaverArea(polyline);
-              
-              return true;
-            },
-            cursorStyle: 'pointer',
-            render: (ctx, left, top, styleOverride, fabricObject) => {
-              const size = 10;
-              ctx.save();
-              ctx.fillStyle = '#ffffff';
-              ctx.strokeStyle = '#22c55e';
-              ctx.lineWidth = 2;
-              ctx.beginPath();
-              ctx.arc(left, top, size / 2, 0, 2 * Math.PI);
-              ctx.fill();
-              ctx.stroke();
-              ctx.restore();
-            },
-          });
+        
+        // Add name label for paver
+        const paverName = prompt('Enter paver name (optional):');
+        if (paverName) {
+          (paver as any).paverName = paverName;
+        }
+        
+        // Remove point editing controls - pavers can only be moved
+        paver.setControlsVisibility({
+          mt: false,
+          mb: false,
+          ml: false,
+          mr: false,
+          bl: false,
+          br: false,
+          tl: false,
+          tr: false,
+          mtr: false,
         });
         
         // Add delete control (X button) to drawn paver
@@ -2794,11 +2764,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
           offsetY: -16,
           cursorStyle: 'pointer',
           mouseUpHandler: () => {
-            // Remove paver and its area text
-            const areaTextObj = fabricCanvas.getObjects().find((obj: any) => 
-              obj.paverId === paverId && obj.isPaverArea
-            );
-            if (areaTextObj) fabricCanvas.remove(areaTextObj);
+            // Remove paver (no area text to remove since we don't show it)
             fabricCanvas.remove(paver);
             setPavers(prev => prev.filter(p => p !== paver));
             fabricCanvas.renderAll();
@@ -2825,32 +2791,15 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         
         (paver as any).paverId = paverId;
         
-        // Calculate and display area
-        const updatePaverArea = (paverObj: Polyline) => {
-          if (!scaleReference) return;
-          
-          // Remove existing area text
-          const existingText = fabricCanvas.getObjects().find((obj: any) => 
-            obj.paverId === paverId && obj.isPaverArea
-          );
-          if (existingText) fabricCanvas.remove(existingText);
-          
-          // Recalculate area
-          const points = paverObj.points!.slice(0, -1).map((p: any) => ({ x: p.x, y: p.y }));
-          const pixelArea = calculatePolygonArea(points);
-          const scaleFactor = scaleReference.length / scaleReference.pixelLength;
-          const realArea = pixelArea * scaleFactor * scaleFactor;
-          
-          // Get center of polygon
-          const centerPoint = paverObj.getCenterPoint();
-          
-          const unitLabel = scaleUnit === 'feet' ? 'sq ft' : 'sq m';
-          const areaText = new Text(`${realArea.toFixed(2)} ${unitLabel}`, {
+        // Add paver name label if provided
+        if (paverName) {
+          const centerPoint = paver.getCenterPoint();
+          const nameLabel = new Text(paverName, {
             left: centerPoint.x,
             top: centerPoint.y,
-            fontSize: 14,
-            fontFamily: 'Inter, Arial, sans-serif',
-            fill: '#22c55e',
+            fontSize: 12,
+            fontFamily: 'Arial',
+            fill: '#000000',
             fontWeight: 'bold',
             selectable: false,
             evented: false,
@@ -2860,12 +2809,12 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
             padding: 4,
           });
           
-          (areaText as any).paverId = paverId;
-          (areaText as any).isPaverArea = true;
+          (nameLabel as any).paverId = paverId;
+          (nameLabel as any).isPaverName = true;
           
-          fabricCanvas.add(areaText);
-          fabricCanvas.bringObjectToFront(areaText);
-        };
+          fabricCanvas.add(nameLabel);
+          fabricCanvas.bringObjectToFront(nameLabel);
+        }
         
         fabricCanvas.add(paver);
         
@@ -2878,12 +2827,6 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         } else {
           fabricCanvas.sendObjectToBack(paver);
         }
-        
-        updatePaverArea(paver);
-        
-        // Update area when paver is modified or moved
-        paver.on('modified', () => updatePaverArea(paver));
-        paver.on('moving', () => updatePaverArea(paver));
         
         setPavers(prev => [...prev, paver]);
       }
@@ -2980,14 +2923,13 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
     if (activeObject && (activeObject as any).paverId) {
       const paverId = (activeObject as any).paverId;
       
-      // Remove the paver
+      // Remove the paver and its name label
       fabricCanvas.remove(activeObject);
       
-      // Remove the area text
-      const areaText = fabricCanvas.getObjects().find((obj: any) => 
-        obj.paverId === paverId && obj.isPaverArea
+      const nameLabel = fabricCanvas.getObjects().find((obj: any) => 
+        obj.paverId === paverId && obj.isPaverName
       );
-      if (areaText) fabricCanvas.remove(areaText);
+      if (nameLabel) fabricCanvas.remove(nameLabel);
       
       setPavers(prev => prev.filter(p => p !== activeObject));
       fabricCanvas.renderAll();
