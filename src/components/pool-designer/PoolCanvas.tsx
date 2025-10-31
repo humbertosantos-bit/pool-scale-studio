@@ -6,12 +6,13 @@ import pool12x24Image from '@/assets/pool-12x24.png';
 
 interface PoolCanvasProps {
   imageFile: File | null;
+  scaleInfo?: { metersPerPixel: number; latitude: number; zoom: number } | null;
   className?: string;
   canvasOnly?: boolean;
   onStateChange?: (state: any) => void;
 }
 
-export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, canvasOnly = false, onStateChange }) => {
+export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, scaleInfo, className, canvasOnly = false, onStateChange }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [fabricCanvas, setFabricCanvas] = useState<FabricCanvas | null>(null);
   const [scaleReference, setScaleReference] = useState<{ length: number; pixelLength: number } | null>(null);
@@ -415,6 +416,98 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
     };
   }, []);
 
+  // Function to add Google Maps-style scale reference
+  const addGoogleScaleReference = (canvas: FabricCanvas, scaleInfo: { metersPerPixel: number; latitude: number; zoom: number }) => {
+    // Calculate appropriate scale bar length
+    const targetPixels = 100; // Target width in pixels
+    const meters = scaleInfo.metersPerPixel * targetPixels;
+    
+    // Round to nice numbers (5, 10, 20, 50, 100, 200, etc.)
+    let displayMeters: number;
+    if (meters < 5) displayMeters = Math.ceil(meters);
+    else if (meters < 10) displayMeters = 5;
+    else if (meters < 20) displayMeters = 10;
+    else if (meters < 50) displayMeters = 20;
+    else if (meters < 100) displayMeters = 50;
+    else if (meters < 200) displayMeters = 100;
+    else displayMeters = Math.round(meters / 100) * 100;
+    
+    const actualPixels = displayMeters / scaleInfo.metersPerPixel;
+    
+    // Position at bottom right
+    const canvasWidth = canvas.width!;
+    const canvasHeight = canvas.height!;
+    const padding = 20;
+    const startX = canvasWidth - actualPixels - padding;
+    const startY = canvasHeight - padding - 30;
+    
+    // Create scale bar background (white rectangle)
+    const bgRect = new Rect({
+      left: startX - 10,
+      top: startY - 5,
+      width: actualPixels + 20,
+      height: 35,
+      fill: 'white',
+      stroke: '#666',
+      strokeWidth: 1,
+      selectable: false,
+      evented: false,
+    });
+    (bgRect as any).isScaleReference = true;
+    
+    // Create scale bar line
+    const scaleLine = new Line([startX, startY + 20, startX + actualPixels, startY + 20], {
+      stroke: '#333',
+      strokeWidth: 3,
+      selectable: false,
+      evented: false,
+    });
+    (scaleLine as any).isScaleReference = true;
+    
+    // Create left tick
+    const leftTick = new Line([startX, startY + 15, startX, startY + 25], {
+      stroke: '#333',
+      strokeWidth: 3,
+      selectable: false,
+      evented: false,
+    });
+    (leftTick as any).isScaleReference = true;
+    
+    // Create right tick
+    const rightTick = new Line([startX + actualPixels, startY + 15, startX + actualPixels, startY + 25], {
+      stroke: '#333',
+      strokeWidth: 3,
+      selectable: false,
+      evented: false,
+    });
+    (rightTick as any).isScaleReference = true;
+    
+    // Create text label
+    const label = new Text(`${displayMeters} m`, {
+      left: startX + actualPixels / 2,
+      top: startY,
+      fontSize: 14,
+      fill: '#333',
+      fontFamily: 'Arial, sans-serif',
+      fontWeight: 'bold',
+      originX: 'center',
+      originY: 'top',
+      selectable: false,
+      evented: false,
+    });
+    (label as any).isScaleReference = true;
+    
+    // Add all elements to canvas
+    canvas.add(bgRect, scaleLine, leftTick, rightTick, label);
+    
+    // Bring scale reference to front
+    canvas.bringObjectToFront(bgRect);
+    canvas.bringObjectToFront(scaleLine);
+    canvas.bringObjectToFront(leftTick);
+    canvas.bringObjectToFront(rightTick);
+    canvas.bringObjectToFront(label);
+  };
+
   useEffect(() => {
     if (!fabricCanvas || !imageFile) return;
 
@@ -462,11 +555,16 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         fabricCanvas.add(img);
         fabricCanvas.sendObjectToBack(img); // Ensure image stays at the back
         
+        // Add Google Maps-style scale reference if available
+        if (scaleInfo) {
+          addGoogleScaleReference(fabricCanvas, scaleInfo);
+        }
+        
         fabricCanvas.renderAll();
       });
     };
     reader.readAsDataURL(imageFile);
-  }, [fabricCanvas, imageFile]);
+  }, [fabricCanvas, imageFile, scaleInfo]);
 
   const updatePaverOutline = (paverOutline: any, poolId: string, pool: any, centerX: number, centerY: number, L: number, W: number, C: number) => {
     if (!fabricCanvas || !scaleReference) return;

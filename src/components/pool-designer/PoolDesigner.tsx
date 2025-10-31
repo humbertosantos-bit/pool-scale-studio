@@ -6,10 +6,12 @@ import logo from '@/assets/piscineriviera-logo.png';
 
 export const PoolDesigner: React.FC = () => {
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [scaleInfo, setScaleInfo] = useState<{ metersPerPixel: number; latitude: number; zoom: number } | null>(null);
   const [poolState, setPoolState] = useState<any>(null);
 
-  const handleFileSelect = (file: File) => {
+  const handleFileSelect = (file: File, scaleData?: { metersPerPixel: number; latitude: number; zoom: number }) => {
     setSelectedImage(file);
+    setScaleInfo(scaleData || null);
   };
 
   const handleStateChange = (state: any) => {
@@ -71,7 +73,7 @@ export const PoolDesigner: React.FC = () => {
         {/* Right Canvas - 2/3 width */}
         <div className="w-2/3 bg-gradient-to-br from-background to-pool-light/20 overflow-auto">
           {selectedImage ? (
-            <PoolCanvas imageFile={selectedImage} canvasOnly onStateChange={handleStateChange} />
+            <PoolCanvas imageFile={selectedImage} scaleInfo={scaleInfo} canvasOnly onStateChange={handleStateChange} />
           ) : (
             <div className="h-full flex items-center justify-center">
               <div className="text-center space-y-2">

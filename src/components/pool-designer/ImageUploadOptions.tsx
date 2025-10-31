@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 
 interface ImageUploadOptionsProps {
-  onFileSelect: (file: File) => void;
+  onFileSelect: (file: File, scaleInfo?: { metersPerPixel: number; latitude: number; zoom: number }) => void;
 }
 
 export const ImageUploadOptions: React.FC<ImageUploadOptionsProps> = ({ onFileSelect }) => {
@@ -48,7 +48,11 @@ export const ImageUploadOptions: React.FC<ImageUploadOptionsProps> = ({ onFileSe
       // Convert blob to File
       const file = new File([imageBlob], `satellite-${Date.now()}.png`, { type: 'image/png' });
       
-      onFileSelect(file);
+      // Calculate scale: meters per pixel at this zoom level and latitude
+      // Formula: 156543.03392 * cos(latitude) / (2 ^ zoom)
+      const metersPerPixel = (156543.03392 * Math.cos(lat * Math.PI / 180)) / Math.pow(2, zoom);
+      
+      onFileSelect(file, { metersPerPixel, latitude: lat, zoom });
       toast.success('Satellite image loaded successfully!');
     } catch (error) {
       console.error('Error fetching satellite image:', error);
