@@ -7,10 +7,6 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { format } from 'date-fns';
-import { CalendarIcon, MapPin } from 'lucide-react';
 import { toast } from 'sonner';
 import pool8x14Image from '@/assets/pool-8x14-top.png';
 
@@ -71,22 +67,6 @@ interface PoolControlsProps {
   onAddRectangularPaver: (widthFeet: number, lengthFeet: number) => void;
   selectedImage: File;
   onFileSelect: (file: File) => void;
-  
-  // Sun path props
-  showSunPath: boolean;
-  onShowSunPathChange: (show: boolean) => void;
-  isSettingNorth: boolean;
-  onSetNorth: () => void;
-  location: { lat: number; lng: number } | null;
-  onLocationChange: (location: { lat: number; lng: number } | null) => void;
-  selectedDate: Date;
-  onDateChange: (date: Date) => void;
-  timeOfDay: number;
-  onTimeOfDayChange: (time: number) => void;
-  
-  // Background image opacity
-  bgImageOpacity: number;
-  onBgImageOpacityChange: (opacity: number) => void;
 }
 
 export const PoolControls: React.FC<PoolControlsProps> = ({
@@ -146,49 +126,7 @@ export const PoolControls: React.FC<PoolControlsProps> = ({
   onAddRectangularPaver,
   selectedImage,
   onFileSelect,
-  showSunPath,
-  onShowSunPathChange,
-  isSettingNorth,
-  onSetNorth,
-  location,
-  onLocationChange,
-  selectedDate,
-  onDateChange,
-  timeOfDay,
-  onTimeOfDayChange,
-  bgImageOpacity,
-  onBgImageOpacityChange,
 }) => {
-  const [address, setAddress] = useState('');
-  const [isGeocoding, setIsGeocoding] = useState(false);
-
-  const handleGeocode = async () => {
-    if (!address.trim()) {
-      toast.error('Please enter an address');
-      return;
-    }
-
-    setIsGeocoding(true);
-    try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`
-      );
-      const data = await response.json();
-
-      if (data && data.length > 0) {
-        const { lat, lon } = data[0];
-        onLocationChange({ lat: parseFloat(lat), lng: parseFloat(lon) });
-        toast.success('Location found!');
-      } else {
-        toast.error('Location not found');
-      }
-    } catch (error) {
-      console.error('Geocoding error:', error);
-      toast.error('Failed to find location');
-    } finally {
-      setIsGeocoding(false);
-    }
-  };
   return (
     <div className="space-y-4">
       {/* Units Section */}
@@ -609,123 +547,6 @@ export const PoolControls: React.FC<PoolControlsProps> = ({
               >
                 Delete Selected Paver
               </button>
-            </div>
-          </div>
-
-          {/* Background Image Opacity Section */}
-          <div className="border rounded-lg overflow-hidden">
-            <div className="bg-primary px-4 py-3">
-              <h2 className="text-sm font-semibold text-primary-foreground">🖼️ Image Opacity</h2>
-            </div>
-            <div className="p-4 space-y-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="bg-opacity" className="text-sm font-medium">
-                  Background Opacity
-                </Label>
-                <span className="text-sm text-muted-foreground">{Math.round(bgImageOpacity * 100)}%</span>
-              </div>
-              <Slider
-                id="bg-opacity"
-                value={[bgImageOpacity]}
-                onValueChange={(value) => onBgImageOpacityChange(value[0])}
-                min={0}
-                max={1}
-                step={0.01}
-                className="w-full"
-              />
-            </div>
-          </div>
-
-          {/* Sun Simulation Section */}
-          <div className="border rounded-lg overflow-hidden">
-            <div className="bg-primary px-4 py-3">
-              <h2 className="text-sm font-semibold text-primary-foreground">☀️ Sun Simulation</h2>
-            </div>
-            <div className="p-4 space-y-4">
-              {/* Location Input */}
-              <div className="space-y-2">
-                <Label htmlFor="address">Property Address</Label>
-                <div className="flex gap-2">
-                  <Input
-                    id="address"
-                    placeholder="Enter address or coordinates"
-                    value={address}
-                    onChange={(e) => setAddress(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleGeocode()}
-                  />
-                  <Button
-                    onClick={handleGeocode}
-                    disabled={isGeocoding}
-                    size="icon"
-                    variant="outline"
-                  >
-                    <MapPin className="h-4 w-4" />
-                  </Button>
-                </div>
-                {location && (
-                  <p className="text-xs text-muted-foreground">
-                    📍 {location.lat.toFixed(4)}, {location.lng.toFixed(4)}
-                  </p>
-                )}
-              </div>
-
-              {/* Date Picker */}
-              <div className="space-y-2">
-                <Label>Date</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-full justify-start">
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {format(selectedDate, 'PPP')}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
-                    <Calendar
-                      mode="single"
-                      selected={selectedDate}
-                      onSelect={(date) => date && onDateChange(date)}
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-
-              {/* Time of Day Slider */}
-              <div className="space-y-2">
-                <Label>Time of Day: {timeOfDay}:00</Label>
-                <Slider
-                  value={[timeOfDay]}
-                  onValueChange={([value]) => onTimeOfDayChange(value)}
-                  min={0}
-                  max={23}
-                  step={1}
-                  className="w-full"
-                />
-                <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>🌅 Sunrise</span>
-                  <span>☀️ Noon</span>
-                  <span>🌇 Sunset</span>
-                </div>
-              </div>
-
-              {/* North Direction */}
-              <Button
-                onClick={onSetNorth}
-                variant="outline"
-                className="w-full"
-                disabled={isSettingNorth}
-              >
-                🧭 {isSettingNorth ? 'Click & Drag Arrow' : 'Set North Direction'}
-              </Button>
-
-              {/* Show/Hide Toggle */}
-              <div className="flex items-center justify-between pt-2 border-t">
-                <Label htmlFor="show-sun-path">Show Sun Path</Label>
-                <Switch
-                  id="show-sun-path"
-                  checked={showSunPath}
-                  onCheckedChange={onShowSunPathChange}
-                />
-              </div>
             </div>
           </div>
 

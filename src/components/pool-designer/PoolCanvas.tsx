@@ -3,7 +3,6 @@ import { Canvas as FabricCanvas, FabricImage, Line, Ellipse, Rect, Circle, Point
 import { cn } from '@/lib/utils';
 import poolWaterTexture from '@/assets/pool-water.png';
 import pool12x24Image from '@/assets/pool-12x24.png';
-import { calculateSunPosition } from '@/utils/solarCalculations';
 
 interface PoolCanvasProps {
   imageFile: File | null;
@@ -51,16 +50,6 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
   const [pavers, setPavers] = useState<any[]>([]);
   const bgImageRef = useRef<FabricImage | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  
-  // Sun path states
-  const [showSunPath, setShowSunPath] = useState(false);
-  const [isSettingNorth, setIsSettingNorth] = useState(false);
-  const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
-  const [selectedDate, setSelectedDate] = useState(new Date());
-  const [timeOfDay, setTimeOfDay] = useState(12); // Hour of day (0-23)
-  const northArrowRef = useRef<Group | null>(null);
-  const sunPathRef = useRef<Group | null>(null);
-  const [bgImageOpacity, setBgImageOpacity] = useState(1);
 
   useEffect(() => {
     if (!canvasRef.current || !containerRef.current) return;
@@ -452,7 +441,6 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
           lockRotation: false,
           hasControls: true,
           hasBorders: true,
-          opacity: bgImageOpacity,
         });
         
         // Only show rotation control
@@ -479,13 +467,6 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
     };
     reader.readAsDataURL(imageFile);
   }, [fabricCanvas, imageFile]);
-
-  // Update background image opacity when it changes
-  useEffect(() => {
-    if (!bgImageRef.current || !fabricCanvas) return;
-    bgImageRef.current.set({ opacity: bgImageOpacity });
-    fabricCanvas.renderAll();
-  }, [bgImageOpacity, fabricCanvas]);
 
   const updatePaverOutline = (paverOutline: any, poolId: string, pool: any, centerX: number, centerY: number, L: number, W: number, C: number) => {
     if (!fabricCanvas || !scaleReference) return;
@@ -798,13 +779,13 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         const topArea = paverTop * topPaverWidth;
         const bottomArea = paverBottom * bottomPaverWidth;
         
-        // Create semi-transparent paver outline rectangle
+        // Create paver outline rectangle
         const paverOutline = new Rect({
           left: centerX,
           top: centerY,
-          fill: 'transparent',
+          fill: '#D3D3D3',
           stroke: '#808080',
-          strokeWidth: 2,
+          strokeWidth: 1,
           width: outerLengthPixels,
           height: outerWidthPixels,
           originX: 'center',
@@ -1116,9 +1097,9 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         const paverOutline = new Rect({
           left: 0,
           top: 0,
-          fill: 'transparent',
+          fill: '#D3D3D3',
           stroke: '#808080',
-          strokeWidth: 2,
+          strokeWidth: 1,
           width: outerLengthPixels,
           height: outerWidthPixels,
           originX: 'center',
@@ -2936,246 +2917,6 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
     }
   };
 
-  // Sun path functions
-  const createNorthArrow = () => {
-    if (!fabricCanvas) return;
-    
-    // Remove existing north arrow if any
-    if (northArrowRef.current) {
-      fabricCanvas.remove(northArrowRef.current);
-    }
-    
-    // Create arrow shape
-    const arrowLine = new Line([0, 30, 0, -30], {
-      stroke: '#ef4444',
-      strokeWidth: 4,
-    });
-    
-    const arrowHead = new Triangle({
-      width: 16,
-      height: 20,
-      fill: '#ef4444',
-      top: -30,
-      left: 0,
-      originX: 'center',
-      originY: 'bottom',
-    });
-    
-    const northText = new Text('N', {
-      fontSize: 18,
-      fontFamily: 'Inter, Arial, sans-serif',
-      fill: '#ef4444',
-      fontWeight: 'bold',
-      top: -50,
-      left: 0,
-      originX: 'center',
-      originY: 'center',
-    });
-    
-    // Compass circle background
-    const compassBg = new Circle({
-      radius: 35,
-      fill: 'rgba(255, 255, 255, 0.9)',
-      stroke: '#ef4444',
-      strokeWidth: 2,
-    });
-    
-    // Group arrow components with custom controls for rotation
-    const northArrow = new Group([compassBg, arrowLine, arrowHead, northText], {
-      left: 100,
-      top: 100,
-      selectable: true,
-      hasControls: true,
-      hasBorders: true,
-      lockScalingX: true,
-      lockScalingY: true,
-      lockMovementX: false,
-      lockMovementY: false,
-    });
-    
-    // Enable only the rotation control
-    northArrow.setControlsVisibility({
-      mt: false,
-      mb: false,
-      ml: false,
-      mr: false,
-      bl: false,
-      br: false,
-      tl: false,
-      tr: false,
-      mtr: true, // Only rotation control
-    });
-    
-    (northArrow as any).isNorthArrow = true;
-    northArrowRef.current = northArrow;
-    
-    fabricCanvas.add(northArrow);
-    fabricCanvas.bringObjectToFront(northArrow);
-    fabricCanvas.setActiveObject(northArrow);
-    fabricCanvas.renderAll();
-  };
-
-  const createSunPath = () => {
-    if (!fabricCanvas || !bgImageRef.current || !northArrowRef.current || !location) return;
-    
-    // Remove existing sun path
-    if (sunPathRef.current) {
-      fabricCanvas.remove(sunPathRef.current);
-    }
-    
-    const northAngle = northArrowRef.current.angle || 0;
-    const canvasWidth = fabricCanvas.width || 800;
-    const canvasHeight = fabricCanvas.height || 600;
-    const centerX = canvasWidth / 2;
-    const centerY = canvasHeight / 2;
-    
-    // Calculate current sun position using our browser-compatible function
-    const sunPos = calculateSunPosition(
-      { latitude: location.lat, longitude: location.lng },
-      selectedDate,
-      timeOfDay
-    );
-    const sunAzimuth = sunPos.azimuth; // Already in degrees from north
-    const sunAltitude = sunPos.altitude; // Already in degrees
-    
-    // Adjust azimuth relative to north arrow
-    // Our function returns azimuth from north (0-360), so we just add the north arrow rotation
-    const adjustedAzimuth = sunAzimuth + northAngle;
-    
-    // Only show sun if it's above horizon
-    if (sunAltitude > 0) {
-      // Calculate sun position on canvas
-      const distance = Math.min(canvasWidth, canvasHeight) * 0.3 * (1 - sunAltitude / 90);
-      const rad = (adjustedAzimuth * Math.PI) / 180;
-      const sunX = centerX + distance * Math.sin(rad);
-      const sunY = centerY - distance * Math.cos(rad);
-      
-      // Create sun icon
-      const sunCircle = new Circle({
-        left: sunX,
-        top: sunY,
-        radius: 20,
-        fill: 'rgba(255, 220, 50, 0.9)',
-        originX: 'center',
-        originY: 'center',
-        selectable: false,
-        evented: false,
-      });
-      
-      // Create sun rays
-      const rays: Line[] = [];
-      for (let i = 0; i < 8; i++) {
-        const angle = (i * 45 * Math.PI) / 180;
-        const rayLength = 15;
-        rays.push(
-          new Line(
-            [
-              sunX + Math.cos(angle) * 25,
-              sunY + Math.sin(angle) * 25,
-              sunX + Math.cos(angle) * (25 + rayLength),
-              sunY + Math.sin(angle) * (25 + rayLength),
-            ],
-            {
-              stroke: 'rgba(255, 220, 50, 0.8)',
-              strokeWidth: 2,
-              selectable: false,
-              evented: false,
-            }
-          )
-        );
-      }
-      
-      // Create light beam/blur effect
-      const blurLayers: Rect[] = [];
-      const blurSteps = 12;
-      const beamWidth = 200 + (sunAltitude / 90) * 100;
-      const beamLength = Math.max(canvasWidth, canvasHeight) * 0.8;
-      
-      for (let i = 0; i < blurSteps; i++) {
-        const opacity = (0.05 - i * 0.003) * (sunAltitude / 90);
-        const widthMultiplier = 1 + i * 0.15;
-        
-        const blurRect = new Rect({
-          left: sunX,
-          top: sunY,
-          width: beamWidth * widthMultiplier,
-          height: beamLength,
-          fill: `rgba(255, 220, 100, ${opacity})`,
-          selectable: false,
-          evented: false,
-          angle: adjustedAzimuth,
-          originX: 'center',
-          originY: 'top',
-        });
-        
-        blurLayers.push(blurRect);
-      }
-      
-      // Group all elements
-      const sunPathGroup = new Group([...blurLayers.reverse(), ...rays, sunCircle], {
-        selectable: false,
-        evented: false,
-      });
-      
-      (sunPathGroup as any).isSunPath = true;
-      sunPathRef.current = sunPathGroup;
-      
-      fabricCanvas.add(sunPathGroup);
-      fabricCanvas.sendObjectToBack(sunPathGroup);
-      
-      // Make sure background image is behind everything
-      if (bgImageRef.current) {
-        fabricCanvas.sendObjectToBack(bgImageRef.current);
-      }
-    }
-    
-    fabricCanvas.renderAll();
-  };
-
-  // Update sun path when north arrow is rotated or sun path is toggled
-  useEffect(() => {
-    if (showSunPath && fabricCanvas && bgImageRef.current && location) {
-      createSunPath();
-      // Show north arrow when sun path is enabled
-      if (!northArrowRef.current) {
-        createNorthArrow();
-      } else if (northArrowRef.current) {
-        northArrowRef.current.set({ visible: true });
-        fabricCanvas.renderAll();
-      }
-    } else if (fabricCanvas) {
-      // Hide sun path
-      if (sunPathRef.current) {
-        fabricCanvas.remove(sunPathRef.current);
-        sunPathRef.current = null;
-      }
-      // Hide north arrow when sun path is disabled
-      if (northArrowRef.current) {
-        northArrowRef.current.set({ visible: false });
-        fabricCanvas.renderAll();
-      }
-    }
-  }, [showSunPath, fabricCanvas, location, selectedDate, timeOfDay]);
-
-  // Listen for north arrow rotation to update sun path
-  useEffect(() => {
-    if (!fabricCanvas || !northArrowRef.current) return;
-    
-    const handleArrowRotation = () => {
-      if (showSunPath) {
-        createSunPath();
-      }
-    };
-    
-    fabricCanvas.on('object:rotating', handleArrowRotation);
-    fabricCanvas.on('object:modified', handleArrowRotation);
-    
-    return () => {
-      fabricCanvas.off('object:rotating', handleArrowRotation);
-      fabricCanvas.off('object:modified', handleArrowRotation);
-    };
-  }, [fabricCanvas, showSunPath]);
-
   const addRectangularPaver = (widthFeet: number, lengthFeet: number) => {
     if (!fabricCanvas || !scaleReference) {
       alert('Please set a scale reference first.');
@@ -3448,27 +3189,9 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         onStartPaverDrawing: startPaverDrawing,
         onDeleteSelectedPaver: deleteSelectedPaver,
         onAddRectangularPaver: addRectangularPaver,
-        showSunPath,
-        onShowSunPathChange: setShowSunPath,
-        isSettingNorth,
-        onSetNorth: () => {
-          setIsSettingNorth(true);
-          setShowSunPath(true);
-          if (!northArrowRef.current) {
-            createNorthArrow();
-          }
-        },
-        location,
-        onLocationChange: setLocation,
-        selectedDate,
-        onDateChange: setSelectedDate,
-        timeOfDay,
-        onTimeOfDayChange: setTimeOfDay,
-        bgImageOpacity,
-        onBgImageOpacityChange: setBgImageOpacity,
       });
     }
-  }, [scaleUnit, isSettingScale, scaleReference, fabricCanvas, poolLengthFeet, poolLengthInches, poolWidthFeet, poolWidthInches, measurementMode, isMeasuring, typedDistanceFeet, typedDistanceInches, typedDistanceMeters, copingSize, paverLeftFeet, paverLeftInches, paverRightFeet, paverRightInches, paverTopFeet, paverTopInches, paverBottomFeet, paverBottomInches, isDrawingFence, isDrawingPaver, showSunPath, bgImageOpacity]);
+  }, [scaleUnit, isSettingScale, scaleReference, fabricCanvas, poolLengthFeet, poolLengthInches, poolWidthFeet, poolWidthInches, measurementMode, isMeasuring, typedDistanceFeet, typedDistanceInches, typedDistanceMeters, copingSize, paverLeftFeet, paverLeftInches, paverRightFeet, paverRightInches, paverTopFeet, paverTopInches, paverBottomFeet, paverBottomInches, isDrawingFence, isDrawingPaver]);
 
   return (
     <div className={cn("flex flex-col h-full", className)}>
