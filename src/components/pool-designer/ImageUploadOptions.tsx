@@ -49,11 +49,8 @@ export const ImageUploadOptions: React.FC<ImageUploadOptionsProps> = ({ onFileSe
       const file = new File([imageBlob], `satellite-${Date.now()}.png`, { type: 'image/png' });
       
       // Calculate scale for Static Maps API at this zoom and latitude
-      // At zoom 20, Google Maps typically shows 5m or 10m scale bars
-      // Adjusted formula accounting for Static Maps API rendering at 1280px width
-      const baseMetersPerPixel = (156543.03392 * Math.cos(lat * Math.PI / 180)) / Math.pow(2, zoom);
-      // Apply correction factor for Static Maps API (empirically determined)
-      const metersPerPixel = baseMetersPerPixel * 0.5;
+      // Using the standard Web Mercator projection formula
+      const metersPerPixel = (156543.03392 * Math.cos(lat * Math.PI / 180)) / Math.pow(2, zoom);
       
       onFileSelect(file, { metersPerPixel, latitude: lat, zoom });
       toast.success('Satellite image loaded successfully!');

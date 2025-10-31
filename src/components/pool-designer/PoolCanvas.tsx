@@ -440,95 +440,92 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, scaleInfo, cl
   }, []);
 
   // Function to add Google Maps-style scale reference
-  const addGoogleScaleReference = (canvas: FabricCanvas, scaleInfo: { metersPerPixel: number; latitude: number; zoom: number }) => {
-    // Calculate appropriate scale bar length
-    const targetPixels = 100; // Target width in pixels
-    const meters = scaleInfo.metersPerPixel * targetPixels;
+  const addGoogleScaleReference = (canvas: FabricCanvas, scaleInfo: { metersPerPixel: number }) => {
+    const { metersPerPixel } = scaleInfo;
     
-    // Round to nice numbers (5, 10, 20, 50, 100, 200, etc.)
-    let displayMeters: number;
-    if (meters < 5) displayMeters = Math.ceil(meters);
-    else if (meters < 10) displayMeters = 5;
-    else if (meters < 20) displayMeters = 10;
-    else if (meters < 50) displayMeters = 20;
-    else if (meters < 100) displayMeters = 50;
-    else if (meters < 200) displayMeters = 100;
-    else displayMeters = Math.round(meters / 100) * 100;
+    // Create a 10m scale bar for reference
+    const displayMeters = 10;
+    const scaleBarPixels = displayMeters / metersPerPixel;
     
-    const actualPixels = displayMeters / scaleInfo.metersPerPixel;
+    // Position at bottom right corner
+    const padding = 30;
+    const x = canvas.width! - scaleBarPixels - padding;
+    const y = canvas.height! - padding - 25;
     
-    // Position at bottom right
-    const canvasWidth = canvas.width!;
-    const canvasHeight = canvas.height!;
-    const padding = 20;
-    const startX = canvasWidth - actualPixels - padding;
-    const startY = canvasHeight - padding - 30;
-    
-    // Create scale bar background (white rectangle)
-    const bgRect = new Rect({
-      left: startX - 10,
-      top: startY - 5,
-      width: actualPixels + 20,
-      height: 35,
-      fill: 'white',
-      stroke: '#666',
+    // Create semi-transparent white background
+    const background = new Rect({
+      left: x - 12,
+      top: y - 8,
+      width: scaleBarPixels + 24,
+      height: 38,
+      fill: 'rgba(255, 255, 255, 0.9)',
+      stroke: '#333',
       strokeWidth: 1,
       selectable: false,
       evented: false,
+      rx: 4,
+      ry: 4,
     });
-    (bgRect as any).isScaleReference = true;
-    
-    // Create scale bar line
-    const scaleLine = new Line([startX, startY + 20, startX + actualPixels, startY + 20], {
-      stroke: '#333',
-      strokeWidth: 3,
+    (background as any).isScaleReference = true;
+
+    // Create scale bar with tick marks
+    const scaleBar = new Rect({
+      left: x,
+      top: y + 12,
+      width: scaleBarPixels,
+      height: 5,
+      fill: '#333',
       selectable: false,
       evented: false,
     });
-    (scaleLine as any).isScaleReference = true;
-    
+    (scaleBar as any).isScaleReference = true;
+
     // Create left tick
-    const leftTick = new Line([startX, startY + 15, startX, startY + 25], {
-      stroke: '#333',
-      strokeWidth: 3,
+    const leftTick = new Rect({
+      left: x,
+      top: y + 8,
+      width: 2,
+      height: 13,
+      fill: '#333',
       selectable: false,
       evented: false,
     });
     (leftTick as any).isScaleReference = true;
-    
+
     // Create right tick
-    const rightTick = new Line([startX + actualPixels, startY + 15, startX + actualPixels, startY + 25], {
-      stroke: '#333',
-      strokeWidth: 3,
+    const rightTick = new Rect({
+      left: x + scaleBarPixels - 2,
+      top: y + 8,
+      width: 2,
+      height: 13,
+      fill: '#333',
       selectable: false,
       evented: false,
     });
     (rightTick as any).isScaleReference = true;
-    
+
     // Create text label
-    const label = new Text(`${displayMeters} m`, {
-      left: startX + actualPixels / 2,
-      top: startY,
-      fontSize: 14,
+    const text = new Text(`${displayMeters} m`, {
+      left: x + scaleBarPixels / 2,
+      top: y - 2,
+      fontSize: 13,
       fill: '#333',
       fontFamily: 'Arial, sans-serif',
       fontWeight: 'bold',
       originX: 'center',
-      originY: 'top',
       selectable: false,
       evented: false,
     });
-    (label as any).isScaleReference = true;
-    
-    // Add all elements to canvas
-    canvas.add(bgRect, scaleLine, leftTick, rightTick, label);
+    (text as any).isScaleReference = true;
+
+    canvas.add(background, scaleBar, leftTick, rightTick, text);
     
     // Bring scale reference to front
-    canvas.bringObjectToFront(bgRect);
-    canvas.bringObjectToFront(scaleLine);
+    canvas.bringObjectToFront(background);
+    canvas.bringObjectToFront(scaleBar);
     canvas.bringObjectToFront(leftTick);
     canvas.bringObjectToFront(rightTick);
-    canvas.bringObjectToFront(label);
+    canvas.bringObjectToFront(text);
   };
 
   useEffect(() => {
@@ -577,6 +574,11 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, scaleInfo, cl
         fabricCanvas.clear();
         fabricCanvas.add(img);
         fabricCanvas.sendObjectToBack(img); // Ensure image stays at the back
+        
+        // Add scale indicator for Google Maps images
+        if (scaleInfo) {
+          addGoogleScaleReference(fabricCanvas, scaleInfo);
+        }
         
         fabricCanvas.renderAll();
       });
