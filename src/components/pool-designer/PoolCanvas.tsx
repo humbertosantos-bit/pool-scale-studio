@@ -51,6 +51,15 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, scaleInfo, cl
   const [pavers, setPavers] = useState<any[]>([]);
   const bgImageRef = useRef<FabricImage | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const [bgImageOpacity, setBgImageOpacity] = useState(1);
+
+  // Update background image opacity when bgImageOpacity changes
+  useEffect(() => {
+    if (bgImageRef.current && fabricCanvas) {
+      bgImageRef.current.set({ opacity: bgImageOpacity });
+      fabricCanvas.renderAll();
+    }
+  }, [bgImageOpacity, fabricCanvas]);
 
   // Automatically set scale when Google Maps scaleInfo is provided
   useEffect(() => {
@@ -554,6 +563,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, scaleInfo, cl
           lockRotation: false,
           hasControls: true,
           hasBorders: true,
+          opacity: bgImageOpacity,
         });
         
         // Only show rotation control
@@ -956,8 +966,8 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, scaleInfo, cl
           left: centerX,
           top: centerY,
           fill: '#D3D3D3',
-          stroke: '#808080',
-          strokeWidth: 1,
+          stroke: '#000000',
+          strokeWidth: 0.5,
           width: outerLengthPixels,
           height: outerWidthPixels,
           originX: 'center',
@@ -1507,7 +1517,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, scaleInfo, cl
         const coping = new Rect({
           left: 0,
           top: 0,
-          fill: '#D3D3D3',
+          fill: '#141a1b',
           stroke: '#000000',
           strokeWidth: 0.5,
           width: pixelWidth + (copingPixelWidth * 2),
@@ -1577,8 +1587,8 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, scaleInfo, cl
           left: 0,
           top: 0,
           fill: '#D3D3D3',
-          stroke: '#808080',
-          strokeWidth: 1,
+          stroke: '#000000',
+          strokeWidth: 0.5,
           width: outerLengthPixels,
           height: outerWidthPixels,
           originX: 'center',
@@ -2207,7 +2217,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, scaleInfo, cl
           const capSize = 4;
           
           const cap = new Line([0, -capSize, 0, capSize], {
-            stroke: '#4169e1',
+            stroke: '#f9a867',
             strokeWidth: 0.5,
             strokeUniform: true,
           });
@@ -2225,7 +2235,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, scaleInfo, cl
         
         // Create final objects
         const finalLine = new Line([startPoint.x, startPoint.y, pointer.x, pointer.y], {
-          stroke: '#4169e1',
+          stroke: '#f9a867',
           strokeWidth: 0.5,
           strokeUniform: true,
           selectable: false,
@@ -2252,8 +2262,8 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, scaleInfo, cl
           left: midX + offsetX,
           top: midY + offsetY,
           fontSize: 12,
-          fontFamily: 'Inter, Arial, sans-serif',
-          fill: '#4169e1',
+          fontFamily: 'Poppins, sans-serif',
+          fill: '#000000',
           selectable: false,
           evented: false,
           originX: 'center',
@@ -2270,6 +2280,50 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, scaleInfo, cl
           lockRotation: false,
           hasControls: true,
           hasBorders: true,
+        });
+        
+        measurementGroup.setControlsVisibility({
+          mt: false,
+          mb: false,
+          ml: false,
+          mr: false,
+          bl: false,
+          br: false,
+          tl: false,
+          tr: false,
+          mtr: true,
+        });
+        
+        // Add delete control (X button) to measurement
+        measurementGroup.controls['deleteControl'] = new Control({
+          x: 0.5,
+          y: -0.5,
+          offsetX: 16,
+          offsetY: -16,
+          cursorStyle: 'pointer',
+          mouseUpHandler: () => {
+            fabricCanvas.remove(measurementGroup);
+            setMeasurementLines(prev => prev.filter(m => m !== measurementGroup));
+            fabricCanvas.renderAll();
+            return true;
+          },
+          render: (ctx, left, top) => {
+            const size = 20;
+            ctx.save();
+            ctx.translate(left, top);
+            ctx.beginPath();
+            ctx.arc(0, 0, size / 2, 0, 2 * Math.PI);
+            ctx.fillStyle = '#ef4444';
+            ctx.fill();
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.moveTo(-size / 4, -size / 4);
+            ctx.lineTo(size / 4, size / 4);
+            ctx.moveTo(size / 4, -size / 4);
+            ctx.lineTo(-size / 4, size / 4);
+            ctx.stroke();
+            ctx.restore();
+          },
         });
         
         (measurementGroup as any).measurementId = `measurement-${Date.now()}`;
@@ -2523,9 +2577,8 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, scaleInfo, cl
         
         // Create fence polyline with editable points
         const fence = new Polyline(polylinePoints, {
-          stroke: '#808080',
-          strokeWidth: 2,
-          strokeDashArray: [5, 5],
+          stroke: '#21515a',
+          strokeWidth: 1,
           fill: 'transparent',
           selectable: true,
           evented: true,
@@ -3291,9 +3344,13 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, scaleInfo, cl
         onStartPaverDrawing: startPaverDrawing,
         onDeleteSelectedPaver: deleteSelectedPaver,
         onAddRectangularPaver: addRectangularPaver,
-      });
+        bgImageOpacity,
+        onBgImageOpacityChange: setBgImageOpacity,
+      };
+
+      onStateChange?.(state);
     }
-  }, [scaleUnit, isSettingScale, scaleReference, fabricCanvas, poolLengthFeet, poolLengthInches, poolWidthFeet, poolWidthInches, measurementMode, isMeasuring, typedDistanceFeet, typedDistanceInches, typedDistanceMeters, copingSize, paverLeftFeet, paverLeftInches, paverRightFeet, paverRightInches, paverTopFeet, paverTopInches, paverBottomFeet, paverBottomInches, isDrawingFence, isDrawingPaver]);
+  }, [scaleUnit, isSettingScale, scaleReference, fabricCanvas, poolLengthFeet, poolLengthInches, poolWidthFeet, poolWidthInches, measurementMode, isMeasuring, typedDistanceFeet, typedDistanceInches, typedDistanceMeters, copingSize, paverLeftFeet, paverLeftInches, paverRightFeet, paverRightInches, paverTopFeet, paverTopInches, paverBottomFeet, paverBottomInches, isDrawingFence, isDrawingPaver, bgImageOpacity]);
 
   return (
     <div className={cn("flex flex-col h-full", className)}>

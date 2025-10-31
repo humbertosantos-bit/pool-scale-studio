@@ -3,6 +3,18 @@ import { ImageUploadOptions } from './ImageUploadOptions';
 import { PoolCanvas } from './PoolCanvas';
 import { PoolControls } from './PoolControls';
 import logo from '@/assets/piscineriviera-logo.png';
+import { Button } from '@/components/ui/button';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 export const PoolDesigner: React.FC = () => {
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
@@ -18,22 +30,47 @@ export const PoolDesigner: React.FC = () => {
     setPoolState(state);
   };
 
+  const handleReset = () => {
+    setSelectedImage(null);
+    setScaleInfo(null);
+    setPoolState(null);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background to-pool-light/20">
       {/* Header */}
       <div className="border-b bg-white/80 backdrop-blur-sm">
-        <div className="px-6 py-4 flex items-center gap-6">
-          <img src={logo} alt="Piscine Riviera" className="h-16 w-auto" />
-          <h1 className="text-3xl font-bold bg-gradient-hero bg-clip-text text-transparent">
-            Piscine Riviera Design Tool
-          </h1>
+        <div className="px-6 py-4 flex items-center justify-between gap-6">
+          <div className="flex items-center gap-6">
+            <img src={logo} alt="Piscine Riviera" className="h-16 w-auto" />
+            <h1 className="text-3xl font-bold bg-gradient-hero bg-clip-text text-transparent">
+              Piscine Riviera Design Tool
+            </h1>
+          </div>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive" size="sm">Reset</Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will reset all your work and clear the canvas. This action cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleReset}>Reset</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </div>
 
       {/* Main Content */}
-      <div className="flex h-[calc(100vh-88px)]">
-        {/* Left Sidebar - 1/3 width */}
-        <div className="w-1/3 border-r bg-white overflow-y-auto">
+      <div className="flex h-[calc(100vh-104px)]">
+        {/* Left Sidebar - 1/4 width */}
+        <div className="w-1/4 border-r bg-white overflow-y-auto">
           <div className="p-6 space-y-4">
             {/* Tools Section - shown when image is uploaded */}
             {selectedImage && poolState && (
@@ -70,8 +107,8 @@ export const PoolDesigner: React.FC = () => {
           </div>
         </div>
 
-        {/* Right Canvas - 2/3 width */}
-        <div className="w-2/3 bg-gradient-to-br from-background to-pool-light/20 overflow-auto">
+        {/* Right Canvas - 3/4 width */}
+        <div className="w-3/4 bg-gradient-to-br from-background to-pool-light/20 overflow-auto">
           {selectedImage ? (
             <PoolCanvas imageFile={selectedImage} scaleInfo={scaleInfo} canvasOnly onStateChange={handleStateChange} />
           ) : (

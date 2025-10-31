@@ -67,6 +67,8 @@ interface PoolControlsProps {
   onAddRectangularPaver: (widthFeet: number, lengthFeet: number) => void;
   selectedImage: File;
   onFileSelect: (file: File) => void;
+  bgImageOpacity: number;
+  onBgImageOpacityChange: (opacity: number) => void;
 }
 
 export const PoolControls: React.FC<PoolControlsProps> = ({
@@ -126,13 +128,15 @@ export const PoolControls: React.FC<PoolControlsProps> = ({
   onAddRectangularPaver,
   selectedImage,
   onFileSelect,
+  bgImageOpacity,
+  onBgImageOpacityChange,
 }) => {
   return (
     <div className="space-y-4">
       {/* Units Section */}
       <div className="border rounded-lg overflow-hidden">
-        <div className="bg-primary px-4 py-3">
-          <h2 className="text-sm font-semibold text-primary-foreground">Units</h2>
+        <div className="px-4 py-3" style={{ backgroundColor: '#00bdf2' }}>
+          <h2 className="text-sm font-semibold text-black">Units</h2>
         </div>
         <div className="p-4">
           <select 
@@ -148,8 +152,8 @@ export const PoolControls: React.FC<PoolControlsProps> = ({
 
       {/* Upload & Scale Reference Section */}
       <div className="border rounded-lg overflow-hidden">
-        <div className="bg-primary px-4 py-3">
-          <h2 className="text-sm font-semibold text-primary-foreground">📁 Upload Property Image</h2>
+        <div className="px-4 py-3" style={{ backgroundColor: '#00bdf2' }}>
+          <h2 className="text-sm font-semibold text-black">📁 Upload Property Image</h2>
         </div>
         <div className="p-4 space-y-4">
           <div>
@@ -163,23 +167,31 @@ export const PoolControls: React.FC<PoolControlsProps> = ({
             </div>
             <button
               onClick={() => document.querySelector<HTMLInputElement>('input[type="file"]')?.click()}
-              className="w-full mt-2 px-3 py-1.5 border rounded-md text-xs hover:bg-muted"
+              className="w-auto mt-2 px-3 py-1.5 border rounded-md text-xs hover:bg-muted"
             >
               Change Image
             </button>
           </div>
           
           <div className="pt-4 border-t">
+            <label className="text-sm font-semibold mb-2 block">Background Transparency</label>
+            <Slider
+              value={[bgImageOpacity]}
+              onValueChange={(value) => onBgImageOpacityChange(value[0])}
+              min={0}
+              max={1}
+              step={0.05}
+              className="w-full"
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              {Math.round(bgImageOpacity * 100)}%
+            </p>
+          </div>
+          
+          <div className="pt-4 border-t">
             <label className="text-sm font-semibold mb-2 block">Scale Reference</label>
-            <button
-              onClick={onStartScaleReference}
-              disabled={isSettingScale || !canvasReady}
-              className="w-full px-3 py-1.5 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 text-xs"
-            >
-              {isSettingScale ? 'Click two points...' : scaleReference ? 'Reset Scale' : 'Set Scale'}
-            </button>
             {scaleReference && (
-              <p className="text-xs text-muted-foreground mt-2">
+              <p className="text-xs text-muted-foreground mb-2">
                 Scale: 1 px = {(scaleReference.length / scaleReference.pixelLength).toFixed(4)} {scaleUnit === 'feet' ? 'FT' : 'M'}
               </p>
             )}
@@ -191,8 +203,8 @@ export const PoolControls: React.FC<PoolControlsProps> = ({
         <>
           {/* Pool Size & Coping Section */}
           <div className="border rounded-lg overflow-hidden">
-            <div className="bg-primary px-4 py-3">
-              <h2 className="text-sm font-semibold text-primary-foreground">Pool Size</h2>
+            <div className="px-4 py-3" style={{ backgroundColor: '#00bdf2' }}>
+              <h2 className="text-sm font-semibold text-black">Pool Size</h2>
             </div>
             <div className="p-4 space-y-2">
               <div className="mb-3">
@@ -242,23 +254,19 @@ export const PoolControls: React.FC<PoolControlsProps> = ({
                   <div className="flex flex-col items-center gap-0.5">
                     <div className="flex items-center gap-0.5 bg-background p-1 rounded border border-primary/20">
                       <input
-                        type="number"
+                        type="text"
                         value={paverTopFeet}
                         onChange={(e) => onPaverTopFeetChange(e.target.value)}
                         placeholder="0"
                         className="w-8 px-0.5 py-0.5 border rounded text-[10px] text-center"
-                        min="0"
-                        step="1"
                       />
                       <span className="text-[9px] text-muted-foreground">'</span>
                       <input
-                        type="number"
+                        type="text"
                         value={paverTopInches}
                         onChange={(e) => onPaverTopInchesChange(e.target.value)}
                         placeholder="0"
                         className="w-8 px-0.5 py-0.5 border rounded text-[10px] text-center"
-                        min="0"
-                        max="11"
                       />
                       <span className="text-[9px] text-muted-foreground">"</span>
                     </div>
@@ -269,23 +277,19 @@ export const PoolControls: React.FC<PoolControlsProps> = ({
                     {/* Left Input */}
                     <div className="flex items-center gap-0.5 bg-background p-1 rounded border border-primary/20">
                       <input
-                        type="number"
+                        type="text"
                         value={paverLeftFeet}
                         onChange={(e) => onPaverLeftFeetChange(e.target.value)}
                         placeholder="0"
                         className="w-8 px-0.5 py-0.5 border rounded text-[10px] text-center"
-                        min="0"
-                        step="1"
                       />
                       <span className="text-[9px] text-muted-foreground">'</span>
                       <input
-                        type="number"
+                        type="text"
                         value={paverLeftInches}
                         onChange={(e) => onPaverLeftInchesChange(e.target.value)}
                         placeholder="0"
                         className="w-8 px-0.5 py-0.5 border rounded text-[10px] text-center"
-                        min="0"
-                        max="11"
                       />
                       <span className="text-[9px] text-muted-foreground">"</span>
                     </div>
@@ -302,23 +306,19 @@ export const PoolControls: React.FC<PoolControlsProps> = ({
                     {/* Right Input */}
                     <div className="flex items-center gap-0.5 bg-background p-1 rounded border border-primary/20">
                       <input
-                        type="number"
+                        type="text"
                         value={paverRightFeet}
                         onChange={(e) => onPaverRightFeetChange(e.target.value)}
                         placeholder="0"
                         className="w-8 px-0.5 py-0.5 border rounded text-[10px] text-center"
-                        min="0"
-                        step="1"
                       />
                       <span className="text-[9px] text-muted-foreground">'</span>
                       <input
-                        type="number"
+                        type="text"
                         value={paverRightInches}
                         onChange={(e) => onPaverRightInchesChange(e.target.value)}
                         placeholder="0"
                         className="w-8 px-0.5 py-0.5 border rounded text-[10px] text-center"
-                        min="0"
-                        max="11"
                       />
                       <span className="text-[9px] text-muted-foreground">"</span>
                     </div>
@@ -328,23 +328,19 @@ export const PoolControls: React.FC<PoolControlsProps> = ({
                   <div className="flex flex-col items-center gap-0.5">
                     <div className="flex items-center gap-0.5 bg-background p-1 rounded border border-primary/20">
                       <input
-                        type="number"
+                        type="text"
                         value={paverBottomFeet}
                         onChange={(e) => onPaverBottomFeetChange(e.target.value)}
                         placeholder="0"
                         className="w-8 px-0.5 py-0.5 border rounded text-[10px] text-center"
-                        min="0"
-                        step="1"
                       />
                       <span className="text-[9px] text-muted-foreground">'</span>
                       <input
-                        type="number"
+                        type="text"
                         value={paverBottomInches}
                         onChange={(e) => onPaverBottomInchesChange(e.target.value)}
                         placeholder="0"
                         className="w-8 px-0.5 py-0.5 border rounded text-[10px] text-center"
-                        min="0"
-                        max="11"
                       />
                       <span className="text-[9px] text-muted-foreground">"</span>
                     </div>
@@ -357,25 +353,18 @@ export const PoolControls: React.FC<PoolControlsProps> = ({
                 <label className="text-xs font-semibold mb-2 block">Preset Pools</label>
                 <button
                   onClick={() => onAddPresetPool?.(23, 11, "Azoria Topaze 12x24")}
-                  className="w-full px-3 py-1.5 bg-pool-light text-pool-dark rounded-md hover:bg-pool-light/80 text-xs font-medium"
+                  className="w-auto px-3 py-1.5 bg-pool-light text-pool-dark rounded-md hover:bg-pool-light/80 text-xs font-medium"
                 >
                   Azoria Topaze 12x24
                 </button>
               </div>
-              
-              <button
-                onClick={onDeleteSelectedPool}
-                className="w-full px-3 py-1.5 bg-destructive text-destructive-foreground rounded-md hover:bg-destructive/90 text-xs"
-              >
-                Delete Selected Pool
-              </button>
             </div>
           </div>
 
           {/* Measure Section */}
           <div className="border rounded-lg overflow-hidden">
-            <div className="bg-primary px-4 py-3">
-              <h2 className="text-sm font-semibold text-primary-foreground">Measure</h2>
+            <div className="px-4 py-3" style={{ backgroundColor: '#00bdf2' }}>
+              <h2 className="text-sm font-semibold text-black">Measure</h2>
             </div>
             <div className="p-4 space-y-2">
               <select 
@@ -391,7 +380,7 @@ export const PoolControls: React.FC<PoolControlsProps> = ({
                 <button
                   onClick={onStartMeasurement}
                   disabled={isMeasuring}
-                  className="w-full px-3 py-1.5 bg-foreground text-background rounded-md hover:bg-foreground/90 disabled:opacity-50 text-xs"
+                  className="w-auto px-3 py-1.5 bg-foreground text-background rounded-md hover:bg-foreground/90 disabled:opacity-50 text-xs"
                 >
                   {isMeasuring ? 'Click and drag...' : 'Draw Measurement'}
                 </button>
@@ -436,32 +425,25 @@ export const PoolControls: React.FC<PoolControlsProps> = ({
                   )}
                   <button
                     onClick={onAddTypedMeasurement}
-                    className="w-full px-3 py-1.5 bg-foreground text-background rounded-md hover:bg-foreground/90 text-xs"
+                    className="w-auto px-3 py-1.5 bg-foreground text-background rounded-md hover:bg-foreground/90 text-xs"
                   >
                     Add Measurement
                   </button>
                 </>
               )}
-              
-              <button
-                onClick={onDeleteSelectedMeasurement}
-                className="w-full px-3 py-1.5 bg-destructive text-destructive-foreground rounded-md hover:bg-destructive/90 text-xs"
-              >
-                Delete Selected Measurement
-              </button>
             </div>
           </div>
 
           {/* Fence Section */}
           <div className="border rounded-lg overflow-hidden">
-            <div className="bg-primary px-4 py-3">
-              <h2 className="text-sm font-semibold text-primary-foreground">Fence</h2>
+            <div className="px-4 py-3" style={{ backgroundColor: '#00bdf2' }}>
+              <h2 className="text-sm font-semibold text-black">Fence</h2>
             </div>
             <div className="p-4 space-y-2">
               <button
                 onClick={onStartFenceDrawing}
                 disabled={isDrawingFence}
-                className="w-full px-3 py-1.5 bg-foreground text-background rounded-md hover:bg-foreground/90 disabled:opacity-50 text-xs"
+                className="w-auto px-3 py-1.5 bg-foreground text-background rounded-md hover:bg-foreground/90 disabled:opacity-50 text-xs"
               >
                 {isDrawingFence ? 'Click to add corners...' : 'Draw Fence'}
               </button>
@@ -471,25 +453,19 @@ export const PoolControls: React.FC<PoolControlsProps> = ({
                   💡 Double-click, Right-click, or press Enter to finish
                 </p>
               )}
-              <button
-                onClick={onDeleteSelectedFence}
-                className="w-full px-3 py-1.5 bg-destructive text-destructive-foreground rounded-md hover:bg-destructive/90 text-xs"
-              >
-                Delete Selected Fence
-              </button>
             </div>
           </div>
 
           {/* Pavers Section */}
           <div className="border rounded-lg overflow-hidden">
-            <div className="bg-primary px-4 py-3">
-              <h2 className="text-sm font-semibold text-primary-foreground">Pavers</h2>
+            <div className="px-4 py-3" style={{ backgroundColor: '#00bdf2' }}>
+              <h2 className="text-sm font-semibold text-black">Pavers</h2>
             </div>
             <div className="p-4 space-y-2">
               <button
                 onClick={onStartPaverDrawing}
                 disabled={isDrawingPaver}
-                className="w-full px-3 py-1.5 bg-foreground text-background rounded-md hover:bg-foreground/90 disabled:opacity-50 text-xs"
+                className="w-auto px-3 py-1.5 bg-foreground text-background rounded-md hover:bg-foreground/90 disabled:opacity-50 text-xs"
               >
                 {isDrawingPaver ? 'Click to add corners...' : 'Draw Paver Area'}
               </button>
@@ -504,93 +480,66 @@ export const PoolControls: React.FC<PoolControlsProps> = ({
               <div className="pt-3 border-t">
                 <label className="text-xs font-semibold mb-2 block">Rectangular Paver</label>
                 <div className="space-y-2">
-                  <div>
-                    <label className="text-[10px] text-muted-foreground mb-1 block">Width</label>
-                    <div className="flex items-center gap-1">
-                      <input
-                        type="number"
-                        id="paverWidthFeet"
-                        placeholder="0"
-                        className="w-12 px-1 py-1.5 border rounded-md text-xs text-center"
-                        min="0"
-                        step="1"
-                      />
-                      <span className="text-[10px] text-muted-foreground">'</span>
-                      <input
-                        type="number"
-                        id="paverWidthInches"
-                        placeholder="0"
-                        className="w-12 px-1 py-1.5 border rounded-md text-xs text-center"
-                        min="0"
-                        max="11"
-                      />
-                      <span className="text-[10px] text-muted-foreground">"</span>
+                    <div>
+                      <label className="text-[10px] text-muted-foreground mb-1 block">Width</label>
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="text"
+                          id="paverWidthFeet"
+                          placeholder="0"
+                          className="w-12 px-1 py-1.5 border rounded-md text-xs text-center"
+                        />
+                        <span className="text-[10px] text-muted-foreground">'</span>
+                        <input
+                          type="text"
+                          id="paverWidthInches"
+                          placeholder="0"
+                          className="w-12 px-1 py-1.5 border rounded-md text-xs text-center"
+                        />
+                        <span className="text-[10px] text-muted-foreground">"</span>
+                      </div>
                     </div>
-                  </div>
-                  <div>
-                    <label className="text-[10px] text-muted-foreground mb-1 block">Length</label>
-                    <div className="flex items-center gap-1">
-                      <input
-                        type="number"
-                        id="paverLengthFeet"
-                        placeholder="0"
-                        className="w-12 px-1 py-1.5 border rounded-md text-xs text-center"
-                        min="0"
-                        step="1"
-                      />
-                      <span className="text-[10px] text-muted-foreground">'</span>
-                      <input
-                        type="number"
-                        id="paverLengthInches"
-                        placeholder="0"
-                        className="w-12 px-1 py-1.5 border rounded-md text-xs text-center"
-                        min="0"
-                        max="11"
-                      />
-                      <span className="text-[10px] text-muted-foreground">"</span>
+                    <div>
+                      <label className="text-[10px] text-muted-foreground mb-1 block">Length</label>
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="text"
+                          id="paverLengthFeet"
+                          placeholder="0"
+                          className="w-12 px-1 py-1.5 border rounded-md text-xs text-center"
+                        />
+                        <span className="text-[10px] text-muted-foreground">'</span>
+                        <input
+                          type="text"
+                          id="paverLengthInches"
+                          placeholder="0"
+                          className="w-12 px-1 py-1.5 border rounded-md text-xs text-center"
+                        />
+                        <span className="text-[10px] text-muted-foreground">"</span>
+                      </div>
                     </div>
+                    <button
+                      onClick={() => {
+                        const widthFeet = parseFloat((document.getElementById('paverWidthFeet') as HTMLInputElement)?.value || '0');
+                        const widthInches = parseFloat((document.getElementById('paverWidthInches') as HTMLInputElement)?.value || '0');
+                        const lengthFeet = parseFloat((document.getElementById('paverLengthFeet') as HTMLInputElement)?.value || '0');
+                        const lengthInches = parseFloat((document.getElementById('paverLengthInches') as HTMLInputElement)?.value || '0');
+                        
+                        const totalWidthFeet = widthFeet + (widthInches / 12);
+                        const totalLengthFeet = lengthFeet + (lengthInches / 12);
+                        
+                        if (totalWidthFeet > 0 && totalLengthFeet > 0) {
+                          onAddRectangularPaver(totalWidthFeet, totalLengthFeet);
+                        }
+                      }}
+                      className="w-auto px-3 py-1.5 bg-foreground text-background rounded-md hover:bg-foreground/90 text-xs"
+                    >
+                      Add Rectangular Paver
+                    </button>
                   </div>
-                  <button
-                    onClick={() => {
-                      const widthFeet = parseFloat((document.getElementById('paverWidthFeet') as HTMLInputElement)?.value || '0');
-                      const widthInches = parseFloat((document.getElementById('paverWidthInches') as HTMLInputElement)?.value || '0');
-                      const lengthFeet = parseFloat((document.getElementById('paverLengthFeet') as HTMLInputElement)?.value || '0');
-                      const lengthInches = parseFloat((document.getElementById('paverLengthInches') as HTMLInputElement)?.value || '0');
-                      
-                      const totalWidthFeet = widthFeet + (widthInches / 12);
-                      const totalLengthFeet = lengthFeet + (lengthInches / 12);
-                      
-                      if (totalWidthFeet > 0 && totalLengthFeet > 0) {
-                        onAddRectangularPaver(totalWidthFeet, totalLengthFeet);
-                      }
-                    }}
-                    className="w-full px-3 py-1.5 bg-foreground text-background rounded-md hover:bg-foreground/90 text-xs"
-                  >
-                    Add Rectangular Paver
-                  </button>
                 </div>
               </div>
-              
-              <button
-                onClick={onDeleteSelectedPaver}
-                className="w-full px-3 py-1.5 bg-destructive text-destructive-foreground rounded-md hover:bg-destructive/90 text-xs"
-              >
-                Delete Selected Paver
-              </button>
             </div>
-          </div>
-
-          {/* Tips */}
-          <div className="border rounded-lg overflow-hidden">
-            <div className="bg-primary px-4 py-3">
-              <h2 className="text-sm font-semibold text-primary-foreground">💡 Tips</h2>
-            </div>
-            <div className="p-4 text-xs text-muted-foreground space-y-1">
-              <p>Mouse wheel to zoom</p>
-              <p>Click & drag to pan</p>
-              <p>Rotate with corner handle</p>
-            </div>
-          </div>
         </>
       )}
     </div>
