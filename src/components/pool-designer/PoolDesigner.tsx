@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FileUpload } from '@/components/ui/file-upload';
+import { ImageUploadOptions } from './ImageUploadOptions';
 import { PoolCanvas } from './PoolCanvas';
 import { PoolControls } from './PoolControls';
 import logo from '@/assets/piscineriviera-logo.png';
@@ -61,7 +61,7 @@ export const PoolDesigner: React.FC = () => {
                   <h2 className="text-sm font-semibold text-primary-foreground">📁 Upload Property Image</h2>
                 </div>
                 <div className="p-4">
-                  <FileUpload onFileSelect={handleFileSelect} />
+                  <ImageUploadOptions onFileSelect={handleFileSelect} />
                 </div>
               </div>
             )}

@@ -505,33 +505,63 @@ export const PoolControls: React.FC<PoolControlsProps> = ({
                 <label className="text-xs font-semibold mb-2 block">Rectangular Paver</label>
                 <div className="space-y-2">
                   <div>
-                    <label className="text-[10px] text-muted-foreground mb-1 block">Width (')</label>
-                    <input
-                      type="number"
-                      id="paverWidth"
-                      placeholder="0"
-                      className="w-full px-2 py-1.5 border rounded-md text-xs"
-                      min="0"
-                      step="0.5"
-                    />
+                    <label className="text-[10px] text-muted-foreground mb-1 block">Width</label>
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="number"
+                        id="paverWidthFeet"
+                        placeholder="0"
+                        className="w-12 px-1 py-1.5 border rounded-md text-xs text-center"
+                        min="0"
+                        step="1"
+                      />
+                      <span className="text-[10px] text-muted-foreground">'</span>
+                      <input
+                        type="number"
+                        id="paverWidthInches"
+                        placeholder="0"
+                        className="w-12 px-1 py-1.5 border rounded-md text-xs text-center"
+                        min="0"
+                        max="11"
+                      />
+                      <span className="text-[10px] text-muted-foreground">"</span>
+                    </div>
                   </div>
                   <div>
-                    <label className="text-[10px] text-muted-foreground mb-1 block">Length (')</label>
-                    <input
-                      type="number"
-                      id="paverLength"
-                      placeholder="0"
-                      className="w-full px-2 py-1.5 border rounded-md text-xs"
-                      min="0"
-                      step="0.5"
-                    />
+                    <label className="text-[10px] text-muted-foreground mb-1 block">Length</label>
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="number"
+                        id="paverLengthFeet"
+                        placeholder="0"
+                        className="w-12 px-1 py-1.5 border rounded-md text-xs text-center"
+                        min="0"
+                        step="1"
+                      />
+                      <span className="text-[10px] text-muted-foreground">'</span>
+                      <input
+                        type="number"
+                        id="paverLengthInches"
+                        placeholder="0"
+                        className="w-12 px-1 py-1.5 border rounded-md text-xs text-center"
+                        min="0"
+                        max="11"
+                      />
+                      <span className="text-[10px] text-muted-foreground">"</span>
+                    </div>
                   </div>
                   <button
                     onClick={() => {
-                      const width = parseFloat((document.getElementById('paverWidth') as HTMLInputElement)?.value || '0');
-                      const length = parseFloat((document.getElementById('paverLength') as HTMLInputElement)?.value || '0');
-                      if (width > 0 && length > 0) {
-                        onAddRectangularPaver(width, length);
+                      const widthFeet = parseFloat((document.getElementById('paverWidthFeet') as HTMLInputElement)?.value || '0');
+                      const widthInches = parseFloat((document.getElementById('paverWidthInches') as HTMLInputElement)?.value || '0');
+                      const lengthFeet = parseFloat((document.getElementById('paverLengthFeet') as HTMLInputElement)?.value || '0');
+                      const lengthInches = parseFloat((document.getElementById('paverLengthInches') as HTMLInputElement)?.value || '0');
+                      
+                      const totalWidthFeet = widthFeet + (widthInches / 12);
+                      const totalLengthFeet = lengthFeet + (lengthInches / 12);
+                      
+                      if (totalWidthFeet > 0 && totalLengthFeet > 0) {
+                        onAddRectangularPaver(totalWidthFeet, totalLengthFeet);
                       }
                     }}
                     className="w-full px-3 py-1.5 bg-foreground text-background rounded-md hover:bg-foreground/90 text-xs"

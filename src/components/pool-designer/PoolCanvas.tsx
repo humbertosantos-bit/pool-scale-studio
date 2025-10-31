@@ -2756,11 +2756,11 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         const closedPoints = [...paverPoints, paverPoints[0]];
         const polylinePoints = closedPoints.map(p => ({ x: p.x, y: p.y }));
         
-        // Create paver polygon - grey with 2px stroke, no point editing
+        // Create paver polygon - match style to pool pavers (coping style)
         const paver = new Polyline(polylinePoints, {
-          stroke: '#808080',
-          strokeWidth: 2,
-          fill: 'transparent',
+          stroke: '#000000',
+          strokeWidth: 0.5,
+          fill: '#D3D3D3',
           selectable: true,
           evented: true,
           objectCaching: false,
@@ -2771,12 +2771,6 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
           hasBorders: true,
         });
         
-        
-        // Add name label for paver
-        const paverName = prompt('Enter paver name (optional):');
-        if (paverName) {
-          (paver as any).paverName = paverName;
-        }
         
         // Remove point editing controls - pavers can only be moved
         paver.setControlsVisibility({
@@ -2825,31 +2819,6 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         });
         
         (paver as any).paverId = paverId;
-        
-        // Add paver name label if provided
-        if (paverName) {
-          const centerPoint = paver.getCenterPoint();
-          const nameLabel = new Text(paverName, {
-            left: centerPoint.x,
-            top: centerPoint.y,
-            fontSize: 12,
-            fontFamily: 'Arial',
-            fill: '#000000',
-            fontWeight: 'bold',
-            selectable: false,
-            evented: false,
-            originX: 'center',
-            originY: 'center',
-            backgroundColor: 'rgba(255, 255, 255, 0.9)',
-            padding: 4,
-          });
-          
-          (nameLabel as any).paverId = paverId;
-          (nameLabel as any).isPaverName = true;
-          
-          fabricCanvas.add(nameLabel);
-          fabricCanvas.bringObjectToFront(nameLabel);
-        }
         
         fabricCanvas.add(paver);
         
@@ -2958,13 +2927,8 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
     if (activeObject && (activeObject as any).paverId) {
       const paverId = (activeObject as any).paverId;
       
-      // Remove the paver and its name label
+      // Remove the paver
       fabricCanvas.remove(activeObject);
-      
-      const nameLabel = fabricCanvas.getObjects().find((obj: any) => 
-        obj.paverId === paverId && obj.isPaverName
-      );
-      if (nameLabel) fabricCanvas.remove(nameLabel);
       
       setPavers(prev => prev.filter(p => p !== activeObject));
       fabricCanvas.renderAll();
@@ -3001,16 +2965,16 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
 
     const paverId = `paver-${Date.now()}`;
 
-    // Create paver polygon
+    // Create paver polygon - match style to pool pavers (coping style)
     const paver = new Polyline(paverPoints, {
-      stroke: '#22c55e',
-      strokeWidth: 1,
-      fill: 'rgba(34, 197, 94, 0.2)',
+      stroke: '#000000',
+      strokeWidth: 0.5,
+      fill: '#D3D3D3',
       selectable: true,
       evented: true,
       objectCaching: false,
       cornerStyle: 'circle',
-      cornerColor: '#22c55e',
+      cornerColor: '#000000',
       cornerSize: 8,
       transparentCorners: false,
       lockScalingX: true,
@@ -3081,21 +3045,12 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
           const realArea = (shoelaceArea * scaleReference.length * scaleReference.length) / (scaleReference.pixelLength * scaleReference.pixelLength);
           (polyline as any).paverArea = realArea;
 
-          // Update area text
-          const areaText = fabricCanvas.getObjects().find((obj: any) => 
-            obj.paverId === paverId && obj.isPaverArea
-          ) as Text;
-          
-          if (areaText) {
-            areaText.set({ text: `${realArea.toFixed(2)} sq ft` });
-          }
-
           return true;
         },
         render: (ctx, left, top, styleOverride, fabricObject) => {
           ctx.save();
-          ctx.fillStyle = '#22c55e';
-          ctx.strokeStyle = '#22c55e';
+          ctx.fillStyle = '#000000';
+          ctx.strokeStyle = '#000000';
           ctx.lineWidth = 2;
           ctx.beginPath();
           ctx.arc(left, top, 4, 0, 2 * Math.PI);
@@ -3114,11 +3069,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
       offsetY: -16,
       cursorStyle: 'pointer',
       mouseUpHandler: () => {
-        // Remove paver and its area text
-        const areaTextObj = fabricCanvas.getObjects().find((obj: any) => 
-          obj.paverId === paverId && obj.isPaverArea
-        );
-        if (areaTextObj) fabricCanvas.remove(areaTextObj);
+        // Remove paver only (no area text to remove)
         fabricCanvas.remove(paver);
         setPavers(prev => prev.filter(p => p !== paver));
         fabricCanvas.renderAll();
@@ -3159,27 +3110,6 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
     } else {
       fabricCanvas.sendObjectToBack(paver);
     }
-
-    // Add area text
-    const areaText = new Text(`${area.toFixed(2)} sq ft`, {
-      fontSize: 14,
-      fontFamily: 'Inter, Arial, sans-serif',
-      fill: '#22c55e',
-      selectable: false,
-      evented: false,
-      originX: 'center',
-      originY: 'center',
-    });
-
-    (areaText as any).paverId = paverId;
-    (areaText as any).isPaverArea = true;
-
-    areaText.set({
-      left: centerX,
-      top: centerY - 10,
-    });
-    fabricCanvas.add(areaText);
-    fabricCanvas.bringObjectToFront(areaText);
 
     setPavers(prev => [...prev, paver]);
     fabricCanvas.renderAll();
