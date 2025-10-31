@@ -52,6 +52,29 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, scaleInfo, cl
   const bgImageRef = useRef<FabricImage | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // Automatically set scale when Google Maps scaleInfo is provided
+  useEffect(() => {
+    if (scaleInfo && scaleInfo.metersPerPixel) {
+      const pixelsPerMeter = 1 / scaleInfo.metersPerPixel;
+      
+      // Set scale based on current unit
+      if (scaleUnit === 'feet') {
+        const pixelsPerFoot = pixelsPerMeter / 3.28084;
+        // Use a reference length of 1 foot
+        setScaleReference({
+          length: 1,
+          pixelLength: pixelsPerFoot
+        });
+      } else {
+        // Use a reference length of 1 meter
+        setScaleReference({
+          length: 1,
+          pixelLength: pixelsPerMeter
+        });
+      }
+    }
+  }, [scaleInfo, scaleUnit]);
+
   useEffect(() => {
     if (!canvasRef.current || !containerRef.current) return;
 
@@ -554,11 +577,6 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, scaleInfo, cl
         fabricCanvas.clear();
         fabricCanvas.add(img);
         fabricCanvas.sendObjectToBack(img); // Ensure image stays at the back
-        
-        // Add Google Maps-style scale reference if available
-        if (scaleInfo) {
-          addGoogleScaleReference(fabricCanvas, scaleInfo);
-        }
         
         fabricCanvas.renderAll();
       });
