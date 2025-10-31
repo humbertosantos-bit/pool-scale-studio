@@ -488,8 +488,8 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
 
     // Reposition pool, coping and dimension text to honor asymmetric left/right/top/bottom pavers
     const ratio = scaleReference.pixelLength / scaleReference.length;
-    const horizontalOffsetPx = ((paverRight - paverLeft) / 2) * ratio;
-    const verticalOffsetPx = ((paverTop - paverBottom) / 2) * ratio;
+    const horizontalOffsetPx = ((paverLeft - paverRight) / 2) * ratio;
+    const verticalOffsetPx = ((paverBottom - paverTop) / 2) * ratio;
 
     // Move the pool rectangle
     pool.set({
@@ -812,8 +812,8 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         
         // Offset inner pool/coping to reflect asymmetric paver sizes
         const ratio = scaleReference.pixelLength / scaleReference.length;
-        const horizontalOffsetPx = ((paverRight - paverLeft) / 2) * ratio;
-        const verticalOffsetPx = ((paverTop - paverBottom) / 2) * ratio;
+        const horizontalOffsetPx = ((paverLeft - paverRight) / 2) * ratio;
+        const verticalOffsetPx = ((paverBottom - paverTop) / 2) * ratio;
 
         pool.set({
           left: centerX + horizontalOffsetPx,
