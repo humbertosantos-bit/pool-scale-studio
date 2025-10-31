@@ -485,6 +485,37 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
       width: outerLengthPixels,
       height: outerWidthPixels,
     });
+
+    // Reposition pool, coping and dimension text to honor asymmetric left/right/top/bottom pavers
+    const ratio = scaleReference.pixelLength / scaleReference.length;
+    const horizontalOffsetPx = ((paverRight - paverLeft) / 2) * ratio;
+    const verticalOffsetPx = ((paverTop - paverBottom) / 2) * ratio;
+
+    // Move the pool rectangle
+    pool.set({
+      left: centerX + horizontalOffsetPx,
+      top: centerY + verticalOffsetPx,
+    });
+    pool.setCoords();
+
+    // Move coping and dimension text, if present
+    const objects = fabricCanvas.getObjects();
+    const copingObj = objects.find(obj => (obj as any).poolId === poolId && (obj as any).isCoping);
+    if (copingObj) {
+      copingObj.set({
+        left: centerX + horizontalOffsetPx,
+        top: centerY + verticalOffsetPx,
+      });
+      (copingObj as any).setCoords?.();
+    }
+    const dimensionTextObj = objects.find(obj => (obj as any).poolId === poolId && (obj as any).isDimensionText);
+    if (dimensionTextObj) {
+      dimensionTextObj.set({
+        left: centerX + horizontalOffsetPx,
+        top: centerY + verticalOffsetPx,
+      });
+      (dimensionTextObj as any).setCoords?.();
+    }
     
     // Remove old labels
     const oldLabels = fabricCanvas.getObjects().filter((obj: any) => 
@@ -778,6 +809,29 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         const rightArea = paverRight * rightPaverHeight;
         const topArea = paverTop * topPaverWidth;
         const bottomArea = paverBottom * bottomPaverWidth;
+        
+        // Offset inner pool/coping to reflect asymmetric paver sizes
+        const ratio = scaleReference.pixelLength / scaleReference.length;
+        const horizontalOffsetPx = ((paverRight - paverLeft) / 2) * ratio;
+        const verticalOffsetPx = ((paverTop - paverBottom) / 2) * ratio;
+
+        pool.set({
+          left: centerX + horizontalOffsetPx,
+          top: centerY + verticalOffsetPx,
+        });
+        pool.setCoords();
+
+        const objects = fabricCanvas.getObjects();
+        const copingObj = objects.find(obj => (obj as any).poolId === poolId && (obj as any).isCoping);
+        if (copingObj) {
+          copingObj.set({
+            left: centerX + horizontalOffsetPx,
+            top: centerY + verticalOffsetPx,
+          });
+          (copingObj as any).setCoords?.();
+        }
+        dimensionText.set({ left: centerX + horizontalOffsetPx, top: centerY + verticalOffsetPx });
+        dimensionText.setCoords();
         
         // Create paver outline rectangle
         const paverOutline = new Rect({
@@ -1404,9 +1458,9 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, className, ca
         const paverOutline = new Rect({
           left: 0,
           top: 0,
-          fill: 'transparent',
+          fill: '#D3D3D3',
           stroke: '#808080',
-          strokeWidth: 2,
+          strokeWidth: 1,
           width: outerLengthPixels,
           height: outerWidthPixels,
           originX: 'center',
