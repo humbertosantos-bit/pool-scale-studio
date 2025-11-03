@@ -4,43 +4,6 @@ import { cn } from '@/lib/utils';
 import poolWaterTexture from '@/assets/pool-water.png';
 import pool12x24Image from '@/assets/pool-12x24.png';
 
-// Helper function to create a brick hatch pattern
-const createBrickPattern = () => {
-  const patternCanvas = document.createElement('canvas');
-  patternCanvas.width = 40;
-  patternCanvas.height = 40;
-  const ctx = patternCanvas.getContext('2d')!;
-  
-  // Light grey background
-  ctx.fillStyle = '#D3D3D3';
-  ctx.fillRect(0, 0, 40, 40);
-  
-  // Draw brick pattern lines in darker grey
-  ctx.strokeStyle = '#808080';
-  ctx.lineWidth = 0.5;
-  
-  // Horizontal lines
-  ctx.beginPath();
-  ctx.moveTo(0, 20);
-  ctx.lineTo(40, 20);
-  ctx.stroke();
-  
-  // Vertical lines (offset to create brick pattern)
-  ctx.beginPath();
-  ctx.moveTo(20, 0);
-  ctx.lineTo(20, 20);
-  ctx.moveTo(0, 20);
-  ctx.lineTo(0, 40);
-  ctx.moveTo(40, 20);
-  ctx.lineTo(40, 40);
-  ctx.stroke();
-  
-  return new Pattern({
-    source: patternCanvas,
-    repeat: 'repeat',
-  });
-};
-
 interface PoolCanvasProps {
   imageFile: File | null;
   scaleInfo?: { metersPerPixel: number; latitude: number; zoom: number } | null;
@@ -998,11 +961,11 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, scaleInfo, cl
         dimensionText.set({ left: centerX + horizontalOffsetPx, top: centerY + verticalOffsetPx });
         dimensionText.setCoords();
         
-        // Create paver outline rectangle with brick hatch pattern
+        // Create paver outline rectangle
         const paverOutline = new Rect({
           left: centerX,
           top: centerY,
-          fill: createBrickPattern(),
+          fill: 'transparent',
           stroke: '#000000',
           strokeWidth: 0.5,
           width: outerLengthPixels,
@@ -1655,7 +1618,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, scaleInfo, cl
         const paverOutline = new Rect({
           left: 0,
           top: 0,
-          fill: createBrickPattern(),
+          fill: 'transparent',
           stroke: '#000000',
           strokeWidth: 0.5,
           width: outerLengthPixels,
@@ -2286,7 +2249,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, scaleInfo, cl
           const capSize = 4;
           
           const cap = new Line([0, -capSize, 0, capSize], {
-            stroke: '#f9a867',
+            stroke: '#000000',
             strokeWidth: 0.5,
             strokeUniform: true,
           });
@@ -2304,7 +2267,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, scaleInfo, cl
         
         // Create final objects
         const finalLine = new Line([startPoint.x, startPoint.y, pointer.x, pointer.y], {
-          stroke: '#f9a867',
+          stroke: '#000000',
           strokeWidth: 0.5,
           strokeUniform: true,
           selectable: false,
@@ -3027,11 +2990,11 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, scaleInfo, cl
         const closedPoints = [...paverPoints, paverPoints[0]];
         const polylinePoints = closedPoints.map(p => ({ x: p.x, y: p.y }));
         
-        // Create paver polygon with brick hatch pattern
+        // Create paver polygon
         const paver = new Polyline(polylinePoints, {
           stroke: '#000000',
           strokeWidth: 0.5,
-          fill: createBrickPattern(),
+          fill: 'transparent',
           selectable: true,
           evented: true,
           objectCaching: false,
@@ -3236,11 +3199,11 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, scaleInfo, cl
 
     const paverId = `paver-${Date.now()}`;
 
-    // Create paver polygon - match style to pool pavers (coping style)
+    // Create paver polygon - rotatable and movable
     const paver = new Polyline(paverPoints, {
       stroke: '#000000',
       strokeWidth: 0.5,
-      fill: '#D3D3D3',
+      fill: 'transparent',
       selectable: true,
       evented: true,
       objectCaching: false,
@@ -3250,86 +3213,9 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, scaleInfo, cl
       transparentCorners: false,
       lockScalingX: true,
       lockScalingY: true,
-      lockRotation: true,
-      hasControls: true,
+      lockRotation: false,
+      hasControls: false,
       hasBorders: true,
-    });
-
-    // Enable polyline point editing
-    paver.points?.forEach((point, index) => {
-      if (index === paver.points!.length - 1) return; // Skip the last point (duplicate of first)
-
-      paver.controls[`p${index}`] = new Control({
-        positionHandler: (dim, finalMatrix, fabricObject) => {
-          const polyline = fabricObject as Polyline;
-          const pt = polyline.points![index] as any;
-          const x = pt.x - polyline.pathOffset!.x;
-          const y = pt.y - polyline.pathOffset!.y;
-          const matrix = util.multiplyTransformMatrices(
-            fabricCanvas.viewportTransform,
-            polyline.calcTransformMatrix()
-          );
-          return util.transformPoint({ x, y }, matrix);
-        },
-        actionHandler: (eventData, transform, x, y) => {
-          const polyline = transform.target as Polyline;
-          const pt = polyline.points![index] as any;
-          const lastPt = polyline.points![polyline.points!.length - 1] as any;
-
-          if (!transform.offsetX) {
-            const invMatrix = util.invertTransform(
-              util.multiplyTransformMatrices(
-                fabricCanvas.viewportTransform,
-                polyline.calcTransformMatrix()
-              )
-            );
-            const currentPoint = util.transformPoint({ x, y }, invMatrix);
-            transform.offsetX = (pt.x - polyline.pathOffset!.x) - currentPoint.x;
-            transform.offsetY = (pt.y - polyline.pathOffset!.y) - currentPoint.y;
-          }
-
-          const invMatrix = util.invertTransform(
-            util.multiplyTransformMatrices(
-              fabricCanvas.viewportTransform,
-              polyline.calcTransformMatrix()
-            )
-          );
-          const newPoint = util.transformPoint({ x, y }, invMatrix);
-
-          pt.x = newPoint.x + transform.offsetX + polyline.pathOffset!.x;
-          pt.y = newPoint.y + transform.offsetY + polyline.pathOffset!.y;
-
-          // Update the last point to match the first point
-          if (index === 0) {
-            lastPt.x = pt.x;
-            lastPt.y = pt.y;
-          }
-
-          // Recalculate the area after editing
-          const shoelaceArea = Math.abs(
-            paver.points!.slice(0, -1).reduce((sum: number, point: any, i: number) => {
-              const nextPoint = paver.points![i + 1] as any;
-              return sum + (point.x * nextPoint.y - nextPoint.x * point.y);
-            }, 0) / 2
-          );
-
-          const realArea = (shoelaceArea * scaleReference.length * scaleReference.length) / (scaleReference.pixelLength * scaleReference.pixelLength);
-          (polyline as any).paverArea = realArea;
-
-          return true;
-        },
-        render: (ctx, left, top, styleOverride, fabricObject) => {
-          ctx.save();
-          ctx.fillStyle = '#000000';
-          ctx.strokeStyle = '#000000';
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          ctx.arc(left, top, 4, 0, 2 * Math.PI);
-          ctx.fill();
-          ctx.stroke();
-          ctx.restore();
-        },
-      });
     });
 
     // Add delete control (X button) to paver
@@ -3369,6 +3255,51 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, scaleInfo, cl
     const area = widthFeet * lengthFeet;
     (paver as any).paverArea = area;
     (paver as any).paverId = paverId;
+
+    // Enable rotation control
+    paver.setControlsVisibility({
+      mt: false,
+      mb: false,
+      ml: false,
+      mr: false,
+      bl: false,
+      br: false,
+      tl: false,
+      tr: false,
+      mtr: true,
+    });
+
+    // Add delete control (X button)
+    paver.controls['deleteControl'] = new Control({
+      x: 0.5,
+      y: -0.5,
+      offsetX: 16,
+      offsetY: -16,
+      cursorStyle: 'pointer',
+      mouseUpHandler: () => {
+        fabricCanvas.remove(paver);
+        setPavers(prev => prev.filter(p => p !== paver));
+        fabricCanvas.renderAll();
+        return true;
+      },
+      render: (ctx, left, top) => {
+        const size = 20;
+        ctx.save();
+        ctx.translate(left, top);
+        ctx.beginPath();
+        ctx.arc(0, 0, size / 2, 0, 2 * Math.PI);
+        ctx.fillStyle = '#ef4444';
+        ctx.fill();
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        ctx.moveTo(-size / 4, -size / 4);
+        ctx.lineTo(size / 4, size / 4);
+        ctx.moveTo(size / 4, -size / 4);
+        ctx.lineTo(-size / 4, size / 4);
+        ctx.stroke();
+        ctx.restore();
+      },
+    });
 
     fabricCanvas.add(paver);
 

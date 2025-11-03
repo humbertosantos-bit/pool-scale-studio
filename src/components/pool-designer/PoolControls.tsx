@@ -190,10 +190,18 @@ export const PoolControls: React.FC<PoolControlsProps> = ({
           
           <div className="pt-4 border-t">
             <label className="text-sm font-semibold mb-2 block">Scale Reference</label>
-            {scaleReference && (
+            {scaleReference ? (
               <p className="text-xs text-muted-foreground mb-2">
                 Scale: 1 px = {(scaleReference.length / scaleReference.pixelLength).toFixed(4)} {scaleUnit === 'feet' ? 'FT' : 'M'}
               </p>
+            ) : (
+              <button
+                onClick={onStartScaleReference}
+                disabled={isSettingScale || !canvasReady}
+                className="w-auto px-3 py-1.5 bg-foreground text-background rounded-md hover:bg-foreground/90 disabled:opacity-50 text-xs"
+              >
+                {isSettingScale ? 'Click and drag on canvas...' : 'Set Scale Reference'}
+              </button>
             )}
           </div>
         </div>

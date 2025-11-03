@@ -68,58 +68,70 @@ export const PoolDesigner: React.FC = () => {
       </div>
 
       {/* Main Content */}
-      <div className="flex h-[calc(100vh-104px)]">
-        {/* Left Sidebar - 1/4 width */}
-        <div className="w-1/4 border-r bg-white overflow-y-auto">
-          <div className="p-6 space-y-4">
-            {/* Tools Section - shown when image is uploaded */}
-            {selectedImage && poolState && (
-              <PoolControls 
-                {...poolState} 
-                selectedImage={selectedImage}
-                onFileSelect={handleFileSelect}
-                showSunPath={poolState.showSunPath}
-                onShowSunPathChange={poolState.onShowSunPathChange}
-                isSettingNorth={poolState.isSettingNorth}
-                onSetNorth={poolState.onSetNorth}
-                location={poolState.location}
-                onLocationChange={poolState.onLocationChange}
-                selectedDate={poolState.selectedDate}
-                onDateChange={poolState.onDateChange}
-                timeOfDay={poolState.timeOfDay}
-                onTimeOfDayChange={poolState.onTimeOfDayChange}
-                bgImageOpacity={poolState.bgImageOpacity}
-                onBgImageOpacityChange={poolState.onBgImageOpacityChange}
-              />
-            )}
-            
-            {/* Upload only when no image */}
-            {!selectedImage && (
-              <div className="border rounded-lg overflow-hidden">
-                <div className="bg-primary px-4 py-3">
-                  <h2 className="text-sm font-semibold text-primary-foreground">📁 Upload Property Image</h2>
+      <div className="flex flex-col h-[calc(100vh-104px)]">
+        <div className="flex flex-1 overflow-hidden">
+          {/* Left Sidebar - 1/4 width */}
+          <div className="w-1/4 border-r bg-white overflow-y-auto">
+            <div className="p-6 space-y-4">
+              {/* Tools Section - shown when image is uploaded */}
+              {selectedImage && poolState && (
+                <PoolControls 
+                  {...poolState} 
+                  selectedImage={selectedImage}
+                  onFileSelect={handleFileSelect}
+                  showSunPath={poolState.showSunPath}
+                  onShowSunPathChange={poolState.onShowSunPathChange}
+                  isSettingNorth={poolState.isSettingNorth}
+                  onSetNorth={poolState.onSetNorth}
+                  location={poolState.location}
+                  onLocationChange={poolState.onLocationChange}
+                  selectedDate={poolState.selectedDate}
+                  onDateChange={poolState.onDateChange}
+                  timeOfDay={poolState.timeOfDay}
+                  onTimeOfDayChange={poolState.onTimeOfDayChange}
+                  bgImageOpacity={poolState.bgImageOpacity}
+                  onBgImageOpacityChange={poolState.onBgImageOpacityChange}
+                />
+              )}
+              
+              {/* Upload only when no image */}
+              {!selectedImage && (
+                <div className="border rounded-lg overflow-hidden">
+                  <div className="bg-primary px-4 py-3">
+                    <h2 className="text-sm font-semibold text-primary-foreground">📁 Upload Property Image</h2>
+                  </div>
+                  <div className="p-4">
+                    <ImageUploadOptions onFileSelect={handleFileSelect} />
+                  </div>
                 </div>
-                <div className="p-4">
-                  <ImageUploadOptions onFileSelect={handleFileSelect} />
+              )}
+            </div>
+          </div>
+
+          {/* Right Canvas - 3/4 width */}
+          <div className="w-3/4 bg-gradient-to-br from-background to-pool-light/20 overflow-auto">
+            {selectedImage ? (
+              <PoolCanvas imageFile={selectedImage} scaleInfo={scaleInfo} canvasOnly onStateChange={handleStateChange} />
+            ) : (
+              <div className="h-full flex items-center justify-center">
+                <div className="text-center space-y-2">
+                  <div className="text-6xl opacity-50">🏊‍♂️</div>
+                  <p className="text-xl text-muted-foreground">Upload an image to start designing</p>
                 </div>
               </div>
             )}
           </div>
         </div>
-
-        {/* Right Canvas - 3/4 width */}
-        <div className="w-3/4 bg-gradient-to-br from-background to-pool-light/20 overflow-auto">
-          {selectedImage ? (
-            <PoolCanvas imageFile={selectedImage} scaleInfo={scaleInfo} canvasOnly onStateChange={handleStateChange} />
-          ) : (
-            <div className="h-full flex items-center justify-center">
-              <div className="text-center space-y-2">
-                <div className="text-6xl opacity-50">🏊‍♂️</div>
-                <p className="text-xl text-muted-foreground">Upload an image to start designing</p>
-              </div>
+        
+        {/* Calculations Section at Bottom - shown when image is uploaded */}
+        {selectedImage && poolState && (
+          <div className="border-t bg-white">
+            {/* TODO: Add PoolCalculations component here */}
+            <div className="p-4 text-sm text-muted-foreground">
+              Calculations section (to be implemented)
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );
