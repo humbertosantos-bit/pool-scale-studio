@@ -1212,11 +1212,11 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, scaleInfo, cl
         const copingSizeInFeet = copingSize / 12; // Convert inches to feet
         const copingPixelWidth = copingSizeInFeet * scaleReference.pixelLength / scaleReference.length;
         
-        // Create coping rectangle with light grey color
+        // Create coping rectangle with dark grey color
         const coping = new Rect({
           left: 0,
           top: 0,
-          fill: '#D3D3D3', // Light grey color
+          fill: '#454545', // Dark grey color
           stroke: '#000000',
           strokeWidth: 0.5,
           width: pixelWidth + (copingPixelWidth * 2), // Add coping width to left and right
@@ -1381,6 +1381,38 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, scaleInfo, cl
         mtr: true,
       });
       
+      // Add delete control (X button) to pool group
+      poolGroup.controls['deleteControl'] = new Control({
+        x: -0.5,
+        y: -0.5,
+        offsetX: -16,
+        offsetY: -16,
+        cursorStyle: 'pointer',
+        mouseUpHandler: () => {
+          fabricCanvas.remove(poolGroup);
+          setPools(prev => prev.filter(p => (p as any).poolId !== poolId));
+          fabricCanvas.renderAll();
+          return true;
+        },
+        render: (ctx, left, top) => {
+          const size = 24;
+          ctx.save();
+          ctx.translate(left, top);
+          ctx.beginPath();
+          ctx.arc(0, 0, size / 2, 0, 2 * Math.PI);
+          ctx.fillStyle = '#ef4444';
+          ctx.fill();
+          ctx.strokeStyle = '#fff';
+          ctx.lineWidth = 2.5;
+          ctx.moveTo(-size / 4, -size / 4);
+          ctx.lineTo(size / 4, size / 4);
+          ctx.moveTo(size / 4, -size / 4);
+          ctx.lineTo(-size / 4, size / 4);
+          ctx.stroke();
+          ctx.restore();
+        },
+      });
+
       (poolGroup as any).poolId = poolId;
       (poolGroup as any).poolData = {
         length,
