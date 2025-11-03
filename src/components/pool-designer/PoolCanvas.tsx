@@ -3346,9 +3346,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, scaleInfo, cl
         onAddRectangularPaver: addRectangularPaver,
         bgImageOpacity,
         onBgImageOpacityChange: setBgImageOpacity,
-      };
-
-      onStateChange?.(state);
+      });
     }
   }, [scaleUnit, isSettingScale, scaleReference, fabricCanvas, poolLengthFeet, poolLengthInches, poolWidthFeet, poolWidthInches, measurementMode, isMeasuring, typedDistanceFeet, typedDistanceInches, typedDistanceMeters, copingSize, paverLeftFeet, paverLeftInches, paverRightFeet, paverRightInches, paverTopFeet, paverTopInches, paverBottomFeet, paverBottomInches, isDrawingFence, isDrawingPaver, bgImageOpacity]);
 
