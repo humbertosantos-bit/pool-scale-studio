@@ -4,6 +4,43 @@ import { cn } from '@/lib/utils';
 import poolWaterTexture from '@/assets/pool-water.png';
 import pool12x24Image from '@/assets/pool-12x24.png';
 
+// Helper function to create a brick hatch pattern
+const createBrickPattern = () => {
+  const patternCanvas = document.createElement('canvas');
+  patternCanvas.width = 40;
+  patternCanvas.height = 40;
+  const ctx = patternCanvas.getContext('2d')!;
+  
+  // Light grey background
+  ctx.fillStyle = '#D3D3D3';
+  ctx.fillRect(0, 0, 40, 40);
+  
+  // Draw brick pattern lines in darker grey
+  ctx.strokeStyle = '#808080';
+  ctx.lineWidth = 0.5;
+  
+  // Horizontal lines
+  ctx.beginPath();
+  ctx.moveTo(0, 20);
+  ctx.lineTo(40, 20);
+  ctx.stroke();
+  
+  // Vertical lines (offset to create brick pattern)
+  ctx.beginPath();
+  ctx.moveTo(20, 0);
+  ctx.lineTo(20, 20);
+  ctx.moveTo(0, 20);
+  ctx.lineTo(0, 40);
+  ctx.moveTo(40, 20);
+  ctx.lineTo(40, 40);
+  ctx.stroke();
+  
+  return new Pattern({
+    source: patternCanvas,
+    repeat: 'repeat',
+  });
+};
+
 interface PoolCanvasProps {
   imageFile: File | null;
   scaleInfo?: { metersPerPixel: number; latitude: number; zoom: number } | null;
@@ -789,11 +826,11 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, scaleInfo, cl
         const copingSizeInFeet = copingSize / 12; // Convert inches to feet
         const copingPixelWidth = copingSizeInFeet * scaleReference.pixelLength / scaleReference.length;
         
-        // Create coping rectangle with light grey color
+        // Create coping rectangle with dark grey color
         const coping = new Rect({
           left: centerX,
           top: centerY,
-          fill: '#D3D3D3', // Light grey color
+          fill: '#454545', // Dark grey color
           stroke: '#000000',
           strokeWidth: 0.5,
           width: pixelWidth + (copingPixelWidth * 2), // Add coping width to left and right
@@ -961,19 +998,19 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, scaleInfo, cl
         dimensionText.set({ left: centerX + horizontalOffsetPx, top: centerY + verticalOffsetPx });
         dimensionText.setCoords();
         
-        // Create paver outline rectangle
+        // Create paver outline rectangle with brick hatch pattern
         const paverOutline = new Rect({
           left: centerX,
           top: centerY,
-          fill: '#D3D3D3',
+          fill: createBrickPattern(),
           stroke: '#000000',
           strokeWidth: 0.5,
           width: outerLengthPixels,
           height: outerWidthPixels,
           originX: 'center',
           originY: 'center',
-          selectable: true,
-          evented: true,
+          selectable: false,
+          evented: false,
           lockScalingX: true,
           lockScalingY: true,
           lockRotation: true,
@@ -1517,7 +1554,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, scaleInfo, cl
         const coping = new Rect({
           left: 0,
           top: 0,
-          fill: '#141a1b',
+          fill: '#454545',
           stroke: '#000000',
           strokeWidth: 0.5,
           width: pixelWidth + (copingPixelWidth * 2),
@@ -1586,7 +1623,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, scaleInfo, cl
         const paverOutline = new Rect({
           left: 0,
           top: 0,
-          fill: '#D3D3D3',
+          fill: createBrickPattern(),
           stroke: '#000000',
           strokeWidth: 0.5,
           width: outerLengthPixels,
@@ -2575,22 +2612,19 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, scaleInfo, cl
         // Ask for fence name
         const fenceName = prompt('Enter fence name (optional):');
         
-        // Create fence polyline with editable points
+        // Create CAD-style fence polyline with dashed lines
         const fence = new Polyline(polylinePoints, {
           stroke: '#21515a',
           strokeWidth: 1,
+          strokeDashArray: [10, 5],
           fill: 'transparent',
           selectable: true,
           evented: true,
           objectCaching: false,
-          cornerStyle: 'circle',
-          cornerColor: '#666666',
-          cornerSize: 8,
-          transparentCorners: false,
           lockScalingX: true,
           lockScalingY: true,
           lockRotation: true,
-          hasControls: true,
+          hasControls: false,
           hasBorders: true,
         });
         
@@ -2715,7 +2749,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, scaleInfo, cl
           },
         });
         
-        // Function to create and add markers for the fence
+        // Function to create and add CAD-style perpendicular markers for the fence
         const updateFenceMarkers = (fenceObj: Polyline) => {
           if (!scaleReference) return;
           
@@ -2731,6 +2765,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, scaleInfo, cl
           
           let accumulatedDistance = 0;
           const markerInterval = 5; // 5 feet
+          const markerLength = 8; // pixels
           
           for (let i = 0; i < points.length - 1; i++) {
             const p1 = points[i];
@@ -2747,8 +2782,41 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, scaleInfo, cl
             
             let nextMarkerAt = Math.ceil(segmentStart / markerInterval) * markerInterval;
             
-            // Skip creating markers - user doesn't want them
+            // Add perpendicular markers every 5 feet along the fence
             while (nextMarkerAt < segmentEnd) {
+              const distanceAlongSegment = nextMarkerAt - segmentStart;
+              const t = distanceAlongSegment / feetDistance;
+              
+              // Position along the segment
+              const markerX = p1.x + t * dx;
+              const markerY = p1.y + t * dy;
+              
+              // Calculate perpendicular direction
+              const perpX = -dy / pixelDistance;
+              const perpY = dx / pixelDistance;
+              
+              // Create perpendicular marker line
+              const marker = new Line(
+                [
+                  markerX - perpX * markerLength / 2,
+                  markerY - perpY * markerLength / 2,
+                  markerX + perpX * markerLength / 2,
+                  markerY + perpY * markerLength / 2
+                ],
+                {
+                  stroke: '#21515a',
+                  strokeWidth: 1,
+                  selectable: false,
+                  evented: false,
+                  left: fenceLeft,
+                  top: fenceTop,
+                }
+              );
+              
+              (marker as any).fenceId = fenceId;
+              (marker as any).isFenceMarker = true;
+              fabricCanvas.add(marker);
+              
               nextMarkerAt += markerInterval;
             }
             
@@ -2927,23 +2995,23 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, scaleInfo, cl
         const closedPoints = [...paverPoints, paverPoints[0]];
         const polylinePoints = closedPoints.map(p => ({ x: p.x, y: p.y }));
         
-        // Create paver polygon - match style to pool pavers (coping style)
+        // Create paver polygon with brick hatch pattern
         const paver = new Polyline(polylinePoints, {
           stroke: '#000000',
           strokeWidth: 0.5,
-          fill: '#D3D3D3',
+          fill: createBrickPattern(),
           selectable: true,
           evented: true,
           objectCaching: false,
           lockScalingX: true,
           lockScalingY: true,
-          lockRotation: true,
+          lockRotation: false,
           hasControls: true,
           hasBorders: true,
         });
         
         
-        // Remove point editing controls - pavers can only be moved
+        // Remove point editing controls and scaling - pavers can only be moved and rotated
         paver.setControlsVisibility({
           mt: false,
           mb: false,
@@ -2953,7 +3021,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, scaleInfo, cl
           br: false,
           tl: false,
           tr: false,
-          mtr: false,
+          mtr: true,
         });
         
         // Add delete control (X button) to drawn paver
