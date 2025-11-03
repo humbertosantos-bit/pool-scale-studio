@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ImageUploadOptions } from './ImageUploadOptions';
 import { PoolCanvas } from './PoolCanvas';
 import { PoolControls } from './PoolControls';
+import { PoolCalculations } from './PoolCalculations';
 import logo from '@/assets/piscineriviera-logo.png';
 import { Button } from '@/components/ui/button';
 import {
@@ -124,13 +125,12 @@ export const PoolDesigner: React.FC = () => {
         </div>
         
         {/* Calculations Section at Bottom - shown when image is uploaded */}
-        {selectedImage && poolState && (
-          <div className="border-t bg-white">
-            {/* TODO: Add PoolCalculations component here */}
-            <div className="p-4 text-sm text-muted-foreground">
-              Calculations section (to be implemented)
-            </div>
-          </div>
+        {selectedImage && poolState && poolState.calculatedData && (
+          <PoolCalculations
+            pools={poolState.calculatedData.pools || []}
+            fences={poolState.calculatedData.fences || []}
+            pavers={poolState.calculatedData.pavers || []}
+          />
         )}
       </div>
     </div>

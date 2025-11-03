@@ -52,6 +52,11 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, scaleInfo, cl
   const bgImageRef = useRef<FabricImage | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [bgImageOpacity, setBgImageOpacity] = useState(1);
+  const [calculatedData, setCalculatedData] = useState<{
+    pools: Array<{ poolId: string; poolName: string; copingSqFt: number; paverAroundPoolSqFt: number }>;
+    fences: Array<{ fenceId: string; name: string; linearFt: number }>;
+    pavers: Array<{ paverId: string; sqFt: number }>;
+  }>({ pools: [], fences: [], pavers: [] });
 
   // Update background image opacity when bgImageOpacity changes
   useEffect(() => {
@@ -60,6 +65,98 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, scaleInfo, cl
       fabricCanvas.renderAll();
     }
   }, [bgImageOpacity, fabricCanvas]);
+
+  // Calculate measurements whenever pools, fences, or pavers change
+  useEffect(() => {
+    if (!fabricCanvas || !scaleReference) return;
+
+    const calculatedPools = pools.map((pool: any) => {
+      const poolData = pool.poolData || {};
+      const length = poolData.length || 0;
+      const width = poolData.width || 0;
+      const copingSize = poolData.copingSize || 0;
+      const paverDims = poolData.paverDimensions || {};
+
+      // Calculate coping area (perimeter × width of coping)
+      const copingSizeInFeet = copingSize / 12;
+      const copingPerimeter = 2 * (length + width);
+      const copingSqFt = copingPerimeter * copingSizeInFeet;
+
+      // Calculate paver around pool area
+      const paverLeft = (paverDims.leftFeet || 0) + (paverDims.leftInches || 0) / 12;
+      const paverRight = (paverDims.rightFeet || 0) + (paverDims.rightInches || 0) / 12;
+      const paverTop = (paverDims.topFeet || 0) + (paverDims.topInches || 0) / 12;
+      const paverBottom = (paverDims.bottomFeet || 0) + (paverDims.bottomInches || 0) / 12;
+
+      // Total outer dimensions
+      const outerLength = length + paverLeft + paverRight;
+      const outerWidth = width + paverTop + paverBottom;
+      
+      // Paver area = outer area - pool area - coping area
+      const outerArea = outerLength * outerWidth;
+      const poolArea = length * width;
+      const paverAroundPoolSqFt = Math.max(0, outerArea - poolArea - copingSqFt);
+
+      return {
+        poolId: pool.poolId || 'unknown',
+        poolName: poolData.poolName || 'Pool',
+        copingSqFt: parseFloat(copingSqFt.toFixed(2)),
+        paverAroundPoolSqFt: parseFloat(paverAroundPoolSqFt.toFixed(2)),
+      };
+    });
+
+    const calculatedFences = fences.map((fence: any, index: number) => {
+      // Calculate fence length from points
+      let totalLength = 0;
+      const points = fence.points || [];
+      
+      for (let i = 0; i < points.length - 1; i++) {
+        const p1 = points[i];
+        const p2 = points[i + 1];
+        const dx = p2.x - p1.x;
+        const dy = p2.y - p1.y;
+        const pixelDistance = Math.sqrt(dx * dx + dy * dy);
+        const feetDistance = (pixelDistance * scaleReference.length) / scaleReference.pixelLength;
+        totalLength += feetDistance;
+      }
+
+      return {
+        fenceId: fence.fenceId || `fence-${index}`,
+        name: fence.fenceName || `Fence ${index + 1}`,
+        linearFt: parseFloat(totalLength.toFixed(2)),
+      };
+    });
+
+    const calculatedPavers = pavers.map((paver: any, index: number) => {
+      // Calculate paver area from points
+      const points = paver.points || [];
+      
+      const calculatePolygonArea = (pts: any[]) => {
+        let area = 0;
+        for (let i = 0; i < pts.length - 1; i++) {
+          const j = i + 1;
+          area += pts[i].x * pts[j].y;
+          area -= pts[j].x * pts[i].y;
+        }
+        return Math.abs(area / 2);
+      };
+      
+      const pixelArea = calculatePolygonArea(points);
+      const scaleFactor = scaleReference.length / scaleReference.pixelLength;
+      const realArea = pixelArea * scaleFactor * scaleFactor;
+
+      return {
+        paverId: paver.paverId || `paver-${index}`,
+        sqFt: parseFloat(realArea.toFixed(2)),
+      };
+    });
+
+    setCalculatedData({
+      pools: calculatedPools,
+      fences: calculatedFences,
+      pavers: calculatedPavers,
+    });
+  }, [pools, fences, pavers, fabricCanvas, scaleReference]);
 
   // Automatically set scale when Google Maps scaleInfo is provided
   useEffect(() => {
@@ -3377,9 +3474,10 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, scaleInfo, cl
         onAddRectangularPaver: addRectangularPaver,
         bgImageOpacity,
         onBgImageOpacityChange: setBgImageOpacity,
+        calculatedData,
       });
     }
-  }, [scaleUnit, isSettingScale, scaleReference, fabricCanvas, poolLengthFeet, poolLengthInches, poolWidthFeet, poolWidthInches, measurementMode, isMeasuring, typedDistanceFeet, typedDistanceInches, typedDistanceMeters, copingSize, paverLeftFeet, paverLeftInches, paverRightFeet, paverRightInches, paverTopFeet, paverTopInches, paverBottomFeet, paverBottomInches, isDrawingFence, isDrawingPaver, bgImageOpacity]);
+  }, [scaleUnit, isSettingScale, scaleReference, fabricCanvas, poolLengthFeet, poolLengthInches, poolWidthFeet, poolWidthInches, measurementMode, isMeasuring, typedDistanceFeet, typedDistanceInches, typedDistanceMeters, copingSize, paverLeftFeet, paverLeftInches, paverRightFeet, paverRightInches, paverTopFeet, paverTopInches, paverBottomFeet, paverBottomInches, isDrawingFence, isDrawingPaver, bgImageOpacity, calculatedData]);
 
   return (
     <div className={cn("flex flex-col h-full", className)}>

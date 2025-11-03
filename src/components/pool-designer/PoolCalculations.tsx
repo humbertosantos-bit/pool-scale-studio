@@ -30,13 +30,21 @@ export const PoolCalculations: React.FC<PoolCalculationsProps> = ({
   fences,
   pavers,
 }) => {
+  const hasAnyElements = pools.length > 0 || fences.length > 0 || pavers.length > 0;
+
   return (
-    <div className="w-full border-t bg-background p-4">
-      <Card>
-        <CardHeader>
+    <div className="w-full border-t bg-background">
+      <Card className="rounded-none border-0">
+        <CardHeader className="pb-3">
           <CardTitle className="text-lg">Calculations</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          {!hasAnyElements && (
+            <p className="text-sm text-muted-foreground text-center py-2">
+              No elements yet. Add pools, fences, or pavers to see calculations.
+            </p>
+          )}
+
           {/* Pool Calculations */}
           {pools.length > 0 && (
             <div className="space-y-2">
@@ -59,10 +67,10 @@ export const PoolCalculations: React.FC<PoolCalculationsProps> = ({
           {fences.length > 0 && (
             <div className="space-y-2">
               <h3 className="font-semibold text-sm">Fences</h3>
-              {fences.map((fence, index) => (
+              {fences.map((fence) => (
                 <div key={fence.fenceId} className="pl-4 text-sm">
                   <p className="text-muted-foreground">
-                    Fence {index + 1}: {fence.linearFt.toFixed(2)} linear ft
+                    {fence.name}: {fence.linearFt.toFixed(2)} linear ft
                   </p>
                 </div>
               ))}
@@ -80,12 +88,6 @@ export const PoolCalculations: React.FC<PoolCalculationsProps> = ({
                 </p>
               </div>
             </div>
-          )}
-
-          {pools.length === 0 && fences.length === 0 && pavers.length === 0 && (
-            <p className="text-sm text-muted-foreground text-center">
-              No items added yet. Add pools, fences, or pavers to see calculations.
-            </p>
           )}
         </CardContent>
       </Card>
