@@ -198,6 +198,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
   };
 
   // Snap to angle when Shift is held (0°, 45°, 90°, 135°, 180°, etc.)
+  // Also considers alignment with first point to help close the shape at 90°
   const snapToAngleWithShift = (point: { x: number; y: number }, lastPoint: { x: number; y: number }): { x: number; y: number } => {
     if (!shiftPressedRef.current || !lastPoint) return point;
     
@@ -206,8 +207,45 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     const distance = Math.sqrt(dx * dx + dy * dy);
     const angle = Math.atan2(dy, dx);
     
-    // Snap to 45° increments (0, 45, 90, 135, 180, 225, 270, 315)
+    // Standard 45° snap angle
     const snapAngle = Math.round(angle / (Math.PI / 4)) * (Math.PI / 4);
+    
+    // Check if we have at least 2 points and can align with first point
+    const firstPoint = currentPointsRef.current[0];
+    if (firstPoint && currentPointsRef.current.length >= 2) {
+      // Calculate horizontal and vertical alignment to first point
+      const alignHorizontalX = lastPoint.x + (point.x > lastPoint.x ? Math.abs(firstPoint.x - lastPoint.x) : -Math.abs(firstPoint.x - lastPoint.x));
+      const alignVerticalY = lastPoint.y + (point.y > lastPoint.y ? Math.abs(firstPoint.y - lastPoint.y) : -Math.abs(firstPoint.y - lastPoint.y));
+      
+      // Check if aligning horizontally would put us at or past first point X
+      const horizontalAlignDist = Math.abs(firstPoint.x - lastPoint.x);
+      const verticalAlignDist = Math.abs(firstPoint.y - lastPoint.y);
+      
+      // If cursor is moving mostly horizontal and we can align X with first point
+      if (Math.abs(dx) > Math.abs(dy) && horizontalAlignDist > 10) {
+        // Check if the snapped point would be close to first point's X
+        const snappedX = lastPoint.x + Math.cos(snapAngle) * distance;
+        if (Math.abs(snappedX - firstPoint.x) < 30) {
+          // Snap X to exactly match first point for perfect 90° closure
+          return {
+            x: firstPoint.x,
+            y: lastPoint.y,
+          };
+        }
+      }
+      
+      // If cursor is moving mostly vertical and we can align Y with first point
+      if (Math.abs(dy) > Math.abs(dx) && verticalAlignDist > 10) {
+        const snappedY = lastPoint.y + Math.sin(snapAngle) * distance;
+        if (Math.abs(snappedY - firstPoint.y) < 30) {
+          // Snap Y to exactly match first point for perfect 90° closure
+          return {
+            x: lastPoint.x,
+            y: firstPoint.y,
+          };
+        }
+      }
+    }
     
     return {
       x: lastPoint.x + Math.cos(snapAngle) * distance,
