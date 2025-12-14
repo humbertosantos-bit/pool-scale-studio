@@ -2053,6 +2053,16 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, scaleInfo, cl
     }
   };
 
+  // Create a custom V-shaped cursor (inverted caret) for precise point selection
+  const createVCursor = () => {
+    // SVG for a thin V-shaped pointer with the tip as the hotspot
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
+      <path d="M8 14 L4 4 L5 4 L8 12 L11 4 L12 4 Z" fill="#ef4444" stroke="#ffffff" stroke-width="0.5"/>
+    </svg>`;
+    const encoded = encodeURIComponent(svg);
+    return `url('data:image/svg+xml,${encoded}') 8 14, crosshair`;
+  };
+
   const startScaleReference = () => {
     if (!fabricCanvas) {
       console.warn('Canvas not ready');
@@ -2062,45 +2072,61 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, scaleInfo, cl
     setIsSettingScale(true);
     isSettingScaleRef.current = true;
     let firstPoint: { x: number; y: number } | null = null;
-    let tempCircle: Circle | null = null;
+    let confirmDot: Circle | null = null;
     let line: Line | null = null;
+    
+    // Set the custom V cursor
+    const vCursor = createVCursor();
+    fabricCanvas.defaultCursor = vCursor;
+    fabricCanvas.hoverCursor = vCursor;
+    
+    const cleanupCursor = () => {
+      fabricCanvas.defaultCursor = 'default';
+      fabricCanvas.hoverCursor = 'move';
+    };
 
     const handleMouseDown = (e: any) => {
       const pointer = fabricCanvas.getScenePoint(e.e);
       
       if (!firstPoint) {
-        // First click - mark the first point
+        // First click - mark the first point with a small confirmation dot
         firstPoint = { x: pointer.x, y: pointer.y };
         
-        // Add a visual indicator at the first point
-        tempCircle = new Circle({
+        // Add a small confirmation dot at the first point
+        confirmDot = new Circle({
           left: pointer.x,
           top: pointer.y,
-          radius: 0.5,
+          radius: 3,
           fill: '#ef4444',
+          stroke: '#ffffff',
+          strokeWidth: 1,
           selectable: false,
           evented: false,
           originX: 'center',
           originY: 'center',
+          opacity: 1,
         });
-        fabricCanvas.add(tempCircle);
+        fabricCanvas.add(confirmDot);
         fabricCanvas.renderAll();
       } else {
         // Second click - complete the scale reference
         const secondPoint = { x: pointer.x, y: pointer.y };
         
-        // Add a visual indicator at the second point
-        const secondCircle = new Circle({
+        // Add a small confirmation dot at the second point
+        const secondDot = new Circle({
           left: pointer.x,
           top: pointer.y,
-          radius: 0.5,
+          radius: 3,
           fill: '#ef4444',
+          stroke: '#ffffff',
+          strokeWidth: 1,
           selectable: false,
           evented: false,
           originX: 'center',
           originY: 'center',
+          opacity: 1,
         });
-        fabricCanvas.add(secondCircle);
+        fabricCanvas.add(secondDot);
         
         // Draw line between the two points
         line = new Line([firstPoint.x, firstPoint.y, secondPoint.x, secondPoint.y], {
@@ -2142,10 +2168,11 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, scaleInfo, cl
         }
         
         // Clean up visual indicators
-        if (tempCircle) fabricCanvas.remove(tempCircle);
-        if (secondCircle) fabricCanvas.remove(secondCircle);
+        if (confirmDot) fabricCanvas.remove(confirmDot);
+        if (secondDot) fabricCanvas.remove(secondDot);
         if (line) fabricCanvas.remove(line);
         
+        cleanupCursor();
         setIsSettingScale(false);
         isSettingScaleRef.current = false;
         fabricCanvas.off('mouse:down', handleMouseDown);
