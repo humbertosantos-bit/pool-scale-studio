@@ -552,7 +552,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, scaleInfo, cl
   }, []);
 
   // Function to add Google Maps-style scale reference and north indicator attached to the image
-  const addGoogleScaleReference = (canvas: FabricCanvas, scaleInfo: { metersPerPixel: number }, bgImage: FabricImage) => {
+  const addGoogleScaleReference = async (canvas: FabricCanvas, scaleInfo: { metersPerPixel: number }, bgImage: FabricImage) => {
     const { metersPerPixel } = scaleInfo;
     
     // Create a 10m scale bar for reference
@@ -569,128 +569,82 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, scaleInfo, cl
     const padding = 15;
     const scaleX = imgLeft + imgWidth - scaleBarPixels - padding - 20;
     const scaleY = imgTop + imgHeight - padding - 35;
-    
-    // Create semi-transparent white background for scale
-    const scaleBackground = new Rect({
-      left: scaleX - 12,
-      top: scaleY - 8,
-      width: scaleBarPixels + 24,
-      height: 38,
-      fill: 'rgba(255, 255, 255, 0.9)',
-      stroke: '#333',
-      strokeWidth: 1,
-      rx: 4,
-      ry: 4,
-    });
 
-    // Create scale bar with tick marks
+    // Create scale bar (white)
     const scaleBar = new Rect({
       left: scaleX,
       top: scaleY + 12,
       width: scaleBarPixels,
-      height: 5,
-      fill: '#333',
+      height: 3,
+      fill: '#FFFFFF',
     });
 
-    // Create left tick
+    // Create left tick (white)
     const leftTick = new Rect({
       left: scaleX,
       top: scaleY + 8,
       width: 2,
-      height: 13,
-      fill: '#333',
+      height: 10,
+      fill: '#FFFFFF',
     });
 
-    // Create right tick
+    // Create right tick (white)
     const rightTick = new Rect({
       left: scaleX + scaleBarPixels - 2,
       top: scaleY + 8,
       width: 2,
-      height: 13,
-      fill: '#333',
+      height: 10,
+      fill: '#FFFFFF',
     });
 
-    // Create text label for scale
+    // Create text label for scale (white)
     const scaleText = new Text(`${displayMeters} m`, {
       left: scaleX + scaleBarPixels / 2,
       top: scaleY - 2,
       fontSize: 13,
-      fill: '#333',
+      fill: '#FFFFFF',
       fontFamily: 'Arial, sans-serif',
       fontWeight: 'bold',
       originX: 'center',
     });
 
-    // Group scale elements
-    const scaleGroup = new Group([scaleBackground, scaleBar, leftTick, rightTick, scaleText], {
+    // Group scale elements (no background)
+    const scaleGroup = new Group([scaleBar, leftTick, rightTick, scaleText], {
       selectable: false,
       evented: false,
     });
     (scaleGroup as any).isScaleReference = true;
     (scaleGroup as any).isMapOverlay = true;
 
-    // Create North indicator at top right of image
-    const northX = imgLeft + imgWidth - padding - 30;
-    const northY = imgTop + padding + 30;
+    // Create North indicator at top right of image using uploaded image
+    const northX = imgLeft + imgWidth - padding - 40;
+    const northY = imgTop + padding + 10;
     
-    // North arrow background circle
-    const northBg = new Circle({
-      left: northX - 22,
-      top: northY - 22,
-      radius: 22,
-      fill: 'rgba(255, 255, 255, 0.9)',
-      stroke: '#333',
-      strokeWidth: 1,
-    });
+    // Load the north.png image
+    const northImgModule = await import('@/assets/north.png');
+    const northImg = await FabricImage.fromURL(northImgModule.default);
     
-    // North arrow triangle (pointing up)
-    const northArrow = new Triangle({
-      left: northX - 8,
-      top: northY - 18,
-      width: 16,
-      height: 20,
-      fill: '#d32f2f',
-      angle: 0,
-    });
-    
-    // South part of the arrow
-    const southArrow = new Triangle({
-      left: northX - 8,
-      top: northY + 2,
-      width: 16,
-      height: 16,
-      fill: '#333',
-      angle: 180,
-    });
-    
-    // N label
-    const northLabel = new Text('N', {
+    // Scale the north image to appropriate size
+    const northScale = 50 / Math.max(northImg.width!, northImg.height!);
+    northImg.set({
       left: northX,
-      top: northY - 28,
-      fontSize: 11,
-      fill: '#333',
-      fontFamily: 'Arial, sans-serif',
-      fontWeight: 'bold',
-      originX: 'center',
-      originY: 'bottom',
-    });
-    
-    // Group north elements
-    const northGroup = new Group([northBg, northArrow, southArrow, northLabel], {
+      top: northY,
+      scaleX: northScale,
+      scaleY: northScale,
       selectable: false,
       evented: false,
     });
-    (northGroup as any).isNorthIndicator = true;
-    (northGroup as any).isMapOverlay = true;
+    (northImg as any).isNorthIndicator = true;
+    (northImg as any).isMapOverlay = true;
 
-    canvas.add(scaleGroup, northGroup);
+    canvas.add(scaleGroup, northImg);
     
     // Store reference for syncing with background image
-    (bgImage as any).mapOverlays = { scaleGroup, northGroup };
+    (bgImage as any).mapOverlays = { scaleGroup, northGroup: northImg };
     
     // Bring overlays to front
     canvas.bringObjectToFront(scaleGroup);
-    canvas.bringObjectToFront(northGroup);
+    canvas.bringObjectToFront(northImg);
   };
   
   // Sync map overlays (scale and north indicator) with background image
@@ -726,8 +680,8 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, scaleInfo, cl
     scaleGroup.setCoords();
     
     // North indicator position (top-right of image)
-    const northOffsetX = imgWidth / 2 - padding - 30;
-    const northOffsetY = -imgHeight / 2 + padding + 30;
+    const northOffsetX = imgWidth / 2 - padding - 40;
+    const northOffsetY = -imgHeight / 2 + padding + 35;
     
     const rotatedNorthX = northOffsetX * Math.cos(angleRad) - northOffsetY * Math.sin(angleRad);
     const rotatedNorthY = northOffsetX * Math.sin(angleRad) + northOffsetY * Math.cos(angleRad);
