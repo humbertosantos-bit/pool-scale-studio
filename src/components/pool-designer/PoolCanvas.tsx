@@ -635,28 +635,60 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, scaleInfo, cl
     // Scale the north image to appropriate size
     const northScale = northSize / Math.max(northImg.width!, northImg.height!);
     northImg.set({
-      left: northX,
-      top: northY,
       scaleX: northScale,
       scaleY: northScale,
+      originX: 'center',
+      originY: 'center',
+    });
+
+    // Create sunrise circle (yellow) on the East side (right of north)
+    const sunCircleSize = 10;
+    const sunOffset = northSize / 2 + 8;
+    const sunriseCircle = new Circle({
+      radius: sunCircleSize / 2,
+      fill: '#FFD700',
+      stroke: '#FFA500',
+      strokeWidth: 1,
+      left: sunOffset,
+      top: 0,
+      originX: 'center',
+      originY: 'center',
+    });
+
+    // Create sunset circle (blue) on the West side (left of north)
+    const sunsetCircle = new Circle({
+      radius: sunCircleSize / 2,
+      fill: '#4A90D9',
+      stroke: '#2E5B8A',
+      strokeWidth: 1,
+      left: -sunOffset,
+      top: 0,
+      originX: 'center',
+      originY: 'center',
+    });
+
+    // Group the north indicator with sun circles
+    const northGroup = new Group([sunsetCircle, northImg, sunriseCircle], {
+      left: northX,
+      top: northY,
       originX: 'center',
       originY: 'center',
       selectable: false,
       evented: false,
     });
-    (northImg as any).isNorthIndicator = true;
-    (northImg as any).isMapOverlay = true;
+    (northGroup as any).isNorthIndicator = true;
+    (northGroup as any).isMapOverlay = true;
     // Store initial image angle for counter-rotation
-    (northImg as any).initialImageAngle = bgImage.angle || 0;
+    (northGroup as any).initialImageAngle = bgImage.angle || 0;
 
-    canvas.add(scaleGroup, northImg);
+    canvas.add(scaleGroup, northGroup);
     
     // Store reference for syncing with background image
-    (bgImage as any).mapOverlays = { scaleGroup, northGroup: northImg };
+    (bgImage as any).mapOverlays = { scaleGroup, northGroup };
     
     // Bring overlays to front
     canvas.bringObjectToFront(scaleGroup);
-    canvas.bringObjectToFront(northImg);
+    canvas.bringObjectToFront(northGroup);
   };
   
   // Sync map overlays (scale and north indicator) with background image
