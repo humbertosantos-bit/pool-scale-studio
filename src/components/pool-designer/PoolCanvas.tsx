@@ -565,10 +565,10 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, scaleInfo, cl
     const imgLeft = bgImage.left!;
     const imgTop = bgImage.top!;
     
-    // Position scale bar at bottom right corner of the image
-    const padding = 15;
-    const scaleX = imgLeft + imgWidth - scaleBarPixels - padding - 20;
-    const scaleY = imgTop + imgHeight - padding - 35;
+    // Position scale bar at bottom right corner of the image with more padding
+    const padding = 30;
+    const scaleX = imgLeft + imgWidth - scaleBarPixels - padding;
+    const scaleY = imgTop + imgHeight - padding - 20;
 
     // Create scale bar (white)
     const scaleBar = new Rect({
@@ -617,25 +617,30 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, scaleInfo, cl
     (scaleGroup as any).isMapOverlay = true;
 
     // Create North indicator at top right of image using uploaded image
-    const northX = imgLeft + imgWidth - padding - 40;
-    const northY = imgTop + padding + 10;
+    const northSize = 50;
+    const northX = imgLeft + imgWidth - padding - northSize;
+    const northY = imgTop + padding;
     
     // Load the north.png image
     const northImgModule = await import('@/assets/north.png');
     const northImg = await FabricImage.fromURL(northImgModule.default);
     
     // Scale the north image to appropriate size
-    const northScale = 50 / Math.max(northImg.width!, northImg.height!);
+    const northScale = northSize / Math.max(northImg.width!, northImg.height!);
     northImg.set({
       left: northX,
       top: northY,
       scaleX: northScale,
       scaleY: northScale,
+      originX: 'center',
+      originY: 'center',
       selectable: false,
       evented: false,
     });
     (northImg as any).isNorthIndicator = true;
     (northImg as any).isMapOverlay = true;
+    // Store initial image angle for counter-rotation
+    (northImg as any).initialImageAngle = bgImage.angle || 0;
 
     canvas.add(scaleGroup, northImg);
     
@@ -659,13 +664,13 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, scaleInfo, cl
     const imgAngle = bgImage.angle || 0;
     
     // Calculate positions relative to image center, then rotate
-    const padding = 15;
+    const padding = 30;
     const displayMeters = 10;
     const scaleBarPixels = displayMeters / scaleInfo.metersPerPixel;
     
-    // Scale position (bottom-right of image)
-    const scaleOffsetX = imgWidth / 2 - scaleBarPixels / 2 - padding - 20;
-    const scaleOffsetY = imgHeight / 2 - padding - 25;
+    // Scale position (bottom-right of image, inset from edge)
+    const scaleOffsetX = imgWidth / 2 - scaleBarPixels / 2 - padding;
+    const scaleOffsetY = imgHeight / 2 - padding - 15;
     
     // Rotate offset around center
     const angleRad = (imgAngle * Math.PI) / 180;
@@ -680,17 +685,22 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, scaleInfo, cl
     scaleGroup.setCoords();
     
     // North indicator position (top-right of image)
-    const northOffsetX = imgWidth / 2 - padding - 40;
-    const northOffsetY = -imgHeight / 2 + padding + 35;
+    const northSize = 50;
+    const northOffsetX = imgWidth / 2 - padding - northSize / 2;
+    const northOffsetY = -imgHeight / 2 + padding + northSize / 2;
     
     const rotatedNorthX = northOffsetX * Math.cos(angleRad) - northOffsetY * Math.sin(angleRad);
     const rotatedNorthY = northOffsetX * Math.sin(angleRad) + northOffsetY * Math.cos(angleRad);
     
-    // North indicator stays pointing true north (no rotation with image)
+    // Get the initial angle when image was loaded (represents true north from Google Maps)
+    const initialAngle = (northGroup as any).initialImageAngle || 0;
+    // Counter-rotate to always point true north: subtract the rotation delta
+    const counterRotation = -(imgAngle - initialAngle);
+    
     northGroup.set({
       left: imgCenter.x + rotatedNorthX,
       top: imgCenter.y + rotatedNorthY,
-      angle: 0, // Always point true north
+      angle: counterRotation, // Counter-rotate to maintain true north
     });
     northGroup.setCoords();
     
