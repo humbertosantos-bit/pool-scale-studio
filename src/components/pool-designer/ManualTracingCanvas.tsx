@@ -384,6 +384,19 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       fabricCanvas.remove(previewLineRef.current);
       previewLineRef.current = null;
     }
+    // Remove any lingering measurement label from preview
+    if (measurementLabelRef.current) {
+      fabricCanvas.remove(measurementLabelRef.current);
+      measurementLabelRef.current = null;
+      setMeasurementLabel(null);
+    }
+    // Remove any temporary edge labels that were added during drawing
+    const objects = fabricCanvas.getObjects();
+    objects.forEach(obj => {
+      if ((obj as any).isTempEdgeLabel) {
+        fabricCanvas.remove(obj);
+      }
+    });
 
     // Create polygon
     const fabricPoints = points.map(p => new Point(p.x, p.y));
