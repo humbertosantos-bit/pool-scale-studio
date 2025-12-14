@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Canvas as FabricCanvas, Line, Circle, Polygon, Text, Group, Point } from 'fabric';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { Undo2, Redo2, Grid3X3, Magnet, RotateCcw, Move, Trash2, ZoomIn, ZoomOut } from 'lucide-react';
+import { Undo2, Redo2, Grid3X3, Magnet, RotateCcw, Move, Trash2, ZoomIn, ZoomOut, Eye, EyeOff } from 'lucide-react';
 
 interface ManualTracingCanvasProps {
   onStateChange?: (state: any) => void;
@@ -49,6 +49,9 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
   
   // Zoom state
   const [zoomLevel, setZoomLevel] = useState(1);
+  
+  // Grid visibility
+  const [showGrid, setShowGrid] = useState(true);
   
   // Measurement label state
   const [measurementLabel, setMeasurementLabel] = useState<Text | null>(null);
@@ -157,7 +160,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
   }, []);
 
   // Draw subtle grid
-  const drawGrid = (canvas: FabricCanvas, width: number, height: number) => {
+  const drawGrid = (canvas: FabricCanvas, width: number, height: number, visible: boolean = true) => {
     // Remove old grid lines
     const objects = canvas.getObjects();
     objects.forEach(obj => {
@@ -165,6 +168,8 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         canvas.remove(obj);
       }
     });
+
+    if (!visible) return;
 
     // Draw new grid lines
     for (let x = 0; x <= width; x += GRID_SIZE) {
@@ -189,6 +194,15 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       canvas.add(line);
       canvas.sendObjectToBack(line);
     }
+  };
+
+  // Toggle grid visibility
+  const toggleGrid = () => {
+    if (!fabricCanvas || !containerRef.current) return;
+    const newShowGrid = !showGrid;
+    setShowGrid(newShowGrid);
+    drawGrid(fabricCanvas, containerRef.current.clientWidth, containerRef.current.clientHeight, newShowGrid);
+    fabricCanvas.renderAll();
   };
 
   // Snap point to grid if enabled
@@ -1067,6 +1081,14 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         <div className="flex items-center gap-2 border-r pr-3">
           <Button
             size="sm"
+            variant={showGrid ? 'secondary' : 'ghost'}
+            onClick={toggleGrid}
+            title="Toggle Grid"
+          >
+            {showGrid ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+          </Button>
+          <Button
+            size="sm"
             variant={gridSnapping ? 'secondary' : 'ghost'}
             onClick={() => setGridSnapping(!gridSnapping)}
             title="Grid Snapping"
@@ -1130,8 +1152,10 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       </div>
 
       {/* Canvas */}
-      <div ref={containerRef} className="flex-1 overflow-hidden">
-        <canvas ref={canvasRef} />
+      <div ref={containerRef} className="flex-1 overflow-auto">
+        <div style={{ width: zoomLevel > 1 ? `${100 * zoomLevel}%` : '100%', height: zoomLevel > 1 ? `${100 * zoomLevel}%` : '100%', minWidth: '100%', minHeight: '100%' }}>
+          <canvas ref={canvasRef} />
+        </div>
       </div>
     </div>
   );
