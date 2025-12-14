@@ -8,7 +8,7 @@ interface ManualTracingCanvasProps {
   onStateChange?: (state: any) => void;
 }
 
-type DrawingMode = 'none' | 'property' | 'house' | 'scale' | 'pool';
+type DrawingMode = 'none' | 'property' | 'house' | 'pool';
 
 interface DrawnShape {
   id: string;
@@ -33,10 +33,9 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
   const [propertyShape, setPropertyShape] = useState<DrawnShape | null>(null);
   const [houseShapes, setHouseShapes] = useState<DrawnShape[]>([]);
   
-  // Scale state
-  const [scaleReference, setScaleReference] = useState<{ length: number; pixelLength: number } | null>(null);
-  const [scaleUnit, setScaleUnit] = useState<'feet' | 'meters'>('feet');
-  const [isScaled, setIsScaled] = useState(false);
+  // Measurement label state
+  const [measurementLabel, setMeasurementLabel] = useState<Text | null>(null);
+  const measurementLabelRef = useRef<Text | null>(null);
   
   // Drawing helpers
   const [previewLine, setPreviewLine] = useState<Line | null>(null);
@@ -58,8 +57,9 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
   const previewLineRef = useRef<Line | null>(null);
   const propertyShapeRef = useRef<DrawnShape | null>(null);
 
-  // Grid settings
-  const GRID_SIZE = 20;
+  // Grid settings - each grid square = 1 ft
+  const GRID_SIZE = 20; // 20 pixels = 1 foot
+  const PIXELS_PER_FOOT = GRID_SIZE;
   const SNAP_DISTANCE = 10;
   const CLOSE_DISTANCE = 15;
 
@@ -229,17 +229,27 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     return inside;
   };
 
+  // Convert pixels to feet
+  const pixelsToFeet = (pixels: number): number => {
+    return pixels / PIXELS_PER_FOOT;
+  };
+
+  // Format feet measurement
+  const formatFeet = (feet: number): string => {
+    const wholeFeet = Math.floor(feet);
+    const inches = Math.round((feet - wholeFeet) * 12);
+    if (inches === 12) {
+      return `${wholeFeet + 1}'0"`;
+    }
+    return `${wholeFeet}'${inches}"`;
+  };
+
   // Start drawing mode
   const startDrawingMode = (mode: DrawingMode) => {
     if (!fabricCanvas) return;
     
     if (mode === 'house' && !propertyShapeRef.current) {
       toast.error('Please draw the property boundary first');
-      return;
-    }
-    
-    if (mode === 'house' && !isScaled) {
-      toast.error('Please set the scale before drawing the house');
       return;
     }
     
@@ -253,7 +263,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     fabricCanvas.hoverCursor = cursor;
     
     toast.info(mode === 'property' 
-      ? 'Click to place vertices. Click near the first point to close the shape.'
+      ? 'Click to place vertices. Click near the first point to close the shape. (1 grid square = 1 ft)'
       : 'Click to place vertices inside the property boundary.');
   };
 
@@ -314,10 +324,8 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       newMarkers.push(marker);
     });
 
-    // Add edge length labels if scaled
-    if (scaleReference) {
-      addEdgeLengthLabels(fabricCanvas, points);
-    }
+    // Add edge length labels (always, since 1 grid = 1 ft)
+    addEdgeLengthLabels(fabricCanvas, points);
 
     const shape: DrawnShape = {
       id: `${mode}-${Date.now()}`,
@@ -329,7 +337,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     if (mode === 'property') {
       setPropertyShape(shape);
       propertyShapeRef.current = shape;
-      toast.success('Property boundary drawn! Now set the scale.');
+      toast.success('Property boundary drawn! You can now draw the house.');
     } else if (mode === 'house') {
       setHouseShapes(prev => [...prev, shape]);
       toast.success('House footprint added!');
@@ -350,30 +358,21 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     // Push to undo stack
     setUndoStack(prev => [...prev, { type: 'complete_shape', data: shape }]);
     setRedoStack([]);
-  }, [fabricCanvas, drawnLines, vertexMarkers, scaleReference]);
+  }, [fabricCanvas, drawnLines, vertexMarkers]);
 
   // Add edge length labels
   const addEdgeLengthLabels = (canvas: FabricCanvas, points: { x: number; y: number }[]) => {
-    if (!scaleReference) return;
-
     for (let i = 0; i < points.length; i++) {
       const p1 = points[i];
       const p2 = points[(i + 1) % points.length];
       
       const pixelDist = Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2));
-      const realDist = (pixelDist * scaleReference.length) / scaleReference.pixelLength;
+      const feetDist = pixelsToFeet(pixelDist);
       
       const midX = (p1.x + p2.x) / 2;
       const midY = (p1.y + p2.y) / 2;
       
-      let label: string;
-      if (scaleUnit === 'feet') {
-        const feet = Math.floor(realDist);
-        const inches = Math.round((realDist - feet) * 12);
-        label = `${feet}'${inches}"`;
-      } else {
-        label = `${realDist.toFixed(2)}m`;
-      }
+      const label = formatFeet(feetDist);
 
       const text = new Text(label, {
         left: midX,
@@ -448,6 +447,20 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         setDrawnLines(prev => [...prev, line]);
       }
 
+      // Remove measurement label after placing point (it will be recreated on next mouse move)
+      if (measurementLabelRef.current) {
+        fabricCanvas.remove(measurementLabelRef.current);
+        measurementLabelRef.current = null;
+        setMeasurementLabel(null);
+      }
+
+      // Remove preview line (it will be recreated on next mouse move)
+      if (previewLineRef.current) {
+        fabricCanvas.remove(previewLineRef.current);
+        previewLineRef.current = null;
+        setPreviewLine(null);
+      }
+
       fabricCanvas.renderAll();
 
       // Push to undo stack
@@ -462,6 +475,15 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       let snappedPoint = applySnapping({ x: pointer.x, y: pointer.y });
       
       const lastPoint = currentPointsRef.current[currentPointsRef.current.length - 1];
+
+      // Calculate distance for measurement label
+      const pixelDist = Math.sqrt(
+        Math.pow(snappedPoint.x - lastPoint.x, 2) + Math.pow(snappedPoint.y - lastPoint.y, 2)
+      );
+      const feetDist = pixelDist / PIXELS_PER_FOOT;
+      const wholeFeet = Math.floor(feetDist);
+      const inches = Math.round((feetDist - wholeFeet) * 12);
+      const measurementText = inches === 12 ? `${wholeFeet + 1}'0"` : `${wholeFeet}'${inches}"`;
 
       // Update or create preview line
       if (previewLineRef.current) {
@@ -483,6 +505,35 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         setPreviewLine(line);
       }
 
+      // Update or create measurement label
+      const midX = (lastPoint.x + snappedPoint.x) / 2;
+      const midY = (lastPoint.y + snappedPoint.y) / 2;
+
+      if (measurementLabelRef.current) {
+        measurementLabelRef.current.set({
+          left: midX,
+          top: midY - 16,
+          text: measurementText,
+        });
+      } else {
+        const label = new Text(measurementText, {
+          left: midX,
+          top: midY - 16,
+          fontSize: 12,
+          fill: '#1f2937',
+          fontWeight: 'bold',
+          backgroundColor: 'rgba(255, 255, 255, 0.95)',
+          originX: 'center',
+          originY: 'center',
+          selectable: false,
+          evented: false,
+        });
+        (label as any).isMeasurementLabel = true;
+        fabricCanvas.add(label);
+        measurementLabelRef.current = label;
+        setMeasurementLabel(label);
+      }
+
       fabricCanvas.renderAll();
     };
 
@@ -495,128 +546,6 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     };
   }, [fabricCanvas, completeShape, gridSnapping, angleSnapping, vertexSnapping]);
 
-  // Start scale mode
-  const startScaleMode = () => {
-    if (!fabricCanvas || !propertyShapeRef.current) {
-      toast.error('Please draw the property boundary first');
-      return;
-    }
-
-    setDrawingMode('scale');
-    drawingModeRef.current = 'scale';
-    
-    const cursor = createArrowCursor();
-    fabricCanvas.defaultCursor = cursor;
-    fabricCanvas.hoverCursor = cursor;
-    
-    let firstPoint: { x: number; y: number } | null = null;
-    let scalePreviewLine: Line | null = null;
-    let firstDot: Circle | null = null;
-
-    const handleScaleMouseMove = (e: any) => {
-      if (!firstPoint) return;
-      const pointer = fabricCanvas.getScenePoint(e.e);
-      
-      if (scalePreviewLine) {
-        scalePreviewLine.set({ x2: pointer.x, y2: pointer.y });
-      } else {
-        scalePreviewLine = new Line([firstPoint.x, firstPoint.y, pointer.x, pointer.y], {
-          stroke: '#ef4444',
-          strokeWidth: 1,
-          strokeDashArray: [5, 3],
-          selectable: false,
-          evented: false,
-          opacity: 0.7,
-        });
-        fabricCanvas.add(scalePreviewLine);
-      }
-      fabricCanvas.renderAll();
-    };
-
-    const handleScaleMouseDown = (e: any) => {
-      const pointer = fabricCanvas.getScenePoint(e.e);
-      
-      if (!firstPoint) {
-        firstPoint = { x: pointer.x, y: pointer.y };
-        firstDot = new Circle({
-          left: pointer.x,
-          top: pointer.y,
-          radius: 3,
-          fill: '#ef4444',
-          stroke: '#ffffff',
-          strokeWidth: 1,
-          originX: 'center',
-          originY: 'center',
-          selectable: false,
-          evented: false,
-        });
-        fabricCanvas.add(firstDot);
-        fabricCanvas.renderAll();
-        toast.info('Now click the second point');
-      } else {
-        const secondPoint = { x: pointer.x, y: pointer.y };
-        const pixelLength = Math.sqrt(
-          Math.pow(secondPoint.x - firstPoint.x, 2) + Math.pow(secondPoint.y - firstPoint.y, 2)
-        );
-
-        let realLength: number | null = null;
-        
-        if (scaleUnit === 'feet') {
-          const feet = prompt('Enter feet:');
-          const inches = prompt('Enter inches:');
-          
-          if (feet !== null && inches !== null) {
-            const feetNum = parseFloat(feet) || 0;
-            const inchesNum = parseFloat(inches) || 0;
-            realLength = feetNum + inchesNum / 12;
-          }
-        } else {
-          const meters = prompt('Enter the real-world length (in meters):');
-          if (meters && !isNaN(Number(meters))) {
-            realLength = Number(meters);
-          }
-        }
-
-        if (realLength !== null && realLength > 0) {
-          setScaleReference({ length: realLength, pixelLength });
-          setIsScaled(true);
-          toast.success('Scale set! All measurements will now use real-world units.');
-          
-          // Update edge labels for property
-          if (propertyShapeRef.current) {
-            // Remove old labels
-            const objects = fabricCanvas.getObjects();
-            objects.forEach(obj => {
-              if ((obj as any).isEdgeLabel) {
-                fabricCanvas.remove(obj);
-              }
-            });
-            
-            addEdgeLengthLabels(fabricCanvas, propertyShapeRef.current.points);
-          }
-        }
-
-        // Cleanup
-        if (scalePreviewLine) fabricCanvas.remove(scalePreviewLine);
-        if (firstDot) fabricCanvas.remove(firstDot);
-        
-        fabricCanvas.off('mouse:down', handleScaleMouseDown);
-        fabricCanvas.off('mouse:move', handleScaleMouseMove);
-        
-        fabricCanvas.defaultCursor = 'default';
-        fabricCanvas.hoverCursor = 'move';
-        
-        setDrawingMode('none');
-        drawingModeRef.current = 'none';
-        fabricCanvas.renderAll();
-      }
-    };
-
-    fabricCanvas.on('mouse:down', handleScaleMouseDown);
-    fabricCanvas.on('mouse:move', handleScaleMouseMove);
-    
-    toast.info('Click the first reference point on the property boundary');
-  };
 
   // Undo last action
   const undo = () => {
@@ -714,8 +643,6 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     setPropertyShape(null);
     propertyShapeRef.current = null;
     setHouseShapes([]);
-    setScaleReference(null);
-    setIsScaled(false);
     setCurrentPoints([]);
     currentPointsRef.current = [];
     setDrawnLines([]);
@@ -747,17 +674,9 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
           </Button>
           <Button
             size="sm"
-            variant="outline"
-            onClick={startScaleMode}
-            disabled={!propertyShape || isScaled}
-          >
-            Set Scale
-          </Button>
-          <Button
-            size="sm"
             variant={drawingMode === 'house' ? 'default' : 'outline'}
             onClick={() => startDrawingMode('house')}
-            disabled={!isScaled}
+            disabled={!propertyShape}
           >
             Draw House
           </Button>
@@ -799,23 +718,14 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
           </Button>
         </div>
 
-        <div className="flex items-center gap-2 border-r pr-3">
-          <select
-            value={scaleUnit}
-            onChange={(e) => setScaleUnit(e.target.value as 'feet' | 'meters')}
-            className="text-xs border rounded px-2 py-1"
-          >
-            <option value="feet">Feet</option>
-            <option value="meters">Meters</option>
-          </select>
-        </div>
+        <span className="text-xs text-slate-500 italic ml-2">(1 grid square = 1 ft)</span>
 
         <Button size="sm" variant="destructive" onClick={resetCanvas}>
           <RotateCcw className="h-4 w-4 mr-1" />
           Reset
         </Button>
 
-        {drawingMode !== 'none' && drawingMode !== 'scale' && currentPoints.length >= 3 && (
+        {drawingMode !== 'none' && currentPoints.length >= 3 && (
           <Button size="sm" variant="default" onClick={completeShape} className="ml-auto">
             Close Shape
           </Button>
@@ -825,11 +735,10 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       {/* Status bar */}
       <div className="bg-slate-100 border-b px-3 py-1.5 text-xs text-slate-600 flex items-center gap-4">
         <span>Property: {propertyShape ? '✓ Drawn' : '○ Not drawn'}</span>
-        <span>Scale: {isScaled ? '✓ Set' : '○ Not set'}</span>
         <span>Houses: {houseShapes.length}</span>
         {drawingMode !== 'none' && (
           <span className="ml-auto font-medium text-primary">
-            Mode: {drawingMode === 'property' ? 'Drawing Property' : drawingMode === 'house' ? 'Drawing House' : 'Setting Scale'}
+            Mode: {drawingMode === 'property' ? 'Drawing Property' : 'Drawing House'}
             {currentPoints.length > 0 && ` (${currentPoints.length} points)`}
           </span>
         )}
