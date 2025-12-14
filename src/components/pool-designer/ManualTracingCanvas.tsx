@@ -524,7 +524,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     if (!fabricCanvas) return;
 
     const handleMouseDown = (e: any) => {
-      if (drawingModeRef.current === 'none') return;
+      if (drawingModeRef.current === 'none' || drawingModeRef.current === 'move-house') return;
       
       const pointer = fabricCanvas.getScenePoint(e.e);
       let snappedPoint = applySnapping({ x: pointer.x, y: pointer.y });
