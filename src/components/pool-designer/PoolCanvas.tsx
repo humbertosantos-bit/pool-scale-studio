@@ -748,6 +748,84 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, scaleInfo, cl
     canvas.bringObjectToFront(northGroup);
   };
 
+  // Function to add an independent, rotatable north indicator for regular property images
+  const addPropertyNorthIndicator = async (canvas: FabricCanvas) => {
+    const northSize = 60;
+    const canvasWidth = canvas.width!;
+    const padding = 60;
+    
+    // Load the north.png image
+    const northImgModule = await import('@/assets/north.png');
+    const northImg = await FabricImage.fromURL(northImgModule.default);
+    
+    // Scale the north image to appropriate size
+    const northScale = northSize / Math.max(northImg.width!, northImg.height!);
+    northImg.set({
+      scaleX: northScale,
+      scaleY: northScale,
+      originX: 'center',
+      originY: 'center',
+    });
+
+    // Create sunrise circle (yellow) on the East side (right of north)
+    const sunCircleSize = 12;
+    const sunOffset = northSize / 2 + 10;
+    const sunriseCircle = new Circle({
+      radius: sunCircleSize / 2,
+      fill: '#FFD700',
+      stroke: '#FFA500',
+      strokeWidth: 1,
+      left: sunOffset,
+      top: 0,
+      originX: 'center',
+      originY: 'center',
+    });
+
+    // Create sunset circle (blue) on the West side (left of north)
+    const sunsetCircle = new Circle({
+      radius: sunCircleSize / 2,
+      fill: '#4A90D9',
+      stroke: '#2E5B8A',
+      strokeWidth: 1,
+      left: -sunOffset,
+      top: 0,
+      originX: 'center',
+      originY: 'center',
+    });
+
+    // Group the north indicator with sun circles - make it selectable and rotatable
+    const northGroup = new Group([sunsetCircle, northImg, sunriseCircle], {
+      left: canvasWidth - padding,
+      top: padding,
+      originX: 'center',
+      originY: 'center',
+      selectable: true,
+      evented: true,
+      hasControls: true,
+      hasBorders: true,
+      lockScalingX: true,
+      lockScalingY: true,
+    });
+    
+    // Only show rotation control
+    (northGroup as any).setControlsVisibility?.({
+      mt: false,
+      mb: false,
+      ml: false,
+      mr: false,
+      bl: false,
+      br: false,
+      tl: false,
+      tr: false,
+      mtr: true, // rotation control only
+    });
+    
+    (northGroup as any).isPropertyNorthIndicator = true;
+
+    canvas.add(northGroup);
+    canvas.bringObjectToFront(northGroup);
+  };
+
   useEffect(() => {
     if (!fabricCanvas || !imageFile) return;
 
@@ -799,6 +877,9 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, scaleInfo, cl
         // Add scale indicator and north arrow for Google Maps images
         if (scaleInfo) {
           addGoogleScaleReference(fabricCanvas, scaleInfo, img);
+        } else {
+          // Add independent rotatable north indicator for regular property images
+          addPropertyNorthIndicator(fabricCanvas);
         }
         
         fabricCanvas.renderAll();
