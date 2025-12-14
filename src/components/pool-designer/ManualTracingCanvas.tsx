@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Canvas as FabricCanvas, Line, Circle, Polygon, Text, Group, Point } from 'fabric';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { Undo2, Redo2, Grid3X3, Magnet, RotateCcw, Move, Trash2, ZoomIn, ZoomOut, Eye, EyeOff } from 'lucide-react';
+import { Undo2, Redo2, Grid3X3, Magnet, RotateCcw, Move, Trash2, ZoomIn, ZoomOut, Eye, EyeOff, Maximize } from 'lucide-react';
 
 interface ManualTracingCanvasProps {
   onStateChange?: (state: any) => void;
@@ -49,6 +49,12 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
   
   // Zoom state
   const [zoomLevel, setZoomLevel] = useState(1);
+  
+  // Pan state
+  const [isPanning, setIsPanning] = useState(false);
+  const lastPanPoint = useRef<{ x: number; y: number } | null>(null);
+  const [spacePressed, setSpacePressed] = useState(false);
+  const spacePressedRef = useRef(false);
   
   // Grid visibility
   const [showGrid, setShowGrid] = useState(true);
@@ -103,18 +109,37 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     return `url('data:image/svg+xml,${encoded}') 0 0, default`;
   };
 
-  // Handle shift key for angle snapping
+  // Handle shift key for angle snapping and space for panning
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Shift') {
         setShiftPressed(true);
         shiftPressedRef.current = true;
       }
+      if (e.key === ' ' || e.code === 'Space') {
+        e.preventDefault();
+        setSpacePressed(true);
+        spacePressedRef.current = true;
+        if (fabricCanvas) {
+          fabricCanvas.defaultCursor = 'grab';
+          fabricCanvas.hoverCursor = 'grab';
+        }
+      }
     };
     const handleKeyUp = (e: KeyboardEvent) => {
       if (e.key === 'Shift') {
         setShiftPressed(false);
         shiftPressedRef.current = false;
+      }
+      if (e.key === ' ' || e.code === 'Space') {
+        setSpacePressed(false);
+        spacePressedRef.current = false;
+        setIsPanning(false);
+        lastPanPoint.current = null;
+        if (fabricCanvas) {
+          fabricCanvas.defaultCursor = 'default';
+          fabricCanvas.hoverCursor = 'move';
+        }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -123,7 +148,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, []);
+  }, [fabricCanvas]);
 
   // Initialize canvas
   useEffect(() => {
@@ -554,6 +579,15 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     if (!fabricCanvas) return;
 
     const handleMouseDown = (e: any) => {
+      // Handle panning with space key
+      if (spacePressedRef.current) {
+        setIsPanning(true);
+        const pointer = fabricCanvas.getPointer(e.e, true);
+        lastPanPoint.current = { x: pointer.x, y: pointer.y };
+        fabricCanvas.defaultCursor = 'grabbing';
+        return;
+      }
+      
       if (drawingModeRef.current === 'none' || drawingModeRef.current === 'move-house') return;
       
       const pointer = fabricCanvas.getScenePoint(e.e);
@@ -628,6 +662,19 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     };
 
     const handleMouseMove = (e: any) => {
+      // Handle panning
+      if (isPanning && lastPanPoint.current) {
+        const pointer = fabricCanvas.getPointer(e.e, true);
+        const vpt = fabricCanvas.viewportTransform;
+        if (vpt) {
+          vpt[4] += pointer.x - lastPanPoint.current.x;
+          vpt[5] += pointer.y - lastPanPoint.current.y;
+          fabricCanvas.setViewportTransform(vpt);
+          lastPanPoint.current = { x: pointer.x, y: pointer.y };
+        }
+        return;
+      }
+      
       if (drawingModeRef.current === 'none' || currentPointsRef.current.length === 0) return;
       
       const pointer = fabricCanvas.getScenePoint(e.e);
@@ -741,11 +788,24 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       }
     };
 
+    const handlePanMouseUp = () => {
+      if (isPanning) {
+        setIsPanning(false);
+        lastPanPoint.current = null;
+        if (spacePressedRef.current) {
+          fabricCanvas.defaultCursor = 'grab';
+        } else {
+          fabricCanvas.defaultCursor = 'default';
+        }
+      }
+    };
+
     fabricCanvas.on('mouse:down', handleMouseDown);
     fabricCanvas.on('mouse:move', handleMouseMove);
     fabricCanvas.on('mouse:down', handleHouseMouseDown);
     fabricCanvas.on('mouse:move', handleHouseMouseMove);
     fabricCanvas.on('mouse:up', handleHouseMouseUp);
+    fabricCanvas.on('mouse:up', handlePanMouseUp);
 
     return () => {
       fabricCanvas.off('mouse:down', handleMouseDown);
@@ -753,8 +813,9 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       fabricCanvas.off('mouse:down', handleHouseMouseDown);
       fabricCanvas.off('mouse:move', handleHouseMouseMove);
       fabricCanvas.off('mouse:up', handleHouseMouseUp);
+      fabricCanvas.off('mouse:up', handlePanMouseUp);
     };
-  }, [fabricCanvas, completeShape, gridSnapping, vertexSnapping, isDraggingHouse, selectedHouseIndex]);
+  }, [fabricCanvas, completeShape, gridSnapping, vertexSnapping, isDraggingHouse, selectedHouseIndex, isPanning]);
 
   // Check if point is inside a polygon
   const isPointInsidePolygon = (point: { x: number; y: number }, pts: { x: number; y: number }[]): boolean => {
@@ -903,6 +964,14 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     const newZoom = Math.max(zoomLevel - 0.25, 0.5);
     setZoomLevel(newZoom);
     fabricCanvas.setZoom(newZoom);
+    fabricCanvas.renderAll();
+  };
+
+  const resetView = () => {
+    if (!fabricCanvas) return;
+    setZoomLevel(1);
+    fabricCanvas.setZoom(1);
+    fabricCanvas.setViewportTransform([1, 0, 0, 1, 0, 0]);
     fabricCanvas.renderAll();
   };
 
@@ -1067,6 +1136,9 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
           <Button size="sm" variant="ghost" onClick={zoomIn} title="Zoom In">
             <ZoomIn className="h-4 w-4" />
           </Button>
+          <Button size="sm" variant="ghost" onClick={resetView} title="Reset View">
+            <Maximize className="h-4 w-4" />
+          </Button>
         </div>
 
         <div className="flex items-center gap-2 border-r pr-3">
@@ -1123,7 +1195,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
           </Button>
         </div>
 
-        <span className="text-xs text-slate-500 italic">(Hold Shift for straight lines)</span>
+        <span className="text-xs text-slate-500 italic">(Shift: straight lines | Space: pan)</span>
 
         <Button size="sm" variant="destructive" onClick={resetCanvas}>
           <RotateCcw className="h-4 w-4 mr-1" />
@@ -1143,6 +1215,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         <span>Houses: {houseShapes.length}</span>
         <span>Unit: {unit === 'ft' ? 'Feet' : 'Meters'}</span>
         {shiftPressed && <span className="text-primary font-medium">⇧ Angle Snap Active</span>}
+        {spacePressed && <span className="text-primary font-medium">Pan Mode</span>}
         {drawingMode !== 'none' && (
           <span className="ml-auto font-medium text-primary">
             Mode: {drawingMode === 'property' ? 'Drawing Property' : drawingMode === 'house' ? 'Drawing House' : 'Moving House'}
@@ -1152,10 +1225,8 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       </div>
 
       {/* Canvas */}
-      <div ref={containerRef} className="flex-1 overflow-auto">
-        <div style={{ width: zoomLevel > 1 ? `${100 * zoomLevel}%` : '100%', height: zoomLevel > 1 ? `${100 * zoomLevel}%` : '100%', minWidth: '100%', minHeight: '100%' }}>
-          <canvas ref={canvasRef} />
-        </div>
+      <div ref={containerRef} className="flex-1 overflow-hidden">
+        <canvas ref={canvasRef} />
       </div>
     </div>
   );
