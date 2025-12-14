@@ -559,22 +559,25 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, scaleInfo, cl
     const displayMeters = 10;
     const scaleBarPixels = displayMeters / metersPerPixel;
     
-    // Get the background image dimensions
+    // Get the background image dimensions and center point
     const imgWidth = bgImage.width! * bgImage.scaleX!;
     const imgHeight = bgImage.height! * bgImage.scaleY!;
-    const imgLeft = bgImage.left!;
-    const imgTop = bgImage.top!;
+    const imgCenter = bgImage.getCenterPoint();
     
-    // Position scale bar at bottom right corner of the image with more padding
-    const padding = 30;
-    const scaleX = imgLeft + imgWidth - scaleBarPixels - padding;
-    const scaleY = imgTop + imgHeight - padding - 20;
+    // Position scale bar at bottom right corner of the image (relative to center)
+    const padding = 40;
+    // Ensure scale bar fits within image - limit its size if needed
+    const maxScaleWidth = imgWidth - padding * 2;
+    const actualScalePixels = Math.min(scaleBarPixels, maxScaleWidth);
+    
+    const scaleX = imgCenter.x + imgWidth / 2 - actualScalePixels - padding;
+    const scaleY = imgCenter.y + imgHeight / 2 - padding - 20;
 
     // Create scale bar (white)
     const scaleBar = new Rect({
       left: scaleX,
       top: scaleY + 12,
-      width: scaleBarPixels,
+      width: actualScalePixels,
       height: 3,
       fill: '#FFFFFF',
     });
@@ -590,16 +593,20 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, scaleInfo, cl
 
     // Create right tick (white)
     const rightTick = new Rect({
-      left: scaleX + scaleBarPixels - 2,
+      left: scaleX + actualScalePixels - 2,
       top: scaleY + 8,
       width: 2,
       height: 10,
       fill: '#FFFFFF',
     });
 
+    // Calculate actual meters displayed (may be less if constrained)
+    const actualMeters = actualScalePixels * metersPerPixel;
+    const displayLabel = actualMeters >= 1 ? `${Math.round(actualMeters)} m` : `${Math.round(actualMeters * 100)} cm`;
+
     // Create text label for scale (white)
-    const scaleText = new Text(`${displayMeters} m`, {
-      left: scaleX + scaleBarPixels / 2,
+    const scaleText = new Text(displayLabel, {
+      left: scaleX + actualScalePixels / 2,
       top: scaleY - 2,
       fontSize: 13,
       fill: '#FFFFFF',
@@ -618,8 +625,8 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, scaleInfo, cl
 
     // Create North indicator at top right of image using uploaded image
     const northSize = 50;
-    const northX = imgLeft + imgWidth - padding - northSize;
-    const northY = imgTop + padding;
+    const northX = imgCenter.x + imgWidth / 2 - padding - northSize / 2;
+    const northY = imgCenter.y - imgHeight / 2 + padding + northSize / 2;
     
     // Load the north.png image
     const northImgModule = await import('@/assets/north.png');
@@ -664,13 +671,18 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, scaleInfo, cl
     const imgAngle = bgImage.angle || 0;
     
     // Calculate positions relative to image center, then rotate
-    const padding = 30;
+    const padding = 40;
     const displayMeters = 10;
     const scaleBarPixels = displayMeters / scaleInfo.metersPerPixel;
     
-    // Scale position (bottom-right of image, inset from edge)
-    const scaleOffsetX = imgWidth / 2 - scaleBarPixels / 2 - padding;
-    const scaleOffsetY = imgHeight / 2 - padding - 15;
+    // Ensure scale bar fits within image
+    const maxScaleWidth = imgWidth - padding * 2;
+    const actualScalePixels = Math.min(scaleBarPixels, maxScaleWidth);
+    
+    // Scale position (bottom-right of image, inset from edge) - use group width for proper positioning
+    const scaleGroupWidth = actualScalePixels;
+    const scaleOffsetX = imgWidth / 2 - scaleGroupWidth - padding;
+    const scaleOffsetY = imgHeight / 2 - padding - 20;
     
     // Rotate offset around center
     const angleRad = (imgAngle * Math.PI) / 180;
