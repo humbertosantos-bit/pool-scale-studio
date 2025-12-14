@@ -7,10 +7,11 @@ import { toast } from 'sonner';
 
 interface ImageUploadOptionsProps {
   onFileSelect: (file: File, scaleInfo?: { metersPerPixel: number; latitude: number; zoom: number }) => void;
+  onManualTraceSelect?: () => void;
 }
 
-export const ImageUploadOptions: React.FC<ImageUploadOptionsProps> = ({ onFileSelect }) => {
-  const [uploadMethod, setUploadMethod] = useState<'file' | 'satellite'>('file');
+export const ImageUploadOptions: React.FC<ImageUploadOptionsProps> = ({ onFileSelect, onManualTraceSelect }) => {
+  const [uploadMethod, setUploadMethod] = useState<'file' | 'satellite' | 'manual'>('file');
   const [address, setAddress] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -62,29 +63,44 @@ export const ImageUploadOptions: React.FC<ImageUploadOptionsProps> = ({ onFileSe
     }
   };
 
+  const handleManualSelect = () => {
+    setUploadMethod('manual');
+    onManualTraceSelect?.();
+  };
+
   return (
     <div className="space-y-4">
       {/* Toggle between upload methods */}
       <div className="flex gap-2">
         <button
           onClick={() => setUploadMethod('file')}
-          className={`flex-1 px-3 py-2 border rounded-md text-xs transition-colors ${
+          className={`flex-1 px-2 py-2 border rounded-md text-[10px] transition-colors ${
             uploadMethod === 'file'
               ? 'bg-primary text-primary-foreground'
               : 'bg-background hover:bg-muted'
           }`}
         >
-          📁 Upload File
+          📁 Upload
         </button>
         <button
           onClick={() => setUploadMethod('satellite')}
-          className={`flex-1 px-3 py-2 border rounded-md text-xs transition-colors ${
+          className={`flex-1 px-2 py-2 border rounded-md text-[10px] transition-colors ${
             uploadMethod === 'satellite'
               ? 'bg-primary text-primary-foreground'
               : 'bg-background hover:bg-muted'
           }`}
         >
-          🛰️ Satellite Image
+          🛰️ Satellite
+        </button>
+        <button
+          onClick={handleManualSelect}
+          className={`flex-1 px-2 py-2 border rounded-md text-[10px] transition-colors ${
+            uploadMethod === 'manual'
+              ? 'bg-primary text-primary-foreground'
+              : 'bg-background hover:bg-muted'
+          }`}
+        >
+          ✏️ Draw
         </button>
       </div>
 
@@ -124,6 +140,22 @@ export const ImageUploadOptions: React.FC<ImageUploadOptionsProps> = ({ onFileSe
           <p className="text-[10px] text-muted-foreground">
             💡 Enter the complete property address for best results
           </p>
+        </div>
+      )}
+
+      {/* Manual tracing info */}
+      {uploadMethod === 'manual' && (
+        <div className="space-y-3 text-center py-4">
+          <div className="text-4xl">✏️</div>
+          <p className="text-xs text-muted-foreground">
+            Draw your property and house directly on a blank canvas
+          </p>
+          <div className="text-[10px] text-muted-foreground space-y-1">
+            <p>1. Draw property boundary</p>
+            <p>2. Set scale with a known measurement</p>
+            <p>3. Draw house footprint</p>
+            <p>4. Place pools in remaining space</p>
+          </div>
         </div>
       )}
     </div>
