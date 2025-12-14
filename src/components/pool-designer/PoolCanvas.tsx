@@ -2053,14 +2053,14 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, scaleInfo, cl
     }
   };
 
-  // Create a custom V-shaped cursor (inverted caret) for precise point selection
-  const createVCursor = () => {
-    // SVG for a thin V-shaped pointer with the tip as the hotspot
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
-      <path d="M8 14 L4 4 L5 4 L8 12 L11 4 L12 4 Z" fill="#ef4444" stroke="#ffffff" stroke-width="0.5"/>
+  // Create a classic arrow cursor with tip at top-left as the exact click point
+  const createArrowCursor = () => {
+    // SVG for a classic mouse arrow pointer with the tip at (0,0) as the hotspot
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20">
+      <path d="M0 0 L0 16 L4 12 L7 19 L9 18 L6 11 L12 11 Z" fill="#000000" stroke="#ffffff" stroke-width="1"/>
     </svg>`;
     const encoded = encodeURIComponent(svg);
-    return `url('data:image/svg+xml,${encoded}') 8 14, crosshair`;
+    return `url('data:image/svg+xml,${encoded}') 0 0, default`;
   };
 
   const startScaleReference = () => {
@@ -2073,33 +2073,61 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, scaleInfo, cl
     isSettingScaleRef.current = true;
     let firstPoint: { x: number; y: number } | null = null;
     let confirmDot: Circle | null = null;
+    let previewLine: Line | null = null;
     let line: Line | null = null;
     
-    // Set the custom V cursor
-    const vCursor = createVCursor();
-    fabricCanvas.defaultCursor = vCursor;
-    fabricCanvas.hoverCursor = vCursor;
+    // Set the custom arrow cursor
+    const arrowCursor = createArrowCursor();
+    fabricCanvas.defaultCursor = arrowCursor;
+    fabricCanvas.hoverCursor = arrowCursor;
     
     const cleanupCursor = () => {
       fabricCanvas.defaultCursor = 'default';
       fabricCanvas.hoverCursor = 'move';
+    };
+    
+    // Handle mouse move to update preview line
+    const handleMouseMove = (e: any) => {
+      if (!firstPoint) return;
+      
+      const pointer = fabricCanvas.getScenePoint(e.e);
+      
+      if (previewLine) {
+        // Update existing preview line
+        previewLine.set({
+          x2: pointer.x,
+          y2: pointer.y,
+        });
+        fabricCanvas.renderAll();
+      } else {
+        // Create preview line
+        previewLine = new Line([firstPoint.x, firstPoint.y, pointer.x, pointer.y], {
+          stroke: '#ef4444',
+          strokeWidth: 1,
+          strokeDashArray: [5, 3],
+          selectable: false,
+          evented: false,
+          opacity: 0.7,
+        });
+        fabricCanvas.add(previewLine);
+      }
     };
 
     const handleMouseDown = (e: any) => {
       const pointer = fabricCanvas.getScenePoint(e.e);
       
       if (!firstPoint) {
-        // First click - mark the first point with a small confirmation dot
+        // First click - mark the first point with a tiny confirmation dot
         firstPoint = { x: pointer.x, y: pointer.y };
         
-        // Add a small confirmation dot at the first point
+        // Add a tiny confirmation dot at the first point (75% smaller: 3 * 0.25 = 0.75)
         confirmDot = new Circle({
           left: pointer.x,
           top: pointer.y,
-          radius: 3,
+          radius: 0.75,
           fill: '#ef4444',
           stroke: '#ffffff',
-          strokeWidth: 1,
+          strokeWidth: 0.5,
           selectable: false,
           evented: false,
           originX: 'center',
@@ -2108,18 +2136,21 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, scaleInfo, cl
         });
         fabricCanvas.add(confirmDot);
         fabricCanvas.renderAll();
+        
+        // Start listening for mouse move
+        fabricCanvas.on('mouse:move', handleMouseMove);
       } else {
         // Second click - complete the scale reference
         const secondPoint = { x: pointer.x, y: pointer.y };
         
-        // Add a small confirmation dot at the second point
+        // Add a tiny confirmation dot at the second point
         const secondDot = new Circle({
           left: pointer.x,
           top: pointer.y,
-          radius: 3,
+          radius: 0.75,
           fill: '#ef4444',
           stroke: '#ffffff',
-          strokeWidth: 1,
+          strokeWidth: 0.5,
           selectable: false,
           evented: false,
           originX: 'center',
@@ -2128,7 +2159,10 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, scaleInfo, cl
         });
         fabricCanvas.add(secondDot);
         
-        // Draw line between the two points
+        // Remove preview line and draw final line
+        if (previewLine) fabricCanvas.remove(previewLine);
+        
+        // Draw solid line between the two points
         line = new Line([firstPoint.x, firstPoint.y, secondPoint.x, secondPoint.y], {
           stroke: '#ef4444',
           strokeWidth: 1,
@@ -2176,6 +2210,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, scaleInfo, cl
         setIsSettingScale(false);
         isSettingScaleRef.current = false;
         fabricCanvas.off('mouse:down', handleMouseDown);
+        fabricCanvas.off('mouse:move', handleMouseMove);
         fabricCanvas.renderAll();
       }
     };
