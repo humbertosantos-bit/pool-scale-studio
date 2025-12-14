@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Canvas as FabricCanvas, Line, Circle, Polygon, Text, Group, Point } from 'fabric';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { Undo2, Redo2, Grid3X3, Magnet, RotateCcw, Move } from 'lucide-react';
+import { Undo2, Redo2, Grid3X3, Magnet, RotateCcw, Move, Trash2, ZoomIn, ZoomOut } from 'lucide-react';
 
 interface ManualTracingCanvasProps {
   onStateChange?: (state: any) => void;
@@ -46,6 +46,9 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
   const [isDraggingHouse, setIsDraggingHouse] = useState(false);
   const dragStartRef = useRef<{ x: number; y: number } | null>(null);
   const originalHousePointsRef = useRef<{ x: number; y: number }[] | null>(null);
+  
+  // Zoom state
+  const [zoomLevel, setZoomLevel] = useState(1);
   
   // Measurement label state
   const [measurementLabel, setMeasurementLabel] = useState<Text | null>(null);
@@ -832,6 +835,50 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
   };
 
 
+  // Delete last house
+  const deleteLastHouse = () => {
+    if (!fabricCanvas || houseShapesRef.current.length === 0) return;
+    
+    const lastHouse = houseShapesRef.current[houseShapesRef.current.length - 1];
+    
+    // Remove polygon
+    if (lastHouse.fabricObject) {
+      fabricCanvas.remove(lastHouse.fabricObject);
+    }
+    
+    // Remove edge labels and vertex markers for this house
+    const objects = fabricCanvas.getObjects();
+    objects.forEach(obj => {
+      if ((obj as any).shapeId === lastHouse.id || (obj as any).parentPolygon === lastHouse.fabricObject) {
+        fabricCanvas.remove(obj);
+      }
+    });
+    
+    // Update state
+    setHouseShapes(prev => prev.slice(0, -1));
+    houseShapesRef.current = houseShapesRef.current.slice(0, -1);
+    
+    fabricCanvas.renderAll();
+    toast.success('House deleted');
+  };
+
+  // Zoom functions
+  const zoomIn = () => {
+    if (!fabricCanvas) return;
+    const newZoom = Math.min(zoomLevel + 0.25, 3);
+    setZoomLevel(newZoom);
+    fabricCanvas.setZoom(newZoom);
+    fabricCanvas.renderAll();
+  };
+
+  const zoomOut = () => {
+    if (!fabricCanvas) return;
+    const newZoom = Math.max(zoomLevel - 0.25, 0.5);
+    setZoomLevel(newZoom);
+    fabricCanvas.setZoom(newZoom);
+    fabricCanvas.renderAll();
+  };
+
   // Undo last action
   const undo = () => {
     if (undoStack.length === 0) return;
@@ -973,6 +1020,25 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
             title="Move House"
           >
             <Move className="h-4 w-4" />
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={deleteLastHouse}
+            disabled={houseShapes.length === 0}
+            title="Delete Last House"
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+
+        <div className="flex items-center gap-2 border-r pr-3">
+          <Button size="sm" variant="ghost" onClick={zoomOut} title="Zoom Out">
+            <ZoomOut className="h-4 w-4" />
+          </Button>
+          <span className="text-xs text-slate-600 min-w-[40px] text-center">{Math.round(zoomLevel * 100)}%</span>
+          <Button size="sm" variant="ghost" onClick={zoomIn} title="Zoom In">
+            <ZoomIn className="h-4 w-4" />
           </Button>
         </div>
 
