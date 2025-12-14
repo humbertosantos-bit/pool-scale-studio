@@ -684,7 +684,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, scaleInfo, cl
     });
     scaleGroup.setCoords();
     
-    // North indicator position (top-right of image)
+    // North indicator position (top-right of image) - embedded in image coordinate system
     const northSize = 50;
     const northOffsetX = imgWidth / 2 - padding - northSize / 2;
     const northOffsetY = -imgHeight / 2 + padding + northSize / 2;
@@ -692,15 +692,11 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, scaleInfo, cl
     const rotatedNorthX = northOffsetX * Math.cos(angleRad) - northOffsetY * Math.sin(angleRad);
     const rotatedNorthY = northOffsetX * Math.sin(angleRad) + northOffsetY * Math.cos(angleRad);
     
-    // Get the initial angle when image was loaded (represents true north from Google Maps)
-    const initialAngle = (northGroup as any).initialImageAngle || 0;
-    // Counter-rotate to always point true north: subtract the rotation delta
-    const counterRotation = -(imgAngle - initialAngle);
-    
+    // North indicator rotates WITH the image (embedded in image coordinate system)
     northGroup.set({
       left: imgCenter.x + rotatedNorthX,
       top: imgCenter.y + rotatedNorthY,
-      angle: counterRotation, // Counter-rotate to maintain true north
+      angle: imgAngle, // Rotate with image to stay fixed to map's north
     });
     northGroup.setCoords();
     
