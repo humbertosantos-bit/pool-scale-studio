@@ -191,26 +191,32 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     poolShapesRef.current = poolShapes;
   }, [poolShapes]);
 
-  // Create water pattern (full gradient blue to white) for pools
-  const createWaterPattern = (): Pattern => {
-    const patternCanvas = document.createElement('canvas');
-    patternCanvas.width = 60;
-    patternCanvas.height = 60;
-    const ctx = patternCanvas.getContext('2d');
-    if (ctx) {
-      // Create full gradient from blue to white
-      const gradient = ctx.createLinearGradient(0, 0, 60, 60);
-      gradient.addColorStop(0, '#0EA5E9'); // Sky blue
-      gradient.addColorStop(0.25, '#38BDF8'); // Light blue
-      gradient.addColorStop(0.5, '#7DD3FC'); // Lighter blue
-      gradient.addColorStop(0.75, '#BAE6FD'); // Very light blue
-      gradient.addColorStop(1, '#FFFFFF'); // White
-      ctx.fillStyle = gradient;
-      ctx.fillRect(0, 0, 60, 60);
-    }
-    return new Pattern({
-      source: patternCanvas,
-      repeat: 'repeat',
+  // Create water gradient for pools (uses Fabric.js Gradient)
+  const createWaterGradient = (points: { x: number; y: number }[]): Gradient<'linear'> => {
+    // Calculate bounding box
+    const minX = Math.min(...points.map(p => p.x));
+    const maxX = Math.max(...points.map(p => p.x));
+    const minY = Math.min(...points.map(p => p.y));
+    const maxY = Math.max(...points.map(p => p.y));
+    
+    const width = maxX - minX;
+    const height = maxY - minY;
+    
+    return new Gradient({
+      type: 'linear',
+      coords: {
+        x1: 0,
+        y1: 0,
+        x2: width,
+        y2: height,
+      },
+      colorStops: [
+        { offset: 0, color: '#0EA5E9' },    // Sky blue
+        { offset: 0.3, color: '#38BDF8' },  // Light blue
+        { offset: 0.6, color: '#7DD3FC' },  // Lighter blue
+        { offset: 0.85, color: '#BAE6FD' }, // Very light blue
+        { offset: 1, color: '#FFFFFF' },    // White
+      ],
     });
   };
 
@@ -651,8 +657,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         fabricCanvas.add(marker);
       });
       
-      // Add new edge labels
-      addEdgeLengthLabels(fabricCanvas, newPoints, house.id);
+      // No edge labels for houses
       
       // Update state
       const updatedHouse: DrawnShape = {
@@ -795,7 +800,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       fill = createHatchPattern();
       stroke = '#000000';
     } else if (mode === 'pool') {
-      fill = createWaterPattern();
+      fill = createWaterGradient(points);
       stroke = '#000000'; // Black contour for pools
     } else {
       fill = 'rgba(100, 100, 100, 0.1)';
@@ -846,8 +851,15 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       newMarkers.push(marker);
     });
     
-    // Add edge length labels (always, since 1 grid = 1 ft)
-    addEdgeLengthLabels(fabricCanvas, points, shapeId);
+    // Add edge length labels only for property
+    if (mode === 'property') {
+      addEdgeLengthLabels(fabricCanvas, points, shapeId);
+    }
+    
+    // Add pool name label inside with 5% padding
+    if (mode === 'pool') {
+      addPoolNameLabel(fabricCanvas, points, shapeId, 'Pool');
+    }
 
     const shape: DrawnShape = {
       id: shapeId,
@@ -917,6 +929,36 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     }
   };
 
+  // Add pool name label inside with 5% padding from bounds
+  const addPoolNameLabel = (canvas: FabricCanvas, points: { x: number; y: number }[], shapeId: string, name: string) => {
+    const minX = Math.min(...points.map(p => p.x));
+    const maxX = Math.max(...points.map(p => p.x));
+    const minY = Math.min(...points.map(p => p.y));
+    const maxY = Math.max(...points.map(p => p.y));
+    
+    const width = maxX - minX;
+    const height = maxY - minY;
+    
+    // Position with 5% padding from top-left
+    const labelX = minX + width * 0.05 + 30; // Slight offset to center text better
+    const labelY = minY + height * 0.05 + 10;
+    
+    const nameLabel = new Text(name, {
+      left: labelX,
+      top: labelY,
+      fontSize: 11,
+      fill: '#0369A1',
+      fontWeight: 'bold',
+      originX: 'left',
+      originY: 'top',
+      selectable: false,
+      evented: false,
+    });
+    (nameLabel as any).isPoolLabel = true;
+    (nameLabel as any).shapeId = shapeId;
+    canvas.add(nameLabel);
+  };
+
   // Refresh all edge labels when unit changes
   const refreshEdgeLabels = useCallback(() => {
     if (!fabricCanvas) return;
@@ -929,19 +971,14 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       }
     });
     
-    // Re-add labels for property
+    // Re-add labels for property only
     if (propertyShapeRef.current) {
       addEdgeLengthLabels(fabricCanvas, propertyShapeRef.current.points, propertyShapeRef.current.id);
     }
     
-    // Re-add labels for houses
-    houseShapesRef.current.forEach(house => {
-      addEdgeLengthLabels(fabricCanvas, house.points, house.id);
-    });
-    
-    // Re-add labels for pools
+    // Re-add pool name labels
     poolShapesRef.current.forEach(pool => {
-      addEdgeLengthLabels(fabricCanvas, pool.points, pool.id);
+      addPoolNameLabel(fabricCanvas, pool.points, pool.id, pool.name || 'Pool');
     });
     
     fabricCanvas.renderAll();
@@ -1518,10 +1555,10 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       }
     });
     
-    // Create new polygon with water pattern and black stroke
+    // Create new polygon with water gradient and black stroke
     const fabricPoints = newPoints.map(p => new Point(p.x, p.y));
     const polygon = new Polygon(fabricPoints, {
-      fill: createWaterPattern(),
+      fill: createWaterGradient(newPoints),
       stroke: '#000000',
       strokeWidth: 2,
       selectable: false,
@@ -1549,27 +1586,8 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       fabricCanvas.add(marker);
     });
     
-    // Add new edge labels
-    addEdgeLengthLabels(fabricCanvas, newPoints, pool.id);
-    
-    // Add pool name label at center
-    const centerX = newPoints.reduce((sum, p) => sum + p.x, 0) / newPoints.length;
-    const centerY = newPoints.reduce((sum, p) => sum + p.y, 0) / newPoints.length;
-    const nameLabel = new Text(pool.name || 'Pool', {
-      left: centerX,
-      top: centerY,
-      fontSize: 12,
-      fill: '#0369A1',
-      fontWeight: 'bold',
-      backgroundColor: 'rgba(255, 255, 255, 0.8)',
-      originX: 'center',
-      originY: 'center',
-      selectable: false,
-      evented: false,
-    });
-    (nameLabel as any).isPoolLabel = true;
-    (nameLabel as any).shapeId = pool.id;
-    fabricCanvas.add(nameLabel);
+    // Add pool name label inside with 5% padding
+    addPoolNameLabel(fabricCanvas, newPoints, pool.id, pool.name || 'Pool');
     
     // Update state
     const updatedPool: DrawnShape = {
@@ -1747,7 +1765,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     
     const fabricPoints = points.map(p => new Point(p.x, p.y));
     const polygon = new Polygon(fabricPoints, {
-      fill: createWaterPattern(),
+      fill: createWaterGradient(points),
       stroke: '#000000',
       strokeWidth: 2,
       selectable: false,
@@ -1782,27 +1800,8 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       fabricCanvas.add(marker);
     });
     
-    // Add edge labels
-    addEdgeLengthLabels(fabricCanvas, points, shapeId);
-    
-    // Add pool name label at center
-    const centerX = points.reduce((sum, p) => sum + p.x, 0) / points.length;
-    const centerY = points.reduce((sum, p) => sum + p.y, 0) / points.length;
-    const nameLabel = new Text(name, {
-      left: centerX,
-      top: centerY,
-      fontSize: 12,
-      fill: '#0369A1',
-      fontWeight: 'bold',
-      backgroundColor: 'rgba(255, 255, 255, 0.8)',
-      originX: 'center',
-      originY: 'center',
-      selectable: false,
-      evented: false,
-    });
-    (nameLabel as any).isPoolLabel = true;
-    (nameLabel as any).shapeId = shapeId;
-    fabricCanvas.add(nameLabel);
+    // Add pool name label inside with 5% padding
+    addPoolNameLabel(fabricCanvas, points, shapeId, name);
     
     const shape: DrawnShape = {
       id: shapeId,
