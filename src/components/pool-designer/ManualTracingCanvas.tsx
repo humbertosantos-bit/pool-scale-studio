@@ -18,7 +18,7 @@ interface ManualTracingCanvasProps {
   onStateChange?: (state: any) => void;
 }
 
-type DrawingMode = 'none' | 'property' | 'house' | 'pool' | 'move-house' | 'move-pool';
+type DrawingMode = 'none' | 'property' | 'house' | 'pool' | 'move-house' | 'move-pool' | 'rotate-pool';
 type UnitType = 'ft' | 'm';
 
 interface DrawnShape {
@@ -76,6 +76,13 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
   const [isDraggingPool, setIsDraggingPool] = useState(false);
   const poolDragStartRef = useRef<{ x: number; y: number } | null>(null);
   const originalPoolPointsRef = useRef<{ x: number; y: number }[] | null>(null);
+  
+  // Pool rotation state
+  const [isRotatingPool, setIsRotatingPool] = useState(false);
+  const rotatingPoolIndexRef = useRef<number | null>(null);
+  const rotationStartAngleRef = useRef<number>(0);
+  const originalPoolRotationRef = useRef<number>(0);
+  const poolRotationsRef = useRef<{ [key: string]: number }>({});
   
   // Unit toggle
   const [unit, setUnit] = useState<UnitType>('ft');
@@ -142,10 +149,10 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
   const poolShapesRef = useRef<DrawnShape[]>([]);
   const unitRef = useRef<UnitType>('ft');
 
-  // Grid settings - each grid square = 1 ft
-  const GRID_SIZE = 20; // 20 pixels = 1 foot
-  const PIXELS_PER_FOOT = GRID_SIZE;
-  const FEET_TO_METERS = 0.3048;
+  // Grid settings - each grid square = 1 meter
+  const GRID_SIZE = 20; // 20 pixels = 1 meter
+  const PIXELS_PER_METER = GRID_SIZE;
+  const METERS_TO_FEET = 3.28084;
   const SNAP_DISTANCE = 10;
   const CLOSE_DISTANCE = 15;
 
@@ -689,24 +696,24 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     return inside;
   };
 
-  // Convert pixels to feet
-  const pixelsToFeet = (pixels: number): number => {
-    return pixels / PIXELS_PER_FOOT;
+  // Convert pixels to meters
+  const pixelsToMeters = (pixels: number): number => {
+    return pixels / PIXELS_PER_METER;
   };
 
   // Convert pixels to current unit
   const pixelsToUnit = (pixels: number): number => {
-    const feet = pixels / PIXELS_PER_FOOT;
-    return unitRef.current === 'm' ? feet * FEET_TO_METERS : feet;
+    const meters = pixels / PIXELS_PER_METER;
+    return unitRef.current === 'ft' ? meters * METERS_TO_FEET : meters;
   };
 
   // Format measurement based on unit
   const formatMeasurement = (pixels: number): string => {
     if (unitRef.current === 'm') {
-      const meters = pixelsToUnit(pixels);
+      const meters = pixelsToMeters(pixels);
       return `${meters.toFixed(2)} m`;
     } else {
-      const feet = pixelsToFeet(pixels);
+      const feet = pixelsToMeters(pixels) * METERS_TO_FEET;
       const wholeFeet = Math.floor(feet);
       const inches = Math.round((feet - wholeFeet) * 12);
       if (inches === 12) {
@@ -735,7 +742,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     fabricCanvas.hoverCursor = cursor;
     
     if (mode === 'property') {
-      toast.info('Click to place vertices. Click near the first point to close the shape. (1 grid square = 1 ft)');
+      toast.info('Click to place vertices. Click near the first point to close the shape. (1 grid square = 1 m)');
     } else if (mode === 'house') {
       toast.info('Click to place vertices inside the property boundary.');
     } else if (mode === 'pool') {
@@ -1212,6 +1219,79 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       }
     };
 
+    // Handle pool rotation
+    const handleRotatePoolMouseDown = (e: any) => {
+      if (drawingModeRef.current !== 'rotate-pool') return;
+      
+      const pointer = fabricCanvas.getScenePoint(e.e);
+      
+      // Check if clicked inside any pool
+      for (let i = 0; i < poolShapesRef.current.length; i++) {
+        const pool = poolShapesRef.current[i];
+        if (isPointInsidePolygon({ x: pointer.x, y: pointer.y }, pool.points)) {
+          rotatingPoolIndexRef.current = i;
+          setIsRotatingPool(true);
+          
+          // Calculate center of pool
+          const centerX = pool.points.reduce((sum, p) => sum + p.x, 0) / pool.points.length;
+          const centerY = pool.points.reduce((sum, p) => sum + p.y, 0) / pool.points.length;
+          
+          // Calculate initial angle from center to click point
+          rotationStartAngleRef.current = Math.atan2(pointer.y - centerY, pointer.x - centerX);
+          originalPoolPointsRef.current = pool.points.map(p => ({ ...p }));
+          originalPoolRotationRef.current = poolRotationsRef.current[pool.id] || 0;
+          return;
+        }
+      }
+    };
+
+    const handleRotatePoolMouseMove = (e: any) => {
+      if (!isRotatingPool || rotatingPoolIndexRef.current === null || !originalPoolPointsRef.current) return;
+      
+      const pool = poolShapesRef.current[rotatingPoolIndexRef.current];
+      if (!pool) return;
+      
+      const pointer = fabricCanvas.getScenePoint(e.e);
+      
+      // Calculate center of original pool
+      const centerX = originalPoolPointsRef.current.reduce((sum, p) => sum + p.x, 0) / originalPoolPointsRef.current.length;
+      const centerY = originalPoolPointsRef.current.reduce((sum, p) => sum + p.y, 0) / originalPoolPointsRef.current.length;
+      
+      // Calculate current angle
+      const currentAngle = Math.atan2(pointer.y - centerY, pointer.x - centerX);
+      let deltaAngle = currentAngle - rotationStartAngleRef.current;
+      
+      // Snap to 45 degrees if Shift is pressed
+      if (shiftPressedRef.current) {
+        const snapAngle = Math.PI / 4; // 45 degrees
+        deltaAngle = Math.round(deltaAngle / snapAngle) * snapAngle;
+      }
+      
+      // Rotate points around center
+      const newPoints = originalPoolPointsRef.current.map(p => {
+        const dx = p.x - centerX;
+        const dy = p.y - centerY;
+        const cos = Math.cos(deltaAngle);
+        const sin = Math.sin(deltaAngle);
+        return {
+          x: centerX + dx * cos - dy * sin,
+          y: centerY + dx * sin + dy * cos,
+        };
+      });
+      
+      // Update pool shape
+      updatePoolPosition(rotatingPoolIndexRef.current, newPoints);
+      poolRotationsRef.current[pool.id] = originalPoolRotationRef.current + deltaAngle;
+    };
+
+    const handleRotatePoolMouseUp = () => {
+      if (isRotatingPool) {
+        setIsRotatingPool(false);
+        rotatingPoolIndexRef.current = null;
+        originalPoolPointsRef.current = null;
+      }
+    };
+
     const handlePanMouseUp = () => {
       if (isPanningRef.current) {
         setIsPanning(false);
@@ -1298,6 +1378,9 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     fabricCanvas.on('mouse:down', handlePoolMouseDown);
     fabricCanvas.on('mouse:move', handlePoolMouseMove);
     fabricCanvas.on('mouse:up', handlePoolMouseUp);
+    fabricCanvas.on('mouse:down', handleRotatePoolMouseDown);
+    fabricCanvas.on('mouse:move', handleRotatePoolMouseMove);
+    fabricCanvas.on('mouse:up', handleRotatePoolMouseUp);
     fabricCanvas.on('mouse:up', handlePanMouseUp);
     fabricCanvas.on('mouse:down', handleVertexMouseDown);
     fabricCanvas.on('mouse:move', handleVertexMouseMove);
@@ -1312,12 +1395,15 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       fabricCanvas.off('mouse:down', handlePoolMouseDown);
       fabricCanvas.off('mouse:move', handlePoolMouseMove);
       fabricCanvas.off('mouse:up', handlePoolMouseUp);
+      fabricCanvas.off('mouse:down', handleRotatePoolMouseDown);
+      fabricCanvas.off('mouse:move', handleRotatePoolMouseMove);
+      fabricCanvas.off('mouse:up', handleRotatePoolMouseUp);
       fabricCanvas.off('mouse:up', handlePanMouseUp);
       fabricCanvas.off('mouse:down', handleVertexMouseDown);
       fabricCanvas.off('mouse:move', handleVertexMouseMove);
       fabricCanvas.off('mouse:up', handleVertexMouseUp);
     };
-  }, [fabricCanvas, completeShape, gridSnapping, vertexSnapping, isDraggingHouse, selectedHouseIndex, isDraggingPool, selectedPoolIndex, isPanning]);
+  }, [fabricCanvas, completeShape, gridSnapping, vertexSnapping, isDraggingHouse, selectedHouseIndex, isDraggingPool, selectedPoolIndex, isRotatingPool, isPanning]);
 
   // Check if point is inside a polygon
   const isPointInsidePolygon = (point: { x: number; y: number }, pts: { x: number; y: number }[]): boolean => {
@@ -1557,6 +1643,29 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     toast.info('Click and drag a pool to move it. Click button again or press Escape to exit.');
   };
 
+  // Start rotate pool mode (toggle)
+  const startRotatePoolMode = () => {
+    if (!fabricCanvas) return;
+    
+    // Toggle off if already in rotate-pool mode
+    if (drawingMode === 'rotate-pool') {
+      exitMode();
+      toast.info('Exited rotate pool mode');
+      return;
+    }
+    
+    if (poolShapes.length === 0) {
+      toast.error('No pools to rotate');
+      return;
+    }
+    
+    setDrawingMode('rotate-pool');
+    drawingModeRef.current = 'rotate-pool';
+    fabricCanvas.defaultCursor = 'crosshair';
+    fabricCanvas.hoverCursor = 'crosshair';
+    toast.info('Click and drag a pool to rotate it. Hold Shift to snap to 45°. Press Escape to exit.');
+  };
+
   // Add preset pool
   const addPresetPool = (preset: PresetPool) => {
     if (!fabricCanvas || !propertyShapeRef.current) {
@@ -1564,11 +1673,13 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       return;
     }
     
-    // Convert feet and inches to total feet, then to pixels
+    // Convert feet and inches to total feet, then to meters, then to pixels
     const widthFeet = preset.widthFeet + preset.widthInches / 12;
     const lengthFeet = preset.lengthFeet + preset.lengthInches / 12;
-    const widthPixels = widthFeet * PIXELS_PER_FOOT;
-    const lengthPixels = lengthFeet * PIXELS_PER_FOOT;
+    const widthMeters = widthFeet / METERS_TO_FEET;
+    const lengthMeters = lengthFeet / METERS_TO_FEET;
+    const widthPixels = widthMeters * PIXELS_PER_METER;
+    const lengthPixels = lengthMeters * PIXELS_PER_METER;
     
     // Find center of property
     const propPoints = propertyShapeRef.current.points;
@@ -1603,8 +1714,11 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       return;
     }
     
-    const widthPixels = widthFeet * PIXELS_PER_FOOT;
-    const lengthPixels = lengthFeet * PIXELS_PER_FOOT;
+    // Convert feet to meters, then to pixels
+    const widthMeters = widthFeet / METERS_TO_FEET;
+    const lengthMeters = lengthFeet / METERS_TO_FEET;
+    const widthPixels = widthMeters * PIXELS_PER_METER;
+    const lengthPixels = lengthMeters * PIXELS_PER_METER;
     
     // Find center of property
     const propPoints = propertyShapeRef.current.points;
@@ -2018,6 +2132,15 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
           </Button>
           <Button
             size="sm"
+            variant={drawingMode === 'rotate-pool' ? 'default' : 'outline'}
+            onClick={startRotatePoolMode}
+            disabled={poolShapes.length === 0}
+            title="Rotate Pool (Shift = 45° snap)"
+          >
+            <RotateCcw className="h-4 w-4" />
+          </Button>
+          <Button
+            size="sm"
             variant="ghost"
             onClick={deleteLastPool}
             disabled={poolShapes.length === 0}
@@ -2101,7 +2224,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
           Reset
         </Button>
 
-        {drawingMode !== 'none' && drawingMode !== 'move-house' && drawingMode !== 'move-pool' && currentPoints.length >= 3 && (
+        {drawingMode !== 'none' && drawingMode !== 'move-house' && drawingMode !== 'move-pool' && drawingMode !== 'rotate-pool' && currentPoints.length >= 3 && (
           <Button size="sm" variant="default" onClick={completeShape} className="ml-auto">
             Close Shape
           </Button>
@@ -2118,7 +2241,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         {spacePressed && <span className="text-primary font-medium">Pan Mode</span>}
         {drawingMode !== 'none' && (
           <span className="ml-auto font-medium text-primary">
-            Mode: {drawingMode === 'property' ? 'Drawing Property' : drawingMode === 'house' ? 'Drawing House' : drawingMode === 'pool' ? 'Drawing Pool' : drawingMode === 'move-house' ? 'Moving House' : 'Moving Pool'}
+            Mode: {drawingMode === 'property' ? 'Drawing Property' : drawingMode === 'house' ? 'Drawing House' : drawingMode === 'pool' ? 'Drawing Pool' : drawingMode === 'move-house' ? 'Moving House' : drawingMode === 'move-pool' ? 'Moving Pool' : 'Rotating Pool'}
             {currentPoints.length > 0 && ` (${currentPoints.length} points)`}
           </span>
         )}
