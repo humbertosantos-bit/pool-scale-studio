@@ -12,13 +12,13 @@ import {
   DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu';
 import { toast } from 'sonner';
-import { Undo2, Redo2, Grid3X3, Magnet, RotateCcw, Move, Trash2, ZoomIn, ZoomOut, Eye, EyeOff, Maximize, Waves, ChevronDown, Plus, Pencil, Ruler, Settings, Image, Lock, Unlock } from 'lucide-react';
+import { Undo2, Redo2, Grid3X3, Magnet, RotateCcw, Move, Trash2, ZoomIn, ZoomOut, Eye, EyeOff, Maximize, Waves, ChevronDown, Plus, Pencil, Ruler, Settings, Image, Lock, Unlock, Crosshair } from 'lucide-react';
 
 interface ManualTracingCanvasProps {
   onStateChange?: (state: any) => void;
 }
 
-type DrawingMode = 'none' | 'property' | 'house' | 'pool' | 'move-house' | 'move-pool' | 'rotate-pool' | 'measure-draw' | 'paver';
+type DrawingMode = 'none' | 'property' | 'house' | 'pool' | 'move-house' | 'move-pool' | 'rotate-pool' | 'measure-draw' | 'paver' | 'scale-ref';
 type UnitType = 'ft' | 'm';
 
 interface MeasurementLine {
@@ -213,6 +213,19 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
   const [backgroundOpacity, setBackgroundOpacity] = useState(0.5);
   const [backgroundLocked, setBackgroundLocked] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Scale reference state (2-point)
+  const [scaleReferenceSet, setScaleReferenceSet] = useState(false);
+  const [scalePixelsPerMeter, setScalePixelsPerMeter] = useState(20); // Default: 20px = 1m
+  const scalePixelsPerMeterRef = useRef(20);
+  const [scaleRefPoint1, setScaleRefPoint1] = useState<{ x: number; y: number } | null>(null);
+  const scaleRefPoint1Ref = useRef<{ x: number; y: number } | null>(null);
+  const [scaleRefPreviewLine, setScaleRefPreviewLine] = useState<Line | null>(null);
+  const scaleRefPreviewLineRef = useRef<Line | null>(null);
+  const [scaleRefMarkers, setScaleRefMarkers] = useState<Circle[]>([]);
+  const scaleRefMarkersRef = useRef<Circle[]>([]);
+  const [scaleRefLine, setScaleRefLine] = useState<Group | null>(null);
+  const scaleRefLineRef = useRef<Group | null>(null);
   
   // Measurement label state
   const [measurementLabel, setMeasurementLabel] = useState<Text | null>(null);
@@ -673,6 +686,242 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     toast.info('Background image removed');
   };
 
+  // Start scale reference mode (2-point)
+  const startScaleReferenceMode = () => {
+    if (!fabricCanvas) return;
+    
+    // Toggle off if already in scale-ref mode
+    if (drawingModeRef.current === 'scale-ref') {
+      exitScaleRefMode();
+      return;
+    }
+    
+    // Clear any existing scale reference markers/line
+    clearScaleReferenceVisuals();
+    
+    setDrawingMode('scale-ref');
+    drawingModeRef.current = 'scale-ref';
+    setScaleRefPoint1(null);
+    scaleRefPoint1Ref.current = null;
+    
+    fabricCanvas.defaultCursor = 'crosshair';
+    fabricCanvas.hoverCursor = 'crosshair';
+    toast.info('Click two points on the image to set scale reference. A known distance between them.');
+  };
+
+  // Exit scale reference mode
+  const exitScaleRefMode = () => {
+    if (!fabricCanvas) return;
+    
+    setDrawingMode('none');
+    drawingModeRef.current = 'none';
+    setScaleRefPoint1(null);
+    scaleRefPoint1Ref.current = null;
+    
+    // Remove preview line if any
+    if (scaleRefPreviewLineRef.current) {
+      fabricCanvas.remove(scaleRefPreviewLineRef.current);
+      setScaleRefPreviewLine(null);
+      scaleRefPreviewLineRef.current = null;
+    }
+    
+    fabricCanvas.defaultCursor = 'default';
+    fabricCanvas.hoverCursor = 'move';
+    fabricCanvas.renderAll();
+    toast.info('Exited scale reference mode');
+  };
+
+  // Clear scale reference visuals
+  const clearScaleReferenceVisuals = () => {
+    if (!fabricCanvas) return;
+    
+    // Remove markers
+    scaleRefMarkersRef.current.forEach(marker => {
+      fabricCanvas.remove(marker);
+    });
+    setScaleRefMarkers([]);
+    scaleRefMarkersRef.current = [];
+    
+    // Remove line
+    if (scaleRefLineRef.current) {
+      fabricCanvas.remove(scaleRefLineRef.current);
+      setScaleRefLine(null);
+      scaleRefLineRef.current = null;
+    }
+    
+    // Remove preview line
+    if (scaleRefPreviewLineRef.current) {
+      fabricCanvas.remove(scaleRefPreviewLineRef.current);
+      setScaleRefPreviewLine(null);
+      scaleRefPreviewLineRef.current = null;
+    }
+    
+    fabricCanvas.renderAll();
+  };
+
+  // Handle scale reference click
+  const handleScaleRefClick = (pointer: { x: number; y: number }) => {
+    if (!fabricCanvas) return;
+    
+    if (!scaleRefPoint1Ref.current) {
+      // First point
+      scaleRefPoint1Ref.current = pointer;
+      setScaleRefPoint1(pointer);
+      
+      // Add marker for first point
+      const marker = new Circle({
+        left: pointer.x,
+        top: pointer.y,
+        radius: 6,
+        fill: '#22c55e',
+        stroke: '#ffffff',
+        strokeWidth: 2,
+        originX: 'center',
+        originY: 'center',
+        selectable: false,
+        evented: false,
+      });
+      (marker as any).isScaleRefMarker = true;
+      fabricCanvas.add(marker);
+      fabricCanvas.bringObjectToFront(marker);
+      scaleRefMarkersRef.current.push(marker);
+      setScaleRefMarkers([...scaleRefMarkersRef.current]);
+      
+      fabricCanvas.renderAll();
+      toast.info('First point set. Click the second point.');
+    } else {
+      // Second point - prompt for distance
+      const point1 = scaleRefPoint1Ref.current;
+      const point2 = pointer;
+      
+      // Add marker for second point
+      const marker = new Circle({
+        left: pointer.x,
+        top: pointer.y,
+        radius: 6,
+        fill: '#22c55e',
+        stroke: '#ffffff',
+        strokeWidth: 2,
+        originX: 'center',
+        originY: 'center',
+        selectable: false,
+        evented: false,
+      });
+      (marker as any).isScaleRefMarker = true;
+      fabricCanvas.add(marker);
+      fabricCanvas.bringObjectToFront(marker);
+      scaleRefMarkersRef.current.push(marker);
+      setScaleRefMarkers([...scaleRefMarkersRef.current]);
+      
+      // Remove preview line
+      if (scaleRefPreviewLineRef.current) {
+        fabricCanvas.remove(scaleRefPreviewLineRef.current);
+        setScaleRefPreviewLine(null);
+        scaleRefPreviewLineRef.current = null;
+      }
+      
+      // Calculate pixel distance
+      const dx = point2.x - point1.x;
+      const dy = point2.y - point1.y;
+      const pixelDistance = Math.sqrt(dx * dx + dy * dy);
+      
+      // Prompt for real-world distance
+      const distanceStr = prompt(`Enter the real-world distance between these two points (in ${unit === 'ft' ? 'feet' : 'meters'}):`);
+      
+      if (distanceStr && !isNaN(parseFloat(distanceStr))) {
+        const realDistance = parseFloat(distanceStr);
+        
+        let realDistanceMeters: number;
+        if (unit === 'ft') {
+          realDistanceMeters = realDistance / METERS_TO_FEET;
+        } else {
+          realDistanceMeters = realDistance;
+        }
+        
+        if (realDistanceMeters > 0) {
+          // Calculate new pixels per meter
+          const newPixelsPerMeter = pixelDistance / realDistanceMeters;
+          setScalePixelsPerMeter(newPixelsPerMeter);
+          scalePixelsPerMeterRef.current = newPixelsPerMeter;
+          setScaleReferenceSet(true);
+          
+          // Create scale reference line with label
+          const midX = (point1.x + point2.x) / 2;
+          const midY = (point1.y + point2.y) / 2;
+          
+          const line = new Line([point1.x, point1.y, point2.x, point2.y], {
+            stroke: '#22c55e',
+            strokeWidth: 2,
+            strokeDashArray: [6, 3],
+            selectable: false,
+            evented: false,
+          });
+          
+          const labelText = unit === 'ft' ? `${realDistance.toFixed(1)} ft` : `${realDistance.toFixed(2)} m`;
+          const label = new Text(labelText, {
+            left: midX,
+            top: midY - 16,
+            fontSize: 12,
+            fill: '#22c55e',
+            fontWeight: 'bold',
+            fontFamily: 'Poppins, sans-serif',
+            backgroundColor: 'rgba(255, 255, 255, 0.9)',
+            originX: 'center',
+            originY: 'center',
+            selectable: false,
+            evented: false,
+          });
+          
+          const scaleGroup = new Group([line, label], {
+            selectable: false,
+            evented: false,
+          });
+          (scaleGroup as any).isScaleRefLine = true;
+          
+          fabricCanvas.add(scaleGroup);
+          fabricCanvas.bringObjectToFront(scaleGroup);
+          setScaleRefLine(scaleGroup);
+          scaleRefLineRef.current = scaleGroup;
+          
+          // Keep markers in front
+          scaleRefMarkersRef.current.forEach(m => fabricCanvas.bringObjectToFront(m));
+          
+          toast.success(`Scale set! ${pixelDistance.toFixed(0)} pixels = ${labelText}`);
+          
+          // Exit scale ref mode
+          setDrawingMode('none');
+          drawingModeRef.current = 'none';
+          setScaleRefPoint1(null);
+          scaleRefPoint1Ref.current = null;
+          fabricCanvas.defaultCursor = 'default';
+          fabricCanvas.hoverCursor = 'move';
+        }
+      } else {
+        // User cancelled - reset
+        clearScaleReferenceVisuals();
+        toast.info('Scale reference cancelled');
+      }
+      
+      setScaleRefPoint1(null);
+      scaleRefPoint1Ref.current = null;
+      fabricCanvas.renderAll();
+    }
+  };
+
+  // Reset scale reference
+  const resetScaleReference = () => {
+    clearScaleReferenceVisuals();
+    setScalePixelsPerMeter(PIXELS_PER_METER);
+    scalePixelsPerMeterRef.current = PIXELS_PER_METER;
+    setScaleReferenceSet(false);
+    toast.info('Scale reference reset to default');
+  };
+
+  // Get current pixels per meter (use custom scale if set, otherwise default)
+  const getPixelsPerMeter = () => {
+    return scalePixelsPerMeterRef.current;
+  };
+
   // Snap point to grid if enabled
   const snapToGrid = (point: { x: number; y: number }): { x: number; y: number } => {
     if (!gridSnapping) return point;
@@ -986,14 +1235,14 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     return inside;
   };
 
-  // Convert pixels to meters
+  // Convert pixels to meters using the current scale
   const pixelsToMeters = (pixels: number): number => {
-    return pixels / PIXELS_PER_METER;
+    return pixels / scalePixelsPerMeterRef.current;
   };
 
   // Convert pixels to current unit
   const pixelsToUnit = (pixels: number): number => {
-    const meters = pixels / PIXELS_PER_METER;
+    const meters = pixels / scalePixelsPerMeterRef.current;
     return unitRef.current === 'ft' ? meters * METERS_TO_FEET : meters;
   };
 
@@ -1673,6 +1922,13 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         return;
       }
       
+      // Handle scale reference mode
+      if (drawingModeRef.current === 'scale-ref') {
+        const pointer = fabricCanvas.getScenePoint(e.e);
+        handleScaleRefClick({ x: pointer.x, y: pointer.y });
+        return;
+      }
+      
       if (drawingModeRef.current === 'none' || drawingModeRef.current === 'move-house' || drawingModeRef.current === 'move-pool' || drawingModeRef.current === 'rotate-pool') return;
       
       const pointer = fabricCanvas.getScenePoint(e.e);
@@ -1793,6 +2049,40 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
           fabricCanvas.add(line);
           measurementPreviewLineRef.current = line;
           setMeasurementPreviewLine(line);
+        }
+        
+        fabricCanvas.renderAll();
+        return;
+      }
+      
+      // Handle scale reference preview
+      if (drawingModeRef.current === 'scale-ref' && scaleRefPoint1Ref.current) {
+        const pointer = fabricCanvas.getScenePoint(e.e);
+        
+        // Update or create preview line
+        if (scaleRefPreviewLineRef.current) {
+          scaleRefPreviewLineRef.current.set({
+            x2: pointer.x,
+            y2: pointer.y,
+          });
+        } else {
+          const line = new Line([
+            scaleRefPoint1Ref.current.x, 
+            scaleRefPoint1Ref.current.y, 
+            pointer.x, 
+            pointer.y
+          ], {
+            stroke: '#22c55e',
+            strokeWidth: 2,
+            strokeDashArray: [6, 3],
+            selectable: false,
+            evented: false,
+            opacity: 0.8,
+          });
+          (line as any).isScaleRefPreviewLine = true;
+          fabricCanvas.add(line);
+          scaleRefPreviewLineRef.current = line;
+          setScaleRefPreviewLine(line);
         }
         
         fabricCanvas.renderAll();
@@ -4378,10 +4668,35 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
               </Button>
             </>
           )}
+          
+          {/* Scale Reference Button - available when background image is loaded */}
+          {backgroundImage && (
+            <>
+              <Button
+                size="sm"
+                variant={drawingMode === 'scale-ref' ? 'default' : 'outline'}
+                onClick={startScaleReferenceMode}
+                title="Set Scale Reference (click 2 points)"
+                className={scaleReferenceSet ? 'bg-green-600 hover:bg-green-700 text-white' : ''}
+              >
+                <Crosshair className="h-4 w-4 mr-1" />
+                {scaleReferenceSet ? 'Scale Set' : 'Set Scale'}
+              </Button>
+              {scaleReferenceSet && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={resetScaleReference}
+                  title="Reset Scale to Default"
+                >
+                  <RotateCcw className="h-3 w-3" />
+                </Button>
+              )}
+            </>
+          )}
         </div>
 
         
-
         <Button size="sm" variant="destructive" onClick={resetCanvas}>
           <RotateCcw className="h-4 w-4 mr-1" />
           Reset
@@ -4417,11 +4732,16 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
             Selected: {selectedItemType} (double-click to select, use Delete button)
           </span>
         )}
+        {scaleReferenceSet && (
+          <span className="text-green-600 font-medium">Scale: Custom</span>
+        )}
         {drawingMode !== 'none' && (
           <span className="ml-auto font-medium text-primary">
-            Mode: {drawingMode === 'property' ? 'Drawing Property' : drawingMode === 'house' ? 'Drawing House' : drawingMode === 'pool' ? 'Drawing Pool' : drawingMode === 'paver' ? 'Drawing Paver Zone' : drawingMode === 'move-house' ? 'Moving House' : drawingMode === 'move-pool' ? 'Moving Pool' : drawingMode === 'rotate-pool' ? 'Rotating Pool' : drawingMode === 'measure-draw' ? 'Drawing Measurement' : drawingMode}
+            Mode: {drawingMode === 'property' ? 'Drawing Property' : drawingMode === 'house' ? 'Drawing House' : drawingMode === 'pool' ? 'Drawing Pool' : drawingMode === 'paver' ? 'Drawing Paver Zone' : drawingMode === 'move-house' ? 'Moving House' : drawingMode === 'move-pool' ? 'Moving Pool' : drawingMode === 'rotate-pool' ? 'Rotating Pool' : drawingMode === 'measure-draw' ? 'Drawing Measurement' : drawingMode === 'scale-ref' ? 'Setting Scale Reference' : drawingMode}
             {currentPoints.length > 0 && ` (${currentPoints.length} points)`}
             {drawingMode === 'measure-draw' && measurementStartPoint && ' (click second point)'}
+            {drawingMode === 'scale-ref' && !scaleRefPoint1 && ' (click first point)'}
+            {drawingMode === 'scale-ref' && scaleRefPoint1 && ' (click second point)'}
           </span>
         )}
       </div>
