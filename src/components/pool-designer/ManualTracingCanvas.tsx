@@ -18,7 +18,7 @@ interface ManualTracingCanvasProps {
   onStateChange?: (state: any) => void;
 }
 
-type DrawingMode = 'none' | 'property' | 'house' | 'pool' | 'move-house' | 'move-pool' | 'rotate-pool' | 'measure-draw';
+type DrawingMode = 'none' | 'property' | 'house' | 'pool' | 'move-house' | 'move-pool' | 'rotate-pool' | 'measure-draw' | 'paver';
 type UnitType = 'ft' | 'm';
 
 interface MeasurementLine {
@@ -38,7 +38,7 @@ interface PaverDimensions {
 
 interface DrawnShape {
   id: string;
-  type: 'property' | 'house' | 'pool';
+  type: 'property' | 'house' | 'pool' | 'paver';
   points: { x: number; y: number }[];
   fabricObject?: Polygon;
   name?: string;
@@ -46,6 +46,15 @@ interface DrawnShape {
   lengthFeet?: number;
   copingSize?: number; // inches (12 or 16)
   paverDimensions?: PaverDimensions;
+}
+
+interface StandalonePaver {
+  id: string;
+  points: { x: number; y: number }[];
+  fabricObject?: Polygon | Rect;
+  name: string;
+  areaSqFt: number;
+  areaWithWasteSqFt: number;
 }
 
 interface PoolCalculation {
@@ -90,6 +99,16 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
   const [propertyShape, setPropertyShape] = useState<DrawnShape | null>(null);
   const [houseShapes, setHouseShapes] = useState<DrawnShape[]>([]);
   const [poolShapes, setPoolShapes] = useState<DrawnShape[]>([]);
+  
+  // Standalone paver zones
+  const [standalonePavers, setStandalonePavers] = useState<StandalonePaver[]>([]);
+  const standalonePaversRef = useRef<StandalonePaver[]>([]);
+  const [showStandalonePaverInput, setShowStandalonePaverInput] = useState(false);
+  const [standalonePaverWidthFeet, setStandalonePaverWidthFeet] = useState<string>('10');
+  const [standalonePaverWidthInches, setStandalonePaverWidthInches] = useState<string>('0');
+  const [standalonePaverLengthFeet, setStandalonePaverLengthFeet] = useState<string>('10');
+  const [standalonePaverLengthInches, setStandalonePaverLengthInches] = useState<string>('0');
+  const [standalonePaverName, setStandalonePaverName] = useState<string>('Paver Zone');
   
   // Measurement lines state
   const [measurementLines, setMeasurementLines] = useState<MeasurementLine[]>([]);
@@ -253,6 +272,10 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
   useEffect(() => {
     poolShapesRef.current = poolShapes;
   }, [poolShapes]);
+
+  useEffect(() => {
+    standalonePaversRef.current = standalonePavers;
+  }, [standalonePavers]);
 
   // Create water gradient for pools (uses Fabric.js Gradient)
   const createWaterGradient = (points: { x: number; y: number }[]): Gradient<'linear'> => {
@@ -896,6 +919,8 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       toast.info('Click to place vertices inside the property boundary.');
     } else if (mode === 'pool') {
       toast.info('Click to draw a custom pool shape inside the property boundary.');
+    } else if (mode === 'paver') {
+      toast.info('Click to trace a paver zone. Click near the first point to close the shape.');
     }
   };
 
@@ -946,6 +971,10 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     } else if (mode === 'pool') {
       fill = createWaterGradient(points);
       stroke = '#000000'; // Black contour for pools
+    } else if (mode === 'paver') {
+      fill = '#d4d4d4'; // Light gray for standalone pavers
+      stroke = '#78716c';
+      strokeDashArray = [4, 2];
     } else {
       fill = 'rgba(100, 100, 100, 0.1)';
       stroke = '#666666';
@@ -967,7 +996,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
 
     // Add vertex markers for editing
     const newMarkers: Circle[] = [];
-    const markerColor = mode === 'property' ? '#22c55e' : '#000000'; // Black markers for house and pool
+    const markerColor = mode === 'property' ? '#22c55e' : mode === 'paver' ? '#78716c' : '#000000';
     points.forEach((p, index) => {
       const marker = new Circle({
         left: p.x,
@@ -1008,7 +1037,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
 
     const shape: DrawnShape = {
       id: shapeId,
-      type: mode as 'property' | 'house' | 'pool',
+      type: mode as 'property' | 'house' | 'pool' | 'paver',
       points,
       fabricObject: polygon,
     };
@@ -1023,6 +1052,28 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     } else if (mode === 'pool') {
       setPoolShapes(prev => [...prev, shape]);
       toast.success('Pool added!');
+    } else if (mode === 'paver') {
+      // Calculate area for standalone paver
+      const areaSqFt = calculatePolygonAreaSqFt(points);
+      const areaWithWasteSqFt = areaSqFt * 1.10;
+      const paverName = `Paver Zone ${standalonePaversRef.current.length + 1}`;
+      
+      const standalonePaver: StandalonePaver = {
+        id: shapeId,
+        points,
+        fabricObject: polygon,
+        name: paverName,
+        areaSqFt: parseFloat(areaSqFt.toFixed(2)),
+        areaWithWasteSqFt: parseFloat(areaWithWasteSqFt.toFixed(2)),
+      };
+      
+      setStandalonePavers(prev => [...prev, standalonePaver]);
+      standalonePaversRef.current = [...standalonePaversRef.current, standalonePaver];
+      
+      // Add paver name label with area
+      addStandalonePaverLabel(fabricCanvas, points, shapeId, paverName, areaSqFt);
+      
+      toast.success(`Paver zone added! Area: ${areaSqFt.toFixed(2)} sq ft (${areaWithWasteSqFt.toFixed(2)} sq ft with 10% waste)`);
     }
 
     // Reset state
@@ -1267,6 +1318,62 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       (text as any).shapeId = shapeId;
       canvas.add(text);
     }
+  };
+
+  // Calculate polygon area in sq ft using Shoelace formula
+  const calculatePolygonAreaSqFt = (points: { x: number; y: number }[]): number => {
+    if (points.length < 3) return 0;
+    
+    let area = 0;
+    for (let i = 0; i < points.length; i++) {
+      const j = (i + 1) % points.length;
+      area += points[i].x * points[j].y;
+      area -= points[j].x * points[i].y;
+    }
+    area = Math.abs(area) / 2;
+    
+    // Convert from pixels² to meters² then to feet²
+    const areaMeters = area / (PIXELS_PER_METER * PIXELS_PER_METER);
+    const areaFeet = areaMeters * (METERS_TO_FEET * METERS_TO_FEET);
+    
+    return areaFeet;
+  };
+
+  // Add label for standalone paver zones
+  const addStandalonePaverLabel = (
+    canvas: FabricCanvas,
+    points: { x: number; y: number }[],
+    shapeId: string,
+    name: string,
+    areaSqFt: number
+  ) => {
+    const minX = Math.min(...points.map(p => p.x));
+    const maxX = Math.max(...points.map(p => p.x));
+    const minY = Math.min(...points.map(p => p.y));
+    const maxY = Math.max(...points.map(p => p.y));
+    
+    const centerX = (minX + maxX) / 2;
+    const centerY = (minY + maxY) / 2;
+    
+    const areaWithWaste = (areaSqFt * 1.10).toFixed(1);
+    const labelText = `${name}\n${areaSqFt.toFixed(1)} sq ft\n(${areaWithWaste} w/ waste)`;
+    
+    const nameLabel = new Text(labelText, {
+      left: centerX,
+      top: centerY,
+      fontSize: 10,
+      fill: '#44403c',
+      fontWeight: 'bold',
+      fontFamily: 'Poppins, sans-serif',
+      textAlign: 'center',
+      originX: 'center',
+      originY: 'center',
+      selectable: false,
+      evented: false,
+    });
+    (nameLabel as any).isStandalonePaverLabel = true;
+    (nameLabel as any).shapeId = shapeId;
+    canvas.add(nameLabel);
   };
 
   // Refresh all edge labels when unit changes
@@ -3068,6 +3175,129 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     toast.success(`Measurement added: ${formatMeasurement(lengthPixels)}`);
   };
 
+  // Add standalone rectangular paver from measurements
+  const addRectangularPaver = () => {
+    if (!fabricCanvas) return;
+    
+    const widthFeet = (parseFloat(standalonePaverWidthFeet) || 0) + (parseFloat(standalonePaverWidthInches) || 0) / 12;
+    const lengthFeet = (parseFloat(standalonePaverLengthFeet) || 0) + (parseFloat(standalonePaverLengthInches) || 0) / 12;
+    
+    if (widthFeet <= 0 || lengthFeet <= 0) {
+      toast.error('Please enter valid dimensions');
+      return;
+    }
+    
+    // Convert feet to meters, then to pixels
+    const widthMeters = widthFeet / METERS_TO_FEET;
+    const lengthMeters = lengthFeet / METERS_TO_FEET;
+    const widthPixels = widthMeters * PIXELS_PER_METER;
+    const lengthPixels = lengthMeters * PIXELS_PER_METER;
+    
+    // Place in center of visible canvas
+    const vpt = fabricCanvas.viewportTransform || [1, 0, 0, 1, 0, 0];
+    const centerX = (fabricCanvas.width! / 2 - vpt[4]) / vpt[0];
+    const centerY = (fabricCanvas.height! / 2 - vpt[5]) / vpt[3];
+    
+    const halfWidth = widthPixels / 2;
+    const halfLength = lengthPixels / 2;
+    
+    // Create rectangular points
+    const points = [
+      { x: centerX - halfWidth, y: centerY - halfLength },
+      { x: centerX + halfWidth, y: centerY - halfLength },
+      { x: centerX + halfWidth, y: centerY + halfLength },
+      { x: centerX - halfWidth, y: centerY + halfLength },
+    ];
+    
+    const shapeId = `paver-${Date.now()}`;
+    const paverName = standalonePaverName || `Paver Zone ${standalonePaversRef.current.length + 1}`;
+    
+    // Calculate area
+    const areaSqFt = widthFeet * lengthFeet;
+    const areaWithWasteSqFt = areaSqFt * 1.10;
+    
+    // Create rectangle
+    const rect = new Rect({
+      left: centerX,
+      top: centerY,
+      width: widthPixels,
+      height: lengthPixels,
+      fill: '#d4d4d4',
+      stroke: '#78716c',
+      strokeWidth: 1,
+      strokeDashArray: [4, 2],
+      originX: 'center',
+      originY: 'center',
+      selectable: false,
+      evented: false,
+    });
+    (rect as any).shapeId = shapeId;
+    (rect as any).isStandalonePaver = true;
+    fabricCanvas.add(rect);
+    
+    // Add vertex markers
+    points.forEach((p, index) => {
+      const marker = new Circle({
+        left: p.x,
+        top: p.y,
+        radius: 2,
+        fill: '#78716c',
+        stroke: '#ffffff',
+        strokeWidth: 1,
+        originX: 'center',
+        originY: 'center',
+        selectable: false,
+        evented: false,
+      });
+      (marker as any).vertexIndex = index;
+      (marker as any).shapeId = shapeId;
+      (marker as any).isVertexMarker = true;
+      fabricCanvas.add(marker);
+    });
+    
+    // Add label
+    addStandalonePaverLabel(fabricCanvas, points, shapeId, paverName, areaSqFt);
+    
+    const standalonePaver: StandalonePaver = {
+      id: shapeId,
+      points,
+      fabricObject: rect,
+      name: paverName,
+      areaSqFt: parseFloat(areaSqFt.toFixed(2)),
+      areaWithWasteSqFt: parseFloat(areaWithWasteSqFt.toFixed(2)),
+    };
+    
+    setStandalonePavers(prev => [...prev, standalonePaver]);
+    standalonePaversRef.current = [...standalonePaversRef.current, standalonePaver];
+    
+    setShowStandalonePaverInput(false);
+    setStandalonePaverName('Paver Zone');
+    fabricCanvas.renderAll();
+    
+    toast.success(`${paverName} added! Area: ${areaSqFt.toFixed(2)} sq ft (${areaWithWasteSqFt.toFixed(2)} sq ft with 10% waste)`);
+  };
+
+  // Delete last standalone paver
+  const deleteLastStandalonePaver = () => {
+    if (!fabricCanvas || standalonePaversRef.current.length === 0) return;
+    
+    const lastPaver = standalonePaversRef.current[standalonePaversRef.current.length - 1];
+    
+    // Remove fabric objects
+    const objects = fabricCanvas.getObjects();
+    objects.forEach(obj => {
+      if ((obj as any).shapeId === lastPaver.id) {
+        fabricCanvas.remove(obj);
+      }
+    });
+    
+    setStandalonePavers(prev => prev.slice(0, -1));
+    standalonePaversRef.current = standalonePaversRef.current.slice(0, -1);
+    
+    fabricCanvas.renderAll();
+    toast.success('Paver zone deleted');
+  };
+
   // Delete last measurement
   const deleteLastMeasurement = () => {
     if (!fabricCanvas || measurementLinesRef.current.length === 0) return;
@@ -3105,6 +3335,8 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     poolShapesRef.current = [];
     setMeasurementLines([]);
     measurementLinesRef.current = [];
+    setStandalonePavers([]);
+    standalonePaversRef.current = [];
     setCurrentPoints([]);
     currentPointsRef.current = [];
     setDrawnLines([]);
@@ -3436,6 +3668,98 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
           </div>
         )}
 
+        {/* Standalone Paver Section */}
+        <div className="flex items-center gap-2 border-r pr-3">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" variant={drawingMode === 'paver' ? 'default' : 'outline'} className="gap-1">
+                <Grid3X3 className="h-4 w-4" />
+                Add Pavers
+                <ChevronDown className="h-3 w-3" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-56 bg-white z-50">
+              <DropdownMenuItem onClick={() => startDrawingMode('paver')}>
+                <Pencil className="h-4 w-4 mr-2" />
+                Trace Paver Zone
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setShowStandalonePaverInput(true)}>
+                <Ruler className="h-4 w-4 mr-2" />
+                Enter Measurements (Rectangle)
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          
+          {showStandalonePaverInput && (
+            <div className="flex items-center gap-2 bg-stone-100 p-2 rounded border border-stone-300">
+              <div className="flex items-center gap-1">
+                <Label className="text-xs">Name:</Label>
+                <Input
+                  type="text"
+                  value={standalonePaverName}
+                  onChange={(e) => setStandalonePaverName(e.target.value)}
+                  className="w-20 h-7 text-xs"
+                  placeholder="Paver Zone"
+                />
+              </div>
+              <div className="flex items-center gap-1">
+                <Label className="text-xs">W:</Label>
+                <Input
+                  type="number"
+                  value={standalonePaverWidthFeet}
+                  onChange={(e) => setStandalonePaverWidthFeet(e.target.value)}
+                  className="w-10 h-7 text-xs"
+                  placeholder="10"
+                />
+                <span className="text-[10px]">'</span>
+                <Input
+                  type="number"
+                  value={standalonePaverWidthInches}
+                  onChange={(e) => setStandalonePaverWidthInches(e.target.value)}
+                  className="w-10 h-7 text-xs"
+                  placeholder="0"
+                />
+                <span className="text-[10px]">"</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <Label className="text-xs">L:</Label>
+                <Input
+                  type="number"
+                  value={standalonePaverLengthFeet}
+                  onChange={(e) => setStandalonePaverLengthFeet(e.target.value)}
+                  className="w-10 h-7 text-xs"
+                  placeholder="10"
+                />
+                <span className="text-[10px]">'</span>
+                <Input
+                  type="number"
+                  value={standalonePaverLengthInches}
+                  onChange={(e) => setStandalonePaverLengthInches(e.target.value)}
+                  className="w-10 h-7 text-xs"
+                  placeholder="0"
+                />
+                <span className="text-[10px]">"</span>
+              </div>
+              <Button size="sm" className="h-7 text-xs bg-stone-600 hover:bg-stone-700" onClick={addRectangularPaver}>
+                Add
+              </Button>
+              <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setShowStandalonePaverInput(false)}>
+                ✕
+              </Button>
+            </div>
+          )}
+          
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={deleteLastStandalonePaver}
+            disabled={standalonePavers.length === 0}
+            title="Delete Last Paver Zone"
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+
         {/* Measurement Section */}
         <div className="flex items-center gap-2 border-r pr-3">
           <DropdownMenu>
@@ -3602,13 +3926,14 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         <span>Property: {propertyShape ? '✓ Drawn' : '○ Not drawn'}</span>
         <span>Houses: {houseShapes.length}</span>
         <span className="text-sky-600">Pools: {poolShapes.length}</span>
+        <span className="text-stone-600">Paver Zones: {standalonePavers.length}</span>
         <span className="text-red-600">Measurements: {measurementLines.length}</span>
         <span>Unit: {unit === 'ft' ? 'Feet' : 'Meters'}</span>
         {shiftPressed && <span className="text-primary font-medium">⇧ Angle Snap Active</span>}
         {spacePressed && <span className="text-primary font-medium">Pan Mode</span>}
         {drawingMode !== 'none' && (
           <span className="ml-auto font-medium text-primary">
-            Mode: {drawingMode === 'property' ? 'Drawing Property' : drawingMode === 'house' ? 'Drawing House' : drawingMode === 'pool' ? 'Drawing Pool' : drawingMode === 'move-house' ? 'Moving House' : drawingMode === 'move-pool' ? 'Moving Pool' : drawingMode === 'rotate-pool' ? 'Rotating Pool' : drawingMode === 'measure-draw' ? 'Drawing Measurement' : drawingMode}
+            Mode: {drawingMode === 'property' ? 'Drawing Property' : drawingMode === 'house' ? 'Drawing House' : drawingMode === 'pool' ? 'Drawing Pool' : drawingMode === 'paver' ? 'Drawing Paver Zone' : drawingMode === 'move-house' ? 'Moving House' : drawingMode === 'move-pool' ? 'Moving Pool' : drawingMode === 'rotate-pool' ? 'Rotating Pool' : drawingMode === 'measure-draw' ? 'Drawing Measurement' : drawingMode}
             {currentPoints.length > 0 && ` (${currentPoints.length} points)`}
             {drawingMode === 'measure-draw' && measurementStartPoint && ' (click second point)'}
           </span>
@@ -3618,10 +3943,11 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       {/* Main content area with calculations on left and canvas on right */}
       <div className="flex-1 flex overflow-hidden">
         {/* Pool Calculations Panel - Left Side */}
-        {poolCalculations.length > 0 && (
+        {(poolCalculations.length > 0 || standalonePavers.length > 0) && (
           <div className="w-64 bg-white border-r p-3 overflow-y-auto">
             <h3 className="font-semibold text-sm text-slate-800 mb-3">Calculations</h3>
             <div className="flex flex-col gap-3">
+              {/* Pool Calculations */}
               {poolCalculations.map((calc) => (
                 <div key={calc.poolId} className={`flex flex-col gap-1 p-2 rounded border text-xs ${editingPoolId === calc.poolId ? 'bg-amber-50 border-amber-300' : 'bg-slate-50'}`}>
                   <div className="flex justify-between items-center">
@@ -3653,6 +3979,27 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
                   )}
                 </div>
               ))}
+              
+              {/* Standalone Paver Calculations */}
+              {standalonePavers.length > 0 && (
+                <>
+                  {poolCalculations.length > 0 && <div className="border-t pt-2 mt-1" />}
+                  <div className="text-xs font-medium text-stone-600 mb-1">Paver Zones</div>
+                  {standalonePavers.map((paver) => (
+                    <div key={paver.id} className="flex flex-col gap-1 p-2 rounded border text-xs bg-stone-50 border-stone-200">
+                      <span className="font-semibold text-sm text-stone-800">{paver.name}</span>
+                      <div className="flex justify-between">
+                        <span className="text-stone-600">Area (Net):</span>
+                        <span className="font-medium">{paver.areaSqFt} sq ft</span>
+                      </div>
+                      <div className="flex justify-between border-t pt-1 mt-1">
+                        <span className="text-stone-700 font-medium">With 10% Waste:</span>
+                        <span className="font-bold text-stone-700">{paver.areaWithWasteSqFt} sq ft</span>
+                      </div>
+                    </div>
+                  ))}
+                </>
+              )}
             </div>
           </div>
         )}
