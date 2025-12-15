@@ -448,35 +448,22 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     };
   }, [fabricCanvas]);
 
-  // Scale all text labels based on zoom level for readability
-  const scaleLabelsForZoom = useCallback((canvas: FabricCanvas, zoom: number) => {
-    // Base font sizes at zoom level 1
-    const baseFontSizes: { [key: string]: number } = {
-      isEdgeLabel: 6,
-      isPoolLabel: 9,
-      isPoolEdgeLabel: 5,
-      isHouseLabel: 10,
-      isStandalonePaverLabel: 6,
-      isMeasurementLabel: 7,
-    };
-    
-    // Calculate scale factor - labels should grow when zooming out, shrink when zooming in
-    // This keeps labels visually consistent on screen
-    const scaleFactor = 1 / zoom;
-    
+  // Helper function to ensure background image is always at the very back
+  const sendBackgroundToBack = useCallback((canvas: FabricCanvas) => {
+    if (backgroundImageRef.current) {
+      canvas.sendObjectToBack(backgroundImageRef.current);
+    }
+    // Then send grid behind it
     const objects = canvas.getObjects();
     objects.forEach(obj => {
-      if (obj.type === 'text') {
-        const textObj = obj as Text;
-        for (const [key, baseSize] of Object.entries(baseFontSizes)) {
-          if ((obj as any)[key]) {
-            textObj.set('fontSize', baseSize * scaleFactor);
-            break;
-          }
-        }
+      if ((obj as any).isGrid) {
+        canvas.sendObjectToBack(obj);
       }
     });
-    canvas.renderAll();
+    // Now send background image to the very back again
+    if (backgroundImageRef.current) {
+      canvas.sendObjectToBack(backgroundImageRef.current);
+    }
   }, []);
 
   // Mouse wheel zoom
@@ -500,9 +487,6 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       fabricCanvas.zoomToPoint(new Point(pointer.x, pointer.y), newZoom);
       
       setZoomLevel(newZoom);
-      
-      // Scale labels for readability
-      scaleLabelsForZoom(fabricCanvas, newZoom);
     };
 
     fabricCanvas.on('mouse:wheel', handleWheel);
@@ -510,7 +494,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     return () => {
       fabricCanvas.off('mouse:wheel', handleWheel);
     };
-  }, [fabricCanvas, scaleLabelsForZoom]);
+  }, [fabricCanvas]);
 
   // Initialize canvas
   // Function to add an independent, rotatable north indicator
@@ -716,18 +700,12 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       (img as any).isBackgroundImage = true;
       
       fabricCanvas.add(img);
-      fabricCanvas.sendObjectToBack(img);
-      
-      // Move grid behind the image
-      const objects = fabricCanvas.getObjects();
-      objects.forEach(obj => {
-        if ((obj as any).isGrid) {
-          fabricCanvas.sendObjectToBack(obj);
-        }
-      });
       
       setBackgroundImage(img);
       backgroundImageRef.current = img;
+      
+      // Ensure background image is at the very back
+      sendBackgroundToBack(fabricCanvas);
       
       fabricCanvas.renderAll();
       toast.success('Background image loaded. You can drag, scale, and rotate it to trace over.');
@@ -1135,14 +1113,9 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       });
       (polygon as any).shapeType = 'property';
       fabricCanvas.add(polygon);
-      fabricCanvas.sendObjectToBack(polygon);
       
-      // Move grid to back
-      objects.forEach(obj => {
-        if ((obj as any).isGrid) {
-          fabricCanvas.sendObjectToBack(obj);
-        }
-      });
+      // Ensure background image and grid are at the very back
+      sendBackgroundToBack(fabricCanvas);
       
       // Add new vertex markers
       newPoints.forEach((p, index) => {
@@ -1601,15 +1574,9 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     (polygon as any).shapeType = 'property';
     
     fabricCanvas.add(polygon);
-    fabricCanvas.sendObjectToBack(polygon);
     
-    // Move grid to back
-    const objects = fabricCanvas.getObjects();
-    objects.forEach(obj => {
-      if ((obj as any).isGrid) {
-        fabricCanvas.sendObjectToBack(obj);
-      }
-    });
+    // Ensure background image and grid are at the very back
+    sendBackgroundToBack(fabricCanvas);
     
     // Add vertex markers
     points.forEach((p, index) => {
@@ -1688,8 +1655,8 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     }
   };
 
-  // Add pool name label inside with 5% padding and auto-sizing text
-  const addPoolNameLabel = (canvas: FabricCanvas, points: { x: number; y: number }[], shapeId: string, name: string, rotationAngle: number = 0) => {
+  // Add pool name label inside with 5% padding and auto-sizing text, aligned with the pool's length axis
+  const addPoolNameLabel = (canvas: FabricCanvas, points: { x: number; y: number }[], shapeId: string, name: string, rotationAngle: number = 0, poolWidthFeet?: number, poolLengthFeet?: number) => {
     const minX = Math.min(...points.map(p => p.x));
     const maxX = Math.max(...points.map(p => p.x));
     const minY = Math.min(...points.map(p => p.y));
@@ -1698,9 +1665,20 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     const width = maxX - minX;
     const height = maxY - minY;
     
-    // Calculate available space with 5% padding on each side
-    const availableWidth = width * 0.9;
-    const availableHeight = height * 0.9;
+    // Determine if we need to add 90 degrees to align with length
+    // If pool length > width, the text should be along the length (longer axis)
+    // The pool is initially oriented with width horizontal and length vertical
+    // So if length > width, we need to add 90 degrees to align text with the length
+    let extraRotation = 0;
+    if (poolLengthFeet && poolWidthFeet && poolLengthFeet > poolWidthFeet) {
+      extraRotation = 90;
+    }
+    
+    // Calculate available space - use the longer dimension for text
+    const longerDim = Math.max(width, height);
+    const shorterDim = Math.min(width, height);
+    const availableWidth = longerDim * 0.9;
+    const availableHeight = shorterDim * 0.9;
     
     // Start with a base font size and scale down to fit
     let fontSize = Math.min(availableHeight * 0.25, 9); // Max 9px or 25% of height
@@ -1718,7 +1696,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     const centerX = points.reduce((sum, p) => sum + p.x, 0) / points.length;
     const centerY = points.reduce((sum, p) => sum + p.y, 0) / points.length;
     
-    const rotationDegrees = (rotationAngle * 180) / Math.PI;
+    const rotationDegrees = (rotationAngle * 180) / Math.PI + extraRotation;
     
     const nameLabel = new Text(name, {
       left: centerX,
@@ -1920,7 +1898,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     // Re-add pool name labels and edge labels (only for custom pools)
     poolShapesRef.current.forEach(pool => {
       const rotationAngle = poolRotationsRef.current[pool.id] || 0;
-      addPoolNameLabel(fabricCanvas, pool.points, pool.id, pool.name || 'Custom Pool', rotationAngle);
+      addPoolNameLabel(fabricCanvas, pool.points, pool.id, pool.name || 'Custom Pool', rotationAngle, pool.widthFeet, pool.lengthFeet);
       if (!pool.isPreset) {
         addPoolEdgeLabels(fabricCanvas, pool.points, pool.id);
       }
@@ -2755,17 +2733,15 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       (paverRect as any).isPaverZone = true;
       fabricCanvas.add(paverRect);
       
-      // Move grid and property to back, keep pavers above them
+      // Ensure background and grid are at the very back
+      sendBackgroundToBack(fabricCanvas);
+      
+      // Keep property visible above grid
       const allObjects = fabricCanvas.getObjects();
       allObjects.forEach(obj => {
-        if ((obj as any).isGrid) {
-          fabricCanvas.sendObjectToBack(obj);
-        }
-      });
-      allObjects.forEach(obj => {
         if ((obj as any).shapeType === 'property') {
-          // Keep property visible above grid
           fabricCanvas.sendObjectToBack(obj);
+          fabricCanvas.bringObjectForward(obj);
           fabricCanvas.bringObjectForward(obj);
         }
       });
@@ -2832,18 +2808,13 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     }
     
     // Add pool name label with rotation and edge measurements (only for custom pools)
-    addPoolNameLabel(fabricCanvas, newPoints, pool.id, pool.name || 'Custom Pool', rotationAngle);
+    addPoolNameLabel(fabricCanvas, newPoints, pool.id, pool.name || 'Custom Pool', rotationAngle, pool.widthFeet, pool.lengthFeet);
     if (!pool.isPreset) {
       addPoolEdgeLabels(fabricCanvas, newPoints, pool.id);
     }
     
-    // Move grid to back
-    const allObjects = fabricCanvas.getObjects();
-    allObjects.forEach(obj => {
-      if ((obj as any).isGrid) {
-        fabricCanvas.sendObjectToBack(obj);
-      }
-    });
+    // Ensure background image and grid are at the very back
+    sendBackgroundToBack(fabricCanvas);
     
     // Update state
     const updatedPool: DrawnShape = {
@@ -3083,18 +3054,15 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     (paverRect as any).isPaverZone = true;
     fabricCanvas.add(paverRect);
     
-    // Move grid to back first, then property above it
+    // Ensure background and grid are at the very back
+    sendBackgroundToBack(fabricCanvas);
+    
+    // Keep property visible above grid
     const allObjs = fabricCanvas.getObjects();
     allObjs.forEach(obj => {
-      if ((obj as any).isGrid) {
-        fabricCanvas.sendObjectToBack(obj);
-      }
-    });
-    // Move property above grid (after grid is at back)
-    allObjs.forEach(obj => {
       if ((obj as any).shapeType === 'property') {
-        // Keep property visible above grid
         fabricCanvas.sendObjectToBack(obj);
+        fabricCanvas.bringObjectForward(obj);
         fabricCanvas.bringObjectForward(obj);
       }
     });
@@ -3169,25 +3137,22 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     addPaverDimensionLabels(fabricCanvas, shapeId, poolCenterX, poolCenterY, totalOuterWidth, totalOuterHeight, paverDims, offsetX, offsetY, 0);
     
     // Add pool name label
-    addPoolNameLabel(fabricCanvas, points, shapeId, name);
+    addPoolNameLabel(fabricCanvas, points, shapeId, name, 0, widthFeet, lengthFeet);
     
     // Only add edge measurements for custom pools, not presets
     if (!isPreset) {
       addPoolEdgeLabels(fabricCanvas, points, shapeId);
     }
     
-    // Proper z-ordering: grid at bottom, then property, then pools
+    // Ensure background image and grid are at the very back
+    sendBackgroundToBack(fabricCanvas);
+    
+    // Ensure property stays above grid but below pool elements
     const objects = fabricCanvas.getObjects();
     objects.forEach(obj => {
-      if ((obj as any).isGrid) {
-        fabricCanvas.sendObjectToBack(obj);
-      }
-    });
-    // Ensure property stays above grid
-    objects.forEach(obj => {
       if ((obj as any).shapeType === 'property') {
-        // Keep property visible above grid
         fabricCanvas.sendObjectToBack(obj);
+        fabricCanvas.bringObjectForward(obj);
         fabricCanvas.bringObjectForward(obj);
       }
     });
@@ -3523,7 +3488,6 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     const newZoom = Math.min(zoomLevel + 0.25, 3);
     setZoomLevel(newZoom);
     fabricCanvas.setZoom(newZoom);
-    scaleLabelsForZoom(fabricCanvas, newZoom);
   };
 
   const zoomOut = () => {
@@ -3531,7 +3495,6 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     const newZoom = Math.max(zoomLevel - 0.25, 0.5);
     setZoomLevel(newZoom);
     fabricCanvas.setZoom(newZoom);
-    scaleLabelsForZoom(fabricCanvas, newZoom);
   };
 
   const resetView = () => {
@@ -3539,7 +3502,6 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     setZoomLevel(1);
     fabricCanvas.setZoom(1);
     fabricCanvas.setViewportTransform([1, 0, 0, 1, 0, 0]);
-    scaleLabelsForZoom(fabricCanvas, 1);
   };
 
   // Undo last action
