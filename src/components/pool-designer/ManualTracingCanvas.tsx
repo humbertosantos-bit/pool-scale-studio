@@ -1854,13 +1854,15 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     const copingSizePixels = (copingSizeInFeet / METERS_TO_FEET) * PIXELS_PER_METER;
     
     // Calculate paver dimensions in pixels
+    // NOTE: Paver input includes coping, so total outer = pool + paver input (not pool + coping + pavers)
     const paverTopPixels = (paverDims.top / METERS_TO_FEET) * PIXELS_PER_METER;
     const paverBottomPixels = (paverDims.bottom / METERS_TO_FEET) * PIXELS_PER_METER;
     const paverLeftPixels = (paverDims.left / METERS_TO_FEET) * PIXELS_PER_METER;
     const paverRightPixels = (paverDims.right / METERS_TO_FEET) * PIXELS_PER_METER;
     
-    const totalOuterWidth = poolWidth + copingSizePixels * 2 + paverLeftPixels + paverRightPixels;
-    const totalOuterHeight = poolHeight + copingSizePixels * 2 + paverTopPixels + paverBottomPixels;
+    // Total outer dimension = pool + paver input on each side (paver input includes coping)
+    const totalOuterWidth = poolWidth + paverLeftPixels + paverRightPixels;
+    const totalOuterHeight = poolHeight + paverTopPixels + paverBottomPixels;
     
     // Offset center based on asymmetric paver sizes (rotated)
     const baseOffsetX = (paverLeftPixels - paverRightPixels) / 2;
@@ -2164,13 +2166,15 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     const poolCenterY = (minY + maxY) / 2;
     
     // Create paver zone rectangle (outermost) - light gray
+    // NOTE: Paver input includes coping, so total outer = pool + paver input (not pool + coping + pavers)
     const paverTopPixels = (paverDims.top / METERS_TO_FEET) * PIXELS_PER_METER;
     const paverBottomPixels = (paverDims.bottom / METERS_TO_FEET) * PIXELS_PER_METER;
     const paverLeftPixels = (paverDims.left / METERS_TO_FEET) * PIXELS_PER_METER;
     const paverRightPixels = (paverDims.right / METERS_TO_FEET) * PIXELS_PER_METER;
     
-    const totalOuterWidth = poolWidth + copingSizePixels * 2 + paverLeftPixels + paverRightPixels;
-    const totalOuterHeight = poolHeight + copingSizePixels * 2 + paverTopPixels + paverBottomPixels;
+    // Total outer dimension = pool + paver input on each side (paver input includes coping)
+    const totalOuterWidth = poolWidth + paverLeftPixels + paverRightPixels;
+    const totalOuterHeight = poolHeight + paverTopPixels + paverBottomPixels;
     
     // Offset center based on asymmetric paver sizes
     const offsetX = (paverLeftPixels - paverRightPixels) / 2;
@@ -2393,6 +2397,8 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
   };
   
   // Update pool calculations
+  // NOTE: Paver input values INCLUDE coping. So if user enters 4 ft, it means 12" coping + 3 ft net pavers.
+  // The visual shows the full input (4 ft), but calculation deducts coping to get net pavers.
   const updatePoolCalculations = (pools: DrawnShape[]) => {
     const calculations: PoolCalculation[] = pools.filter(p => p.type === 'pool').map(pool => {
       const widthFeet = pool.widthFeet || 0;
@@ -2410,10 +2416,19 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       const copingOuterArea = copingOuterWidth * copingOuterLength;
       const copingSqFt = copingOuterArea - poolArea;
       
-      // Paver area = total outer area - coping outer area
-      const totalOuterWidth = copingOuterWidth + paverDims.left + paverDims.right;
-      const totalOuterLength = copingOuterLength + paverDims.top + paverDims.bottom;
+      // Net paver dimensions = input - coping (since input includes coping)
+      const netPaverTop = Math.max(0, paverDims.top - copingSizeInFeet);
+      const netPaverBottom = Math.max(0, paverDims.bottom - copingSizeInFeet);
+      const netPaverLeft = Math.max(0, paverDims.left - copingSizeInFeet);
+      const netPaverRight = Math.max(0, paverDims.right - copingSizeInFeet);
+      
+      // Calculate net paver area (the actual paver zone minus the coping)
+      // Total outer = pool + full paver input on each side
+      const totalOuterWidth = widthFeet + paverDims.left + paverDims.right;
+      const totalOuterLength = lengthFeet + paverDims.top + paverDims.bottom;
       const totalOuterArea = totalOuterWidth * totalOuterLength;
+      
+      // Net paver area = total outer area - coping outer area
       const paverNetSqFt = totalOuterArea - copingOuterArea;
       
       // Apply mandatory 10% waste factor
@@ -2423,8 +2438,8 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         poolId: pool.id,
         poolName: pool.name || 'Pool',
         copingSqFt: parseFloat(copingSqFt.toFixed(2)),
-        paverNetSqFt: parseFloat(paverNetSqFt.toFixed(2)),
-        paverWithWasteSqFt: parseFloat(paverWithWasteSqFt.toFixed(2)),
+        paverNetSqFt: parseFloat(Math.max(0, paverNetSqFt).toFixed(2)),
+        paverWithWasteSqFt: parseFloat(Math.max(0, paverWithWasteSqFt).toFixed(2)),
       };
     });
     
