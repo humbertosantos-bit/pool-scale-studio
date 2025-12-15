@@ -12,14 +12,22 @@ import {
   DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu';
 import { toast } from 'sonner';
-import { Undo2, Redo2, Grid3X3, Magnet, RotateCcw, Move, Trash2, ZoomIn, ZoomOut, Eye, EyeOff, Maximize, Waves, ChevronDown, Plus, Pencil } from 'lucide-react';
+import { Undo2, Redo2, Grid3X3, Magnet, RotateCcw, Move, Trash2, ZoomIn, ZoomOut, Eye, EyeOff, Maximize, Waves, ChevronDown, Plus, Pencil, Ruler } from 'lucide-react';
 
 interface ManualTracingCanvasProps {
   onStateChange?: (state: any) => void;
 }
 
-type DrawingMode = 'none' | 'property' | 'house' | 'pool' | 'move-house' | 'move-pool' | 'rotate-pool';
+type DrawingMode = 'none' | 'property' | 'house' | 'pool' | 'move-house' | 'move-pool' | 'rotate-pool' | 'measure-draw';
 type UnitType = 'ft' | 'm';
+
+interface MeasurementLine {
+  id: string;
+  startPoint: { x: number; y: number };
+  endPoint: { x: number; y: number };
+  fabricGroup?: Group;
+  lengthPixels: number;
+}
 
 interface DrawnShape {
   id: string;
@@ -65,6 +73,20 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
   const [propertyShape, setPropertyShape] = useState<DrawnShape | null>(null);
   const [houseShapes, setHouseShapes] = useState<DrawnShape[]>([]);
   const [poolShapes, setPoolShapes] = useState<DrawnShape[]>([]);
+  
+  // Measurement lines state
+  const [measurementLines, setMeasurementLines] = useState<MeasurementLine[]>([]);
+  const measurementLinesRef = useRef<MeasurementLine[]>([]);
+  const [measurementStartPoint, setMeasurementStartPoint] = useState<{ x: number; y: number } | null>(null);
+  const measurementStartPointRef = useRef<{ x: number; y: number } | null>(null);
+  const [measurementPreviewLine, setMeasurementPreviewLine] = useState<Line | null>(null);
+  const measurementPreviewLineRef = useRef<Line | null>(null);
+  
+  // Custom measurement input
+  const [showMeasurementInput, setShowMeasurementInput] = useState(false);
+  const [measurementFeet, setMeasurementFeet] = useState<string>('4');
+  const [measurementInches, setMeasurementInches] = useState<string>('0');
+  const [measurementMeters, setMeasurementMeters] = useState<string>('1.2');
   
   // Custom pool dimensions input
   const [customPoolWidth, setCustomPoolWidth] = useState<string>('12');
@@ -1136,6 +1158,53 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         return;
       }
       
+      // Handle measurement drawing mode
+      if (drawingModeRef.current === 'measure-draw') {
+        const pointer = fabricCanvas.getScenePoint(e.e);
+        let snappedPoint = applySnapping({ x: pointer.x, y: pointer.y });
+        
+        if (!measurementStartPointRef.current) {
+          // First click - set start point
+          measurementStartPointRef.current = snappedPoint;
+          setMeasurementStartPoint(snappedPoint);
+          
+          // Add a temporary marker
+          const marker = new Circle({
+            left: snappedPoint.x,
+            top: snappedPoint.y,
+            radius: 4,
+            fill: '#dc2626',
+            stroke: '#ffffff',
+            strokeWidth: 2,
+            originX: 'center',
+            originY: 'center',
+            selectable: false,
+            evented: false,
+          });
+          (marker as any).isMeasurementTempMarker = true;
+          fabricCanvas.add(marker);
+          fabricCanvas.renderAll();
+        } else {
+          // Second click - complete the measurement
+          addMeasurementFromPoints(measurementStartPointRef.current, snappedPoint);
+          
+          // Clean up temp marker and preview line
+          const objects = fabricCanvas.getObjects();
+          objects.forEach(obj => {
+            if ((obj as any).isMeasurementTempMarker || (obj as any).isMeasurementPreviewLine) {
+              fabricCanvas.remove(obj);
+            }
+          });
+          
+          measurementStartPointRef.current = null;
+          setMeasurementStartPoint(null);
+          measurementPreviewLineRef.current = null;
+          setMeasurementPreviewLine(null);
+          fabricCanvas.renderAll();
+        }
+        return;
+      }
+      
       if (drawingModeRef.current === 'none' || drawingModeRef.current === 'move-house' || drawingModeRef.current === 'move-pool' || drawingModeRef.current === 'rotate-pool') return;
       
       const pointer = fabricCanvas.getScenePoint(e.e);
@@ -1224,6 +1293,41 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
           fabricCanvas.setViewportTransform(vpt);
           lastPanPoint.current = { x: pointer.x, y: pointer.y };
         }
+        return;
+      }
+      
+      // Handle measurement preview
+      if (drawingModeRef.current === 'measure-draw' && measurementStartPointRef.current) {
+        const pointer = fabricCanvas.getScenePoint(e.e);
+        let snappedPoint = applySnapping({ x: pointer.x, y: pointer.y });
+        
+        // Update or create preview line
+        if (measurementPreviewLineRef.current) {
+          measurementPreviewLineRef.current.set({
+            x2: snappedPoint.x,
+            y2: snappedPoint.y,
+          });
+        } else {
+          const line = new Line([
+            measurementStartPointRef.current.x, 
+            measurementStartPointRef.current.y, 
+            snappedPoint.x, 
+            snappedPoint.y
+          ], {
+            stroke: '#dc2626',
+            strokeWidth: 2,
+            strokeDashArray: [5, 3],
+            selectable: false,
+            evented: false,
+            opacity: 0.7,
+          });
+          (line as any).isMeasurementPreviewLine = true;
+          fabricCanvas.add(line);
+          measurementPreviewLineRef.current = line;
+          setMeasurementPreviewLine(line);
+        }
+        
+        fabricCanvas.renderAll();
         return;
       }
       
@@ -2115,14 +2219,233 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     }
   };
 
+  // Start measurement draw mode
+  const startMeasureDrawMode = () => {
+    if (!fabricCanvas) return;
+    
+    if (drawingMode === 'measure-draw') {
+      exitMode();
+      setMeasurementStartPoint(null);
+      measurementStartPointRef.current = null;
+      if (measurementPreviewLineRef.current) {
+        fabricCanvas.remove(measurementPreviewLineRef.current);
+        measurementPreviewLineRef.current = null;
+      }
+      toast.info('Exited measurement mode');
+      return;
+    }
+    
+    setDrawingMode('measure-draw');
+    drawingModeRef.current = 'measure-draw';
+    const cursor = createArrowCursor();
+    fabricCanvas.defaultCursor = cursor;
+    fabricCanvas.hoverCursor = cursor;
+    toast.info('Click to place the first point of your measurement, then click the second point.');
+  };
+
+  // Create measurement line group (with arrows and label)
+  const createMeasurementGroup = (
+    startPoint: { x: number; y: number },
+    endPoint: { x: number; y: number },
+    id: string
+  ): Group => {
+    const dx = endPoint.x - startPoint.x;
+    const dy = endPoint.y - startPoint.y;
+    const length = Math.sqrt(dx * dx + dy * dy);
+    const angle = Math.atan2(dy, dx);
+    
+    // Create the main line
+    const mainLine = new Line([startPoint.x, startPoint.y, endPoint.x, endPoint.y], {
+      stroke: '#dc2626',
+      strokeWidth: 2,
+      originX: 'center',
+      originY: 'center',
+    });
+    
+    // Create arrow heads
+    const arrowSize = 8;
+    const arrowAngle = Math.PI / 6;
+    
+    // Start arrow
+    const startArrow1 = new Line([
+      startPoint.x,
+      startPoint.y,
+      startPoint.x + arrowSize * Math.cos(angle - arrowAngle),
+      startPoint.y + arrowSize * Math.sin(angle - arrowAngle),
+    ], { stroke: '#dc2626', strokeWidth: 2 });
+    
+    const startArrow2 = new Line([
+      startPoint.x,
+      startPoint.y,
+      startPoint.x + arrowSize * Math.cos(angle + arrowAngle),
+      startPoint.y + arrowSize * Math.sin(angle + arrowAngle),
+    ], { stroke: '#dc2626', strokeWidth: 2 });
+    
+    // End arrow
+    const endArrow1 = new Line([
+      endPoint.x,
+      endPoint.y,
+      endPoint.x - arrowSize * Math.cos(angle - arrowAngle),
+      endPoint.y - arrowSize * Math.sin(angle - arrowAngle),
+    ], { stroke: '#dc2626', strokeWidth: 2 });
+    
+    const endArrow2 = new Line([
+      endPoint.x,
+      endPoint.y,
+      endPoint.x - arrowSize * Math.cos(angle + arrowAngle),
+      endPoint.y - arrowSize * Math.sin(angle + arrowAngle),
+    ], { stroke: '#dc2626', strokeWidth: 2 });
+    
+    // Create measurement label
+    const midX = (startPoint.x + endPoint.x) / 2;
+    const midY = (startPoint.y + endPoint.y) / 2;
+    const labelText = formatMeasurement(length);
+    
+    const label = new Text(labelText, {
+      left: midX,
+      top: midY - 14,
+      fontSize: 11,
+      fill: '#dc2626',
+      fontWeight: 'bold',
+      fontFamily: 'Poppins, sans-serif',
+      backgroundColor: 'rgba(255, 255, 255, 0.95)',
+      originX: 'center',
+      originY: 'center',
+    });
+    
+    // Group all elements
+    const group = new Group([mainLine, startArrow1, startArrow2, endArrow1, endArrow2, label], {
+      selectable: true,
+      evented: true,
+      hasControls: true,
+      hasBorders: true,
+      lockScalingX: true,
+      lockScalingY: true,
+    });
+    
+    // Only show rotation control
+    (group as any).setControlsVisibility?.({
+      mt: false,
+      mb: false,
+      ml: false,
+      mr: false,
+      bl: false,
+      br: false,
+      tl: false,
+      tr: false,
+      mtr: true,
+    });
+    
+    (group as any).isMeasurementLine = true;
+    (group as any).measurementId = id;
+    
+    return group;
+  };
+
+  // Add measurement line from drawn points
+  const addMeasurementFromPoints = (startPoint: { x: number; y: number }, endPoint: { x: number; y: number }) => {
+    if (!fabricCanvas) return;
+    
+    const id = `measurement-${Date.now()}`;
+    const dx = endPoint.x - startPoint.x;
+    const dy = endPoint.y - startPoint.y;
+    const lengthPixels = Math.sqrt(dx * dx + dy * dy);
+    
+    const group = createMeasurementGroup(startPoint, endPoint, id);
+    fabricCanvas.add(group);
+    fabricCanvas.bringObjectToFront(group);
+    
+    const measurement: MeasurementLine = {
+      id,
+      startPoint,
+      endPoint,
+      fabricGroup: group,
+      lengthPixels,
+    };
+    
+    setMeasurementLines(prev => [...prev, measurement]);
+    measurementLinesRef.current = [...measurementLinesRef.current, measurement];
+    
+    fabricCanvas.renderAll();
+    toast.success(`Measurement added: ${formatMeasurement(lengthPixels)}`);
+  };
+
+  // Add measurement from typed input
+  const addMeasurementFromInput = () => {
+    if (!fabricCanvas) return;
+    
+    let lengthInMeters: number;
+    
+    if (unit === 'ft') {
+      const feet = parseFloat(measurementFeet) || 0;
+      const inches = parseFloat(measurementInches) || 0;
+      const totalFeet = feet + inches / 12;
+      lengthInMeters = totalFeet / METERS_TO_FEET;
+    } else {
+      lengthInMeters = parseFloat(measurementMeters) || 0;
+    }
+    
+    if (lengthInMeters <= 0) {
+      toast.error('Please enter a valid measurement');
+      return;
+    }
+    
+    const lengthPixels = lengthInMeters * PIXELS_PER_METER;
+    
+    // Place in center of visible canvas
+    const vpt = fabricCanvas.viewportTransform || [1, 0, 0, 1, 0, 0];
+    const centerX = (fabricCanvas.width! / 2 - vpt[4]) / vpt[0];
+    const centerY = (fabricCanvas.height! / 2 - vpt[5]) / vpt[3];
+    
+    const startPoint = { x: centerX - lengthPixels / 2, y: centerY };
+    const endPoint = { x: centerX + lengthPixels / 2, y: centerY };
+    
+    const id = `measurement-${Date.now()}`;
+    const group = createMeasurementGroup(startPoint, endPoint, id);
+    fabricCanvas.add(group);
+    fabricCanvas.bringObjectToFront(group);
+    
+    const measurement: MeasurementLine = {
+      id,
+      startPoint,
+      endPoint,
+      fabricGroup: group,
+      lengthPixels,
+    };
+    
+    setMeasurementLines(prev => [...prev, measurement]);
+    measurementLinesRef.current = [...measurementLinesRef.current, measurement];
+    
+    setShowMeasurementInput(false);
+    fabricCanvas.renderAll();
+    toast.success(`Measurement added: ${formatMeasurement(lengthPixels)}`);
+  };
+
+  // Delete last measurement
+  const deleteLastMeasurement = () => {
+    if (!fabricCanvas || measurementLinesRef.current.length === 0) return;
+    
+    const lastMeasurement = measurementLinesRef.current[measurementLinesRef.current.length - 1];
+    
+    if (lastMeasurement.fabricGroup) {
+      fabricCanvas.remove(lastMeasurement.fabricGroup);
+    }
+    
+    setMeasurementLines(prev => prev.slice(0, -1));
+    measurementLinesRef.current = measurementLinesRef.current.slice(0, -1);
+    
+    fabricCanvas.renderAll();
+    toast.success('Measurement deleted');
+  };
+
   // Reset canvas
   const resetCanvas = () => {
     if (!fabricCanvas) return;
     
-    // Remove all non-grid objects
+    // Remove all non-grid and non-north-indicator objects
     const objects = fabricCanvas.getObjects();
     objects.forEach(obj => {
-      if (!(obj as any).isGrid) {
+      if (!(obj as any).isGrid && !(obj as any).isNorthIndicator) {
         fabricCanvas.remove(obj);
       }
     });
@@ -2133,6 +2456,8 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     houseShapesRef.current = [];
     setPoolShapes([]);
     poolShapesRef.current = [];
+    setMeasurementLines([]);
+    measurementLinesRef.current = [];
     setCurrentPoints([]);
     currentPointsRef.current = [];
     setDrawnLines([]);
@@ -2141,6 +2466,9 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     drawingModeRef.current = 'none';
     setUndoStack([]);
     setRedoStack([]);
+    
+    // Re-add north indicator
+    addNorthIndicator(fabricCanvas);
     
     fabricCanvas.defaultCursor = 'default';
     fabricCanvas.hoverCursor = 'move';
@@ -2284,6 +2612,86 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
           </Button>
         </div>
 
+        {/* Measurement Section */}
+        <div className="flex items-center gap-2 border-r pr-3">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" variant={drawingMode === 'measure-draw' ? 'default' : 'outline'} className="gap-1">
+                <Ruler className="h-4 w-4" />
+                Measure
+                <ChevronDown className="h-3 w-3" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-48 bg-white z-50">
+              <DropdownMenuItem onClick={startMeasureDrawMode}>
+                <Pencil className="h-4 w-4 mr-2" />
+                Draw Measurement
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setShowMeasurementInput(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Type Measurement
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          
+          {showMeasurementInput && (
+            <div className="flex items-center gap-2 bg-red-50 p-2 rounded border border-red-200">
+              {unit === 'ft' ? (
+                <>
+                  <div className="flex items-center gap-1">
+                    <Input
+                      type="number"
+                      value={measurementFeet}
+                      onChange={(e) => setMeasurementFeet(e.target.value)}
+                      className="w-12 h-7 text-xs"
+                      placeholder="4"
+                    />
+                    <span className="text-xs">ft</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Input
+                      type="number"
+                      value={measurementInches}
+                      onChange={(e) => setMeasurementInches(e.target.value)}
+                      className="w-12 h-7 text-xs"
+                      placeholder="0"
+                    />
+                    <span className="text-xs">in</span>
+                  </div>
+                </>
+              ) : (
+                <div className="flex items-center gap-1">
+                  <Input
+                    type="number"
+                    value={measurementMeters}
+                    onChange={(e) => setMeasurementMeters(e.target.value)}
+                    className="w-16 h-7 text-xs"
+                    placeholder="1.2"
+                    step="0.1"
+                  />
+                  <span className="text-xs">m</span>
+                </div>
+              )}
+              <Button size="sm" className="h-7 text-xs bg-red-600 hover:bg-red-700" onClick={addMeasurementFromInput}>
+                Add
+              </Button>
+              <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setShowMeasurementInput(false)}>
+                ✕
+              </Button>
+            </div>
+          )}
+          
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={deleteLastMeasurement}
+            disabled={measurementLines.length === 0}
+            title="Delete Last Measurement"
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+
         <div className="flex items-center gap-2 border-r pr-3">
           <Button size="sm" variant="ghost" onClick={zoomOut} title="Zoom Out">
             <ZoomOut className="h-4 w-4" />
@@ -2370,13 +2778,15 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         <span>Property: {propertyShape ? '✓ Drawn' : '○ Not drawn'}</span>
         <span>Houses: {houseShapes.length}</span>
         <span className="text-sky-600">Pools: {poolShapes.length}</span>
+        <span className="text-red-600">Measurements: {measurementLines.length}</span>
         <span>Unit: {unit === 'ft' ? 'Feet' : 'Meters'}</span>
         {shiftPressed && <span className="text-primary font-medium">⇧ Angle Snap Active</span>}
         {spacePressed && <span className="text-primary font-medium">Pan Mode</span>}
         {drawingMode !== 'none' && (
           <span className="ml-auto font-medium text-primary">
-            Mode: {drawingMode === 'property' ? 'Drawing Property' : drawingMode === 'house' ? 'Drawing House' : drawingMode === 'pool' ? 'Drawing Pool' : drawingMode === 'move-house' ? 'Moving House' : drawingMode === 'move-pool' ? 'Moving Pool' : 'Rotating Pool'}
+            Mode: {drawingMode === 'property' ? 'Drawing Property' : drawingMode === 'house' ? 'Drawing House' : drawingMode === 'pool' ? 'Drawing Pool' : drawingMode === 'move-house' ? 'Moving House' : drawingMode === 'move-pool' ? 'Moving Pool' : drawingMode === 'rotate-pool' ? 'Rotating Pool' : drawingMode === 'measure-draw' ? 'Drawing Measurement' : drawingMode}
             {currentPoints.length > 0 && ` (${currentPoints.length} points)`}
+            {drawingMode === 'measure-draw' && measurementStartPoint && ' (click second point)'}
           </span>
         )}
       </div>
