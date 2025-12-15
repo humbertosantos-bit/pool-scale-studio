@@ -1835,15 +1835,19 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     const paverDims = pool.paverDimensions || { top: 0, bottom: 0, left: 0, right: 0 };
     const poolCopingSize = pool.copingSize || 12;
     
-    // Calculate pool bounds
-    const minX = Math.min(...newPoints.map(p => p.x));
-    const maxX = Math.max(...newPoints.map(p => p.x));
-    const minY = Math.min(...newPoints.map(p => p.y));
-    const maxY = Math.max(...newPoints.map(p => p.y));
-    const poolWidth = maxX - minX;
-    const poolHeight = maxY - minY;
-    const poolCenterX = (minX + maxX) / 2;
-    const poolCenterY = (minY + maxY) / 2;
+    // Get the stored rotation angle for this pool
+    const rotationAngle = poolRotationsRef.current[pool.id] || 0;
+    const rotationDegrees = (rotationAngle * 180) / Math.PI;
+    
+    // Calculate pool center from points
+    const poolCenterX = newPoints.reduce((sum, p) => sum + p.x, 0) / newPoints.length;
+    const poolCenterY = newPoints.reduce((sum, p) => sum + p.y, 0) / newPoints.length;
+    
+    // Calculate original pool dimensions (before rotation)
+    const widthFeet = pool.widthFeet || 12;
+    const lengthFeet = pool.lengthFeet || 24;
+    const poolWidth = (widthFeet / METERS_TO_FEET) * PIXELS_PER_METER;
+    const poolHeight = (lengthFeet / METERS_TO_FEET) * PIXELS_PER_METER;
     
     // Calculate coping size in pixels
     const copingSizeInFeet = poolCopingSize / 12;
@@ -1858,16 +1862,22 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     const totalOuterWidth = poolWidth + copingSizePixels * 2 + paverLeftPixels + paverRightPixels;
     const totalOuterHeight = poolHeight + copingSizePixels * 2 + paverTopPixels + paverBottomPixels;
     
-    // Offset center based on asymmetric paver sizes
-    const offsetX = (paverLeftPixels - paverRightPixels) / 2;
-    const offsetY = (paverTopPixels - paverBottomPixels) / 2;
+    // Offset center based on asymmetric paver sizes (rotated)
+    const baseOffsetX = (paverLeftPixels - paverRightPixels) / 2;
+    const baseOffsetY = (paverTopPixels - paverBottomPixels) / 2;
+    
+    // Rotate the offset
+    const cos = Math.cos(rotationAngle);
+    const sin = Math.sin(rotationAngle);
+    const rotatedOffsetX = baseOffsetX * cos - baseOffsetY * sin;
+    const rotatedOffsetY = baseOffsetX * sin + baseOffsetY * cos;
     
     // Create paver zone rectangle (outermost) - light gray
     const hasPavers = paverDims.top > 0 || paverDims.bottom > 0 || paverDims.left > 0 || paverDims.right > 0;
     if (hasPavers) {
       const paverRect = new Rect({
-        left: poolCenterX - offsetX,
-        top: poolCenterY - offsetY,
+        left: poolCenterX - rotatedOffsetX,
+        top: poolCenterY - rotatedOffsetY,
         width: totalOuterWidth,
         height: totalOuterHeight,
         fill: '#d4d4d4',
@@ -1875,6 +1885,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         strokeWidth: 0.5,
         originX: 'center',
         originY: 'center',
+        angle: rotationDegrees,
         selectable: false,
         evented: false,
       });
@@ -1898,6 +1909,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       strokeWidth: 0.5,
       originX: 'center',
       originY: 'center',
+      angle: rotationDegrees,
       selectable: false,
       evented: false,
     });
@@ -1940,7 +1952,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     
     // Add paver dimension labels
     if (hasPavers) {
-      addPaverDimensionLabels(fabricCanvas, pool.id, poolCenterX, poolCenterY, totalOuterWidth, totalOuterHeight, paverDims, offsetX, offsetY);
+      addPaverDimensionLabels(fabricCanvas, pool.id, poolCenterX, poolCenterY, totalOuterWidth, totalOuterHeight, paverDims, baseOffsetX, baseOffsetY, rotationDegrees);
     }
     
     // Add pool name label and edge measurements
@@ -2243,8 +2255,8 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       fabricCanvas.add(marker);
     });
     
-    // Add paver dimension labels on each side
-    addPaverDimensionLabels(fabricCanvas, shapeId, poolCenterX, poolCenterY, totalOuterWidth, totalOuterHeight, paverDims, offsetX, offsetY);
+    // Add paver dimension labels on each side (no rotation for new pools)
+    addPaverDimensionLabels(fabricCanvas, shapeId, poolCenterX, poolCenterY, totalOuterWidth, totalOuterHeight, paverDims, offsetX, offsetY, 0);
     
     // Add pool name label and edge measurements
     addPoolNameLabel(fabricCanvas, points, shapeId, name);
@@ -2290,8 +2302,23 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     outerHeight: number,
     paverDims: PaverDimensions,
     offsetX: number,
-    offsetY: number
+    offsetY: number,
+    rotationDegrees: number = 0
   ) => {
+    const rotationRad = (rotationDegrees * Math.PI) / 180;
+    const cos = Math.cos(rotationRad);
+    const sin = Math.sin(rotationRad);
+    
+    // Helper to rotate a point around center
+    const rotatePoint = (x: number, y: number) => {
+      const dx = x - centerX;
+      const dy = y - centerY;
+      return {
+        x: centerX + dx * cos - dy * sin,
+        y: centerY + dx * sin + dy * cos,
+      };
+    };
+    
     const labelStyle = {
       fontSize: 9,
       fill: '#374151',
@@ -2301,14 +2328,18 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       originY: 'center' as const,
       selectable: false,
       evented: false,
+      angle: rotationDegrees,
     };
     
     // Top label
     if (paverDims.top > 0) {
+      const baseX = centerX - offsetX;
+      const baseY = centerY - offsetY - outerHeight / 2 + ((paverDims.top / METERS_TO_FEET) * PIXELS_PER_METER) / 2;
+      const rotated = rotatePoint(baseX, baseY);
       const topLabel = new Text(`${paverDims.top} ft`, {
         ...labelStyle,
-        left: centerX - offsetX,
-        top: centerY - offsetY - outerHeight / 2 + ((paverDims.top / METERS_TO_FEET) * PIXELS_PER_METER) / 2,
+        left: rotated.x,
+        top: rotated.y,
       });
       (topLabel as any).shapeId = shapeId;
       (topLabel as any).isPaverLabel = true;
@@ -2317,10 +2348,13 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     
     // Bottom label
     if (paverDims.bottom > 0) {
+      const baseX = centerX - offsetX;
+      const baseY = centerY - offsetY + outerHeight / 2 - ((paverDims.bottom / METERS_TO_FEET) * PIXELS_PER_METER) / 2;
+      const rotated = rotatePoint(baseX, baseY);
       const bottomLabel = new Text(`${paverDims.bottom} ft`, {
         ...labelStyle,
-        left: centerX - offsetX,
-        top: centerY - offsetY + outerHeight / 2 - ((paverDims.bottom / METERS_TO_FEET) * PIXELS_PER_METER) / 2,
+        left: rotated.x,
+        top: rotated.y,
       });
       (bottomLabel as any).shapeId = shapeId;
       (bottomLabel as any).isPaverLabel = true;
@@ -2329,10 +2363,13 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     
     // Left label
     if (paverDims.left > 0) {
+      const baseX = centerX - offsetX - outerWidth / 2 + ((paverDims.left / METERS_TO_FEET) * PIXELS_PER_METER) / 2;
+      const baseY = centerY - offsetY;
+      const rotated = rotatePoint(baseX, baseY);
       const leftLabel = new Text(`${paverDims.left} ft`, {
         ...labelStyle,
-        left: centerX - offsetX - outerWidth / 2 + ((paverDims.left / METERS_TO_FEET) * PIXELS_PER_METER) / 2,
-        top: centerY - offsetY,
+        left: rotated.x,
+        top: rotated.y,
       });
       (leftLabel as any).shapeId = shapeId;
       (leftLabel as any).isPaverLabel = true;
@@ -2341,10 +2378,13 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     
     // Right label
     if (paverDims.right > 0) {
+      const baseX = centerX - offsetX + outerWidth / 2 - ((paverDims.right / METERS_TO_FEET) * PIXELS_PER_METER) / 2;
+      const baseY = centerY - offsetY;
+      const rotated = rotatePoint(baseX, baseY);
       const rightLabel = new Text(`${paverDims.right} ft`, {
         ...labelStyle,
-        left: centerX - offsetX + outerWidth / 2 - ((paverDims.right / METERS_TO_FEET) * PIXELS_PER_METER) / 2,
-        top: centerY - offsetY,
+        left: rotated.x,
+        top: rotated.y,
       });
       (rightLabel as any).shapeId = shapeId;
       (rightLabel as any).isPaverLabel = true;
