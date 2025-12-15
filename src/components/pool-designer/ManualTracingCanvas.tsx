@@ -53,7 +53,7 @@ interface PoolCalculation {
   poolName: string;
   copingSqFt: number;
   paverNetSqFt: number;
-  paverWithWasteSqFt: number;
+  totalWithWasteSqFt: number;
 }
 
 interface PresetPool {
@@ -1698,6 +1698,23 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     fabricCanvas.on('mouse:down', handleVertexMouseDown);
     fabricCanvas.on('mouse:move', handleVertexMouseMove);
     fabricCanvas.on('mouse:up', handleVertexMouseUp);
+    
+    // Handle rotation snapping for measurements (45° when Shift is pressed)
+    const handleObjectRotating = (e: any) => {
+      if (!e.e) return;
+      const target = e.target;
+      if (!target || !(target as any).isMeasurementLine) return;
+      
+      if ((e.e as MouseEvent).shiftKey) {
+        const currentAngle = target.angle || 0;
+        // Snap to 45-degree increments
+        const snappedAngle = Math.round(currentAngle / 45) * 45;
+        target.set('angle', snappedAngle);
+        fabricCanvas.requestRenderAll();
+      }
+    };
+    
+    fabricCanvas.on('object:rotating', handleObjectRotating);
 
     return () => {
       fabricCanvas.off('mouse:down', handleMouseDown);
@@ -1715,6 +1732,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       fabricCanvas.off('mouse:down', handleVertexMouseDown);
       fabricCanvas.off('mouse:move', handleVertexMouseMove);
       fabricCanvas.off('mouse:up', handleVertexMouseUp);
+      fabricCanvas.off('object:rotating', handleObjectRotating);
     };
   }, [fabricCanvas, completeShape, gridSnapping, vertexSnapping, isDraggingHouse, selectedHouseIndex, isDraggingPool, selectedPoolIndex, isRotatingPool, isPanning]);
 
@@ -1894,7 +1912,16 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       (paverRect as any).shapeId = pool.id;
       (paverRect as any).isPaverZone = true;
       fabricCanvas.add(paverRect);
+      
+      // Position paver zone above property but below pool elements
+      // First send to back, then bring above property and grid
       fabricCanvas.sendObjectToBack(paverRect);
+      const objects = fabricCanvas.getObjects();
+      objects.forEach(obj => {
+        if ((obj as any).shapeType === 'property') {
+          fabricCanvas.bringObjectForward(paverRect);
+        }
+      });
     }
     
     // Create coping rectangle (around pool) - dark gray
@@ -2197,7 +2224,15 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     (paverRect as any).shapeId = shapeId;
     (paverRect as any).isPaverZone = true;
     fabricCanvas.add(paverRect);
+    
+    // Position paver zone above property but below pool elements
     fabricCanvas.sendObjectToBack(paverRect);
+    const paverObjects = fabricCanvas.getObjects();
+    paverObjects.forEach(obj => {
+      if ((obj as any).shapeType === 'property') {
+        fabricCanvas.bringObjectForward(paverRect);
+      }
+    });
     
     // Create coping rectangle (around pool) - dark gray
     const copingWidth = poolWidth + copingSizePixels * 2;
@@ -2431,15 +2466,16 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       // Net paver area = total outer area - coping outer area
       const paverNetSqFt = totalOuterArea - copingOuterArea;
       
-      // Apply mandatory 10% waste factor
-      const paverWithWasteSqFt = paverNetSqFt * 1.10;
+      // Total = coping (net) + paver area (net), then apply 10% waste
+      const combinedNet = copingSqFt + Math.max(0, paverNetSqFt);
+      const totalWithWasteSqFt = combinedNet * 1.10;
       
       return {
         poolId: pool.id,
         poolName: pool.name || 'Pool',
         copingSqFt: parseFloat(copingSqFt.toFixed(2)),
         paverNetSqFt: parseFloat(Math.max(0, paverNetSqFt).toFixed(2)),
-        paverWithWasteSqFt: parseFloat(Math.max(0, paverWithWasteSqFt).toFixed(2)),
+        totalWithWasteSqFt: parseFloat(totalWithWasteSqFt.toFixed(2)),
       };
     });
     
@@ -3377,8 +3413,8 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
                       <span className="font-medium">{calc.paverNetSqFt} sq ft</span>
                     </div>
                     <div className="flex justify-between border-t pt-1 mt-1">
-                      <span className="text-amber-700 font-medium">Paver + 10% Waste:</span>
-                      <span className="font-bold text-amber-700">{calc.paverWithWasteSqFt} sq ft</span>
+                      <span className="text-amber-700 font-medium">Total + 10% Waste:</span>
+                      <span className="font-bold text-amber-700">{calc.totalWithWasteSqFt} sq ft</span>
                     </div>
                   </>
                 )}

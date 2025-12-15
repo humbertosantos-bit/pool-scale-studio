@@ -6,7 +6,7 @@ interface PoolData {
   poolName: string;
   copingSqFt: number;
   paverNetSqFt: number;
-  paverWithWasteSqFt: number;
+  totalWithWasteSqFt: number;
 }
 
 interface FenceData {
@@ -56,22 +56,23 @@ export const PoolCalculations: React.FC<PoolCalculationsProps> = ({
                   
                   {/* Coping */}
                   <div className="bg-muted/50 p-2 rounded">
-                    <p className="text-xs font-medium text-muted-foreground">Coping Area</p>
-                    <p className="text-sm font-semibold">{pool.copingSqFt.toFixed(2)} sq ft</p>
+                    <p className="text-xs font-medium text-muted-foreground">Coping Area (Net)</p>
+                    <p className="text-sm">{pool.copingSqFt.toFixed(2)} sq ft</p>
                   </div>
                   
                   {/* Pavers */}
                   {pool.paverNetSqFt > 0 && (
-                    <div className="bg-muted/50 p-2 rounded space-y-1">
+                    <div className="bg-muted/50 p-2 rounded">
                       <p className="text-xs font-medium text-muted-foreground">Paver Area (Net)</p>
                       <p className="text-sm">{pool.paverNetSqFt.toFixed(2)} sq ft</p>
-                      
-                      <div className="border-t border-border/50 pt-1 mt-1">
-                        <p className="text-xs font-medium text-primary">Paver Area + 10% Waste</p>
-                        <p className="text-sm font-bold text-primary">{pool.paverWithWasteSqFt.toFixed(2)} sq ft</p>
-                      </div>
                     </div>
                   )}
+                  
+                  {/* Total with waste */}
+                  <div className="bg-primary/10 p-2 rounded">
+                    <p className="text-xs font-medium text-primary">Total (Coping + Pavers + 10% Waste)</p>
+                    <p className="text-sm font-bold text-primary">{pool.totalWithWasteSqFt.toFixed(2)} sq ft</p>
+                  </div>
                 </div>
               ))}
             </div>
