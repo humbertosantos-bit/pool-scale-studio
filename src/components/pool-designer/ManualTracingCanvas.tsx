@@ -1194,11 +1194,11 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       }
     });
     
-    // Create new polygon
+    // Create new polygon with hatch pattern
     const fabricPoints = newPoints.map(p => new Point(p.x, p.y));
     const polygon = new Polygon(fabricPoints, {
-      fill: 'rgba(59, 130, 246, 0.2)',
-      stroke: '#3b82f6',
+      fill: createHatchPattern(),
+      stroke: '#000000',
       strokeWidth: 2,
       selectable: false,
       evented: false,
@@ -1211,10 +1211,10 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       const marker = new Circle({
         left: p.x,
         top: p.y,
-        radius: 5,
-        fill: '#3b82f6',
+        radius: 1.5,
+        fill: '#000000',
         stroke: '#ffffff',
-        strokeWidth: 2,
+        strokeWidth: 1,
         originX: 'center',
         originY: 'center',
         selectable: false,
