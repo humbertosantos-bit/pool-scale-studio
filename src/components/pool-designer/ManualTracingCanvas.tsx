@@ -151,6 +151,37 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     };
   }, [fabricCanvas]);
 
+  // Mouse wheel zoom
+  useEffect(() => {
+    if (!fabricCanvas) return;
+
+    const handleWheel = (opt: any) => {
+      const e = opt.e as WheelEvent;
+      e.preventDefault();
+      e.stopPropagation();
+      
+      const delta = e.deltaY;
+      let newZoom = fabricCanvas.getZoom();
+      newZoom *= 0.999 ** delta;
+      
+      // Clamp zoom between 0.25 and 4
+      newZoom = Math.max(0.25, Math.min(4, newZoom));
+      
+      // Zoom to mouse pointer position
+      const pointer = fabricCanvas.getScenePoint(e);
+      fabricCanvas.zoomToPoint(new Point(pointer.x, pointer.y), newZoom);
+      
+      setZoomLevel(newZoom);
+      fabricCanvas.renderAll();
+    };
+
+    fabricCanvas.on('mouse:wheel', handleWheel);
+
+    return () => {
+      fabricCanvas.off('mouse:wheel', handleWheel);
+    };
+  }, [fabricCanvas]);
+
   // Initialize canvas
   useEffect(() => {
     if (!canvasRef.current || !containerRef.current) return;
