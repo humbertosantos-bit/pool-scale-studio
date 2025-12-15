@@ -52,6 +52,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
   
   // Pan state
   const [isPanning, setIsPanning] = useState(false);
+  const isPanningRef = useRef(false);
   const lastPanPoint = useRef<{ x: number; y: number } | null>(null);
   const [spacePressed, setSpacePressed] = useState(false);
   const spacePressedRef = useRef(false);
@@ -582,6 +583,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       // Handle panning with space key
       if (spacePressedRef.current) {
         setIsPanning(true);
+        isPanningRef.current = true;
         const pointer = fabricCanvas.getPointer(e.e, true);
         lastPanPoint.current = { x: pointer.x, y: pointer.y };
         fabricCanvas.defaultCursor = 'grabbing';
@@ -663,7 +665,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
 
     const handleMouseMove = (e: any) => {
       // Handle panning
-      if (isPanning && lastPanPoint.current) {
+      if (isPanningRef.current && lastPanPoint.current) {
         const pointer = fabricCanvas.getPointer(e.e, true);
         const vpt = fabricCanvas.viewportTransform;
         if (vpt) {
@@ -789,8 +791,9 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     };
 
     const handlePanMouseUp = () => {
-      if (isPanning) {
+      if (isPanningRef.current) {
         setIsPanning(false);
+        isPanningRef.current = false;
         lastPanPoint.current = null;
         if (spacePressedRef.current) {
           fabricCanvas.defaultCursor = 'grab';
