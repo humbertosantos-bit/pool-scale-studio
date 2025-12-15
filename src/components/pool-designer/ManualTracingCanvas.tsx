@@ -331,6 +331,64 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     });
   };
 
+  // Offset polygon outward by a given distance (for coping around drawn pools)
+  const offsetPolygon = (points: { x: number; y: number }[], offset: number): { x: number; y: number }[] => {
+    const n = points.length;
+    if (n < 3) return points;
+    
+    const result: { x: number; y: number }[] = [];
+    
+    for (let i = 0; i < n; i++) {
+      const prev = points[(i - 1 + n) % n];
+      const curr = points[i];
+      const next = points[(i + 1) % n];
+      
+      // Calculate edge vectors
+      const dx1 = curr.x - prev.x;
+      const dy1 = curr.y - prev.y;
+      const dx2 = next.x - curr.x;
+      const dy2 = next.y - curr.y;
+      
+      // Calculate edge lengths
+      const len1 = Math.sqrt(dx1 * dx1 + dy1 * dy1);
+      const len2 = Math.sqrt(dx2 * dx2 + dy2 * dy2);
+      
+      if (len1 === 0 || len2 === 0) {
+        result.push({ x: curr.x, y: curr.y });
+        continue;
+      }
+      
+      // Calculate outward normals (perpendicular to edges, pointing outward)
+      // For a clockwise polygon, outward is to the left of the edge direction
+      const nx1 = -dy1 / len1;
+      const ny1 = dx1 / len1;
+      const nx2 = -dy2 / len2;
+      const ny2 = dx2 / len2;
+      
+      // Average the normals for the corner
+      let nx = (nx1 + nx2) / 2;
+      let ny = (ny1 + ny2) / 2;
+      const nLen = Math.sqrt(nx * nx + ny * ny);
+      
+      if (nLen > 0) {
+        nx /= nLen;
+        ny /= nLen;
+      }
+      
+      // Calculate the offset amount at this vertex (account for corner angle)
+      const dot = nx1 * nx2 + ny1 * ny2;
+      const angleFactor = Math.max(1 / Math.cos(Math.acos(Math.min(1, Math.max(-1, dot))) / 2), 1);
+      const adjustedOffset = offset * Math.min(angleFactor, 2); // Cap to avoid extreme values
+      
+      result.push({
+        x: curr.x + nx * adjustedOffset,
+        y: curr.y + ny * adjustedOffset,
+      });
+    }
+    
+    return result;
+  };
+
   // Create arrow cursor
   const createArrowCursor = () => {
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20">
@@ -1303,6 +1361,26 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     } else if (mode === 'pool') {
       fill = createWaterGradient(points);
       stroke = '#000000'; // Black contour for pools
+      
+      // Add coping around the drawn pool (follows perimeter shape)
+      const currentScale = scalePixelsPerMeterRef.current;
+      const copingSizeInFeet = copingSize / 12;
+      const copingSizePixels = (copingSizeInFeet / METERS_TO_FEET) * currentScale;
+      
+      // Create offset polygon for coping (expand outward)
+      const copingPoints = offsetPolygon(points, copingSizePixels);
+      const copingFabricPoints = copingPoints.map(p => new Point(p.x, p.y));
+      const copingPolygon = new Polygon(copingFabricPoints, {
+        fill: '#525252', // Dark gray for coping
+        stroke: '#000000',
+        strokeWidth: 0.5,
+        selectable: false,
+        evented: false,
+      });
+      (copingPolygon as any).shapeId = shapeId;
+      (copingPolygon as any).isCoping = true;
+      fabricCanvas.add(copingPolygon);
+      
     } else if (mode === 'paver') {
       fill = '#d4d4d4'; // Light gray for standalone pavers
       stroke = '#78716c';
@@ -1317,7 +1395,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     const polygon = new Polygon(fabricPoints, {
       fill,
       stroke,
-      strokeWidth: 1,
+      strokeWidth: mode === 'pool' ? 0.5 : 1,
       strokeDashArray,
       selectable: false,
       evented: false,
@@ -1334,10 +1412,10 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       const marker = new Circle({
         left: p.x,
         top: p.y,
-        radius: mode === 'property' ? 3 : 2,
+        radius: mode === 'property' ? 3 : (mode === 'pool' ? 1 : 2),
         fill: markerColor,
         stroke: '#ffffff',
-        strokeWidth: mode === 'property' ? 2 : 1,
+        strokeWidth: mode === 'property' ? 2 : (mode === 'pool' ? 0.5 : 1),
         originX: 'center',
         originY: 'center',
         selectable: false,
@@ -3014,7 +3092,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     const polygon = new Polygon(fabricPoints, {
       fill: createWaterGradient(points),
       stroke: '#000000',
-      strokeWidth: 1,
+      strokeWidth: 0.5,
       selectable: false,
       evented: false,
     });
@@ -3027,10 +3105,10 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       const marker = new Circle({
         left: p.x,
         top: p.y,
-        radius: 2,
+        radius: 1,
         fill: '#000000',
         stroke: '#ffffff',
-        strokeWidth: 1,
+        strokeWidth: 0.5,
         originX: 'center',
         originY: 'center',
         selectable: false,
