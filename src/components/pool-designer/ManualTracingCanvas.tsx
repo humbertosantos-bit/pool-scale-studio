@@ -412,10 +412,10 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         fabricCanvas.remove(shape.fabricObject);
       }
       
-      // Remove old edge labels
+      // Remove old edge labels and vertex markers
       const objects = fabricCanvas.getObjects();
       objects.forEach(obj => {
-        if ((obj as any).shapeId === shape.id && (obj as any).isEdgeLabel) {
+        if ((obj as any).shapeId === shape.id && ((obj as any).isEdgeLabel || (obj as any).isVertexMarker)) {
           fabricCanvas.remove(obj);
         }
       });
@@ -439,6 +439,32 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         if ((obj as any).isGrid) {
           fabricCanvas.sendObjectToBack(obj);
         }
+      });
+      
+      // Add new vertex markers
+      newPoints.forEach((p, index) => {
+        const marker = new Circle({
+          left: p.x,
+          top: p.y,
+          radius: 6,
+          fill: '#22c55e',
+          stroke: '#ffffff',
+          strokeWidth: 2,
+          originX: 'center',
+          originY: 'center',
+          selectable: false,
+          evented: true,
+          hasControls: false,
+          hasBorders: false,
+          hoverCursor: 'pointer',
+        });
+        (marker as any).vertexIndex = index;
+        (marker as any).parentPolygon = polygon;
+        (marker as any).parentPoints = newPoints;
+        (marker as any).shapeType = 'property';
+        (marker as any).shapeId = shape.id;
+        (marker as any).isVertexMarker = true;
+        fabricCanvas.add(marker);
       });
       
       // Add new edge labels
@@ -470,10 +496,10 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         fabricCanvas.remove(house.fabricObject);
       }
       
-      // Remove old edge labels
+      // Remove old edge labels and vertex markers
       const objects = fabricCanvas.getObjects();
       objects.forEach(obj => {
-        if ((obj as any).shapeId === house.id && (obj as any).isEdgeLabel) {
+        if ((obj as any).shapeId === house.id && ((obj as any).isEdgeLabel || (obj as any).isVertexMarker)) {
           fabricCanvas.remove(obj);
         }
       });
@@ -489,6 +515,32 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       });
       (polygon as any).shapeType = 'house';
       fabricCanvas.add(polygon);
+      
+      // Add new vertex markers
+      newPoints.forEach((p, index) => {
+        const marker = new Circle({
+          left: p.x,
+          top: p.y,
+          radius: 6,
+          fill: '#3b82f6',
+          stroke: '#ffffff',
+          strokeWidth: 2,
+          originX: 'center',
+          originY: 'center',
+          selectable: false,
+          evented: true,
+          hasControls: false,
+          hasBorders: false,
+          hoverCursor: 'pointer',
+        });
+        (marker as any).vertexIndex = index;
+        (marker as any).parentPolygon = polygon;
+        (marker as any).parentPoints = newPoints;
+        (marker as any).shapeType = 'house';
+        (marker as any).shapeId = house.id;
+        (marker as any).isVertexMarker = true;
+        fabricCanvas.add(marker);
+      });
       
       // Add new edge labels
       addEdgeLengthLabels(fabricCanvas, newPoints, house.id);
