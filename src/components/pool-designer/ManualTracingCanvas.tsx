@@ -47,6 +47,17 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
   const dragStartRef = useRef<{ x: number; y: number } | null>(null);
   const originalHousePointsRef = useRef<{ x: number; y: number }[] | null>(null);
   
+  // Vertex dragging state
+  const [isDraggingVertex, setIsDraggingVertex] = useState(false);
+  const isDraggingVertexRef = useRef(false);
+  const draggingVertexRef = useRef<{
+    marker: Circle;
+    vertexIndex: number;
+    shapeType: 'property' | 'house';
+    shapeId: string;
+    startPoint: { x: number; y: number };
+  } | null>(null);
+  
   // Zoom state
   const [zoomLevel, setZoomLevel] = useState(1);
   
@@ -362,6 +373,140 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     return snapped;
   };
 
+  // Snap vertex drag to angles (0°, 45°, 90°) when Shift is held
+  const snapVertexToAngle = (point: { x: number; y: number }, startPoint: { x: number; y: number }): { x: number; y: number } => {
+    const dx = point.x - startPoint.x;
+    const dy = point.y - startPoint.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    
+    if (distance < 5) return point; // Don't snap for tiny movements
+    
+    const angle = Math.atan2(dy, dx);
+    // Snap to nearest 45° angle (0°, 45°, 90°, 135°, 180°, etc.)
+    const snapAngle = Math.round(angle / (Math.PI / 4)) * (Math.PI / 4);
+    
+    return {
+      x: startPoint.x + Math.cos(snapAngle) * distance,
+      y: startPoint.y + Math.sin(snapAngle) * distance,
+    };
+  };
+
+  // Update vertex position in a shape
+  const updateVertexPosition = (
+    shapeType: 'property' | 'house',
+    shapeId: string,
+    vertexIndex: number,
+    newPoint: { x: number; y: number }
+  ) => {
+    if (!fabricCanvas) return;
+    
+    if (shapeType === 'property' && propertyShapeRef.current) {
+      const shape = propertyShapeRef.current;
+      const newPoints = [...shape.points];
+      newPoints[vertexIndex] = newPoint;
+      
+      // Remove old polygon
+      if (shape.fabricObject) {
+        fabricCanvas.remove(shape.fabricObject);
+      }
+      
+      // Remove old edge labels
+      const objects = fabricCanvas.getObjects();
+      objects.forEach(obj => {
+        if ((obj as any).shapeId === shape.id && (obj as any).isEdgeLabel) {
+          fabricCanvas.remove(obj);
+        }
+      });
+      
+      // Create new polygon
+      const fabricPoints = newPoints.map(p => new Point(p.x, p.y));
+      const polygon = new Polygon(fabricPoints, {
+        fill: 'rgba(34, 197, 94, 0.1)',
+        stroke: '#22c55e',
+        strokeWidth: 2,
+        strokeDashArray: [8, 4],
+        selectable: false,
+        evented: false,
+      });
+      (polygon as any).shapeType = 'property';
+      fabricCanvas.add(polygon);
+      fabricCanvas.sendObjectToBack(polygon);
+      
+      // Move grid to back
+      objects.forEach(obj => {
+        if ((obj as any).isGrid) {
+          fabricCanvas.sendObjectToBack(obj);
+        }
+      });
+      
+      // Add new edge labels
+      addEdgeLengthLabels(fabricCanvas, newPoints, shape.id);
+      
+      // Update refs and state
+      const updatedShape: DrawnShape = {
+        ...shape,
+        points: newPoints,
+        fabricObject: polygon,
+      };
+      propertyShapeRef.current = updatedShape;
+      setPropertyShape(updatedShape);
+      
+    } else if (shapeType === 'house') {
+      const houseIndex = houseShapesRef.current.findIndex(h => h.id === shapeId);
+      if (houseIndex === -1) return;
+      
+      const house = houseShapesRef.current[houseIndex];
+      const newPoints = [...house.points];
+      newPoints[vertexIndex] = newPoint;
+      
+      // Check if all points are still inside property
+      const allInside = newPoints.every(p => isPointInsideProperty(p));
+      if (!allInside) return; // Don't allow moving outside property
+      
+      // Remove old polygon
+      if (house.fabricObject) {
+        fabricCanvas.remove(house.fabricObject);
+      }
+      
+      // Remove old edge labels
+      const objects = fabricCanvas.getObjects();
+      objects.forEach(obj => {
+        if ((obj as any).shapeId === house.id && (obj as any).isEdgeLabel) {
+          fabricCanvas.remove(obj);
+        }
+      });
+      
+      // Create new polygon
+      const fabricPoints = newPoints.map(p => new Point(p.x, p.y));
+      const polygon = new Polygon(fabricPoints, {
+        fill: 'rgba(59, 130, 246, 0.2)',
+        stroke: '#3b82f6',
+        strokeWidth: 2,
+        selectable: false,
+        evented: false,
+      });
+      (polygon as any).shapeType = 'house';
+      fabricCanvas.add(polygon);
+      
+      // Add new edge labels
+      addEdgeLengthLabels(fabricCanvas, newPoints, house.id);
+      
+      // Update state
+      const updatedHouse: DrawnShape = {
+        ...house,
+        points: newPoints,
+        fabricObject: polygon,
+      };
+      
+      houseShapesRef.current[houseIndex] = updatedHouse;
+      setHouseShapes(prev => {
+        const newShapes = [...prev];
+        newShapes[houseIndex] = updatedHouse;
+        return newShapes;
+      });
+    }
+  };
+
   // Check if point is close to first point (to close shape)
   const isCloseToFirstPoint = (point: { x: number; y: number }): boolean => {
     if (currentPointsRef.current.length < 3) return false;
@@ -489,20 +634,24 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       const marker = new Circle({
         left: p.x,
         top: p.y,
-        radius: 5,
+        radius: 6,
         fill: mode === 'property' ? '#22c55e' : '#3b82f6',
         stroke: '#ffffff',
         strokeWidth: 2,
         originX: 'center',
         originY: 'center',
-        selectable: true,
+        selectable: false,
+        evented: true,
         hasControls: false,
         hasBorders: false,
+        hoverCursor: 'pointer',
       });
       (marker as any).vertexIndex = index;
       (marker as any).parentPolygon = polygon;
       (marker as any).parentPoints = points;
       (marker as any).shapeType = mode;
+      (marker as any).shapeId = shapeId;
+      (marker as any).isVertexMarker = true;
       
       fabricCanvas.add(marker);
       newMarkers.push(marker);
@@ -834,12 +983,80 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       }
     };
 
+    // Vertex dragging handlers
+    const handleVertexMouseDown = (e: any) => {
+      if (drawingModeRef.current !== 'none' || spacePressedRef.current) return;
+      
+      const target = e.target;
+      if (!target || !(target as any).isVertexMarker) return;
+      
+      const vertexIndex = (target as any).vertexIndex;
+      const shapeType = (target as any).shapeType;
+      const shapeId = (target as any).shapeId;
+      
+      setIsDraggingVertex(true);
+      isDraggingVertexRef.current = true;
+      draggingVertexRef.current = {
+        marker: target as Circle,
+        vertexIndex,
+        shapeType,
+        shapeId,
+        startPoint: { x: target.left!, y: target.top! },
+      };
+      
+      fabricCanvas.defaultCursor = 'grabbing';
+    };
+
+    const handleVertexMouseMove = (e: any) => {
+      if (!isDraggingVertexRef.current || !draggingVertexRef.current) return;
+      
+      const pointer = fabricCanvas.getScenePoint(e.e);
+      let newPoint = { x: pointer.x, y: pointer.y };
+      
+      // Apply Shift-key angle snapping
+      if (shiftPressedRef.current) {
+        const startPoint = draggingVertexRef.current.startPoint;
+        newPoint = snapVertexToAngle(newPoint, startPoint);
+      }
+      
+      // Apply grid snapping
+      newPoint = snapToGrid(newPoint);
+      
+      // Update the marker position visually
+      draggingVertexRef.current.marker.set({
+        left: newPoint.x,
+        top: newPoint.y,
+      });
+      
+      // Update the shape
+      updateVertexPosition(
+        draggingVertexRef.current.shapeType,
+        draggingVertexRef.current.shapeId,
+        draggingVertexRef.current.vertexIndex,
+        newPoint
+      );
+      
+      fabricCanvas.renderAll();
+    };
+
+    const handleVertexMouseUp = () => {
+      if (isDraggingVertexRef.current) {
+        setIsDraggingVertex(false);
+        isDraggingVertexRef.current = false;
+        draggingVertexRef.current = null;
+        fabricCanvas.defaultCursor = 'default';
+      }
+    };
+
     fabricCanvas.on('mouse:down', handleMouseDown);
     fabricCanvas.on('mouse:move', handleMouseMove);
     fabricCanvas.on('mouse:down', handleHouseMouseDown);
     fabricCanvas.on('mouse:move', handleHouseMouseMove);
     fabricCanvas.on('mouse:up', handleHouseMouseUp);
     fabricCanvas.on('mouse:up', handlePanMouseUp);
+    fabricCanvas.on('mouse:down', handleVertexMouseDown);
+    fabricCanvas.on('mouse:move', handleVertexMouseMove);
+    fabricCanvas.on('mouse:up', handleVertexMouseUp);
 
     return () => {
       fabricCanvas.off('mouse:down', handleMouseDown);
@@ -848,6 +1065,9 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       fabricCanvas.off('mouse:move', handleHouseMouseMove);
       fabricCanvas.off('mouse:up', handleHouseMouseUp);
       fabricCanvas.off('mouse:up', handlePanMouseUp);
+      fabricCanvas.off('mouse:down', handleVertexMouseDown);
+      fabricCanvas.off('mouse:move', handleVertexMouseMove);
+      fabricCanvas.off('mouse:up', handleVertexMouseUp);
     };
   }, [fabricCanvas, completeShape, gridSnapping, vertexSnapping, isDraggingHouse, selectedHouseIndex, isPanning]);
 
