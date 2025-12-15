@@ -1160,6 +1160,14 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       
       // Handle measurement drawing mode
       if (drawingModeRef.current === 'measure-draw') {
+        // Check if user clicked on an existing measurement - if so, let Fabric handle it (move/rotate)
+        const target = e.target;
+        if (target && (target as any).isMeasurementLine) {
+          // User clicked on existing measurement - don't start new measurement
+          // Fabric.js will handle selection and movement automatically
+          return;
+        }
+        
         const pointer = fabricCanvas.getScenePoint(e.e);
         let snappedPoint = applySnapping({ x: pointer.x, y: pointer.y });
         
