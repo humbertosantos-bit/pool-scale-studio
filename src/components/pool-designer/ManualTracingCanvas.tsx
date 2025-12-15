@@ -768,14 +768,14 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       scaleRefPoint1Ref.current = pointer;
       setScaleRefPoint1(pointer);
       
-      // Add marker for first point
+      // Add marker for first point (smaller like property/house markers)
       const marker = new Circle({
         left: pointer.x,
         top: pointer.y,
-        radius: 6,
+        radius: 3,
         fill: '#22c55e',
         stroke: '#ffffff',
-        strokeWidth: 2,
+        strokeWidth: 1,
         originX: 'center',
         originY: 'center',
         selectable: false,
@@ -794,14 +794,14 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       const point1 = scaleRefPoint1Ref.current;
       const point2 = pointer;
       
-      // Add marker for second point
+      // Add marker for second point (smaller like property/house markers)
       const marker = new Circle({
         left: pointer.x,
         top: pointer.y,
-        radius: 6,
+        radius: 3,
         fill: '#22c55e',
         stroke: '#ffffff',
-        strokeWidth: 2,
+        strokeWidth: 1,
         originX: 'center',
         originY: 'center',
         selectable: false,
@@ -845,48 +845,12 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
           scalePixelsPerMeterRef.current = newPixelsPerMeter;
           setScaleReferenceSet(true);
           
-          // Create scale reference line with label
-          const midX = (point1.x + point2.x) / 2;
-          const midY = (point1.y + point2.y) / 2;
-          
-          const line = new Line([point1.x, point1.y, point2.x, point2.y], {
-            stroke: '#22c55e',
-            strokeWidth: 2,
-            strokeDashArray: [6, 3],
-            selectable: false,
-            evented: false,
-          });
-          
           const labelText = unit === 'ft' ? `${realDistance.toFixed(1)} ft` : `${realDistance.toFixed(2)} m`;
-          const label = new Text(labelText, {
-            left: midX,
-            top: midY - 16,
-            fontSize: 12,
-            fill: '#22c55e',
-            fontWeight: 'bold',
-            fontFamily: 'Poppins, sans-serif',
-            backgroundColor: 'rgba(255, 255, 255, 0.9)',
-            originX: 'center',
-            originY: 'center',
-            selectable: false,
-            evented: false,
-          });
-          
-          const scaleGroup = new Group([line, label], {
-            selectable: false,
-            evented: false,
-          });
-          (scaleGroup as any).isScaleRefLine = true;
-          
-          fabricCanvas.add(scaleGroup);
-          fabricCanvas.bringObjectToFront(scaleGroup);
-          setScaleRefLine(scaleGroup);
-          scaleRefLineRef.current = scaleGroup;
-          
-          // Keep markers in front
-          scaleRefMarkersRef.current.forEach(m => fabricCanvas.bringObjectToFront(m));
           
           toast.success(`Scale set! ${pixelDistance.toFixed(0)} pixels = ${labelText}`);
+          
+          // Clear scale reference visuals (markers and preview line) - scale value is kept
+          clearScaleReferenceVisuals();
           
           // Exit scale ref mode
           setDrawingMode('none');
@@ -1880,6 +1844,21 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         const pointer = fabricCanvas.getScenePoint(e.e);
         let snappedPoint = applySnapping({ x: pointer.x, y: pointer.y });
         
+        // Apply angle snapping if Shift is pressed (straight lines)
+        if (shiftPressedRef.current && measurementStartPointRef.current) {
+          const dx = snappedPoint.x - measurementStartPointRef.current.x;
+          const dy = snappedPoint.y - measurementStartPointRef.current.y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+          const angle = Math.atan2(dy, dx);
+          
+          // Snap to 0°, 45°, 90°, etc.
+          const snapAngle = Math.round(angle / (Math.PI / 4)) * (Math.PI / 4);
+          snappedPoint = {
+            x: measurementStartPointRef.current.x + Math.cos(snapAngle) * distance,
+            y: measurementStartPointRef.current.y + Math.sin(snapAngle) * distance,
+          };
+        }
+        
         if (!measurementStartPointRef.current) {
           // First click - set start point
           measurementStartPointRef.current = snappedPoint;
@@ -1889,7 +1868,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
           const marker = new Circle({
             left: snappedPoint.x,
             top: snappedPoint.y,
-            radius: 4,
+            radius: 3,
             fill: '#dc2626',
             stroke: '#ffffff',
             strokeWidth: 1,
@@ -2024,6 +2003,21 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       if (drawingModeRef.current === 'measure-draw' && measurementStartPointRef.current) {
         const pointer = fabricCanvas.getScenePoint(e.e);
         let snappedPoint = applySnapping({ x: pointer.x, y: pointer.y });
+        
+        // Apply angle snapping if Shift is pressed (straight lines)
+        if (shiftPressedRef.current) {
+          const dx = snappedPoint.x - measurementStartPointRef.current.x;
+          const dy = snappedPoint.y - measurementStartPointRef.current.y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+          const angle = Math.atan2(dy, dx);
+          
+          // Snap to 0°, 45°, 90°, etc.
+          const snapAngle = Math.round(angle / (Math.PI / 4)) * (Math.PI / 4);
+          snappedPoint = {
+            x: measurementStartPointRef.current.x + Math.cos(snapAngle) * distance,
+            y: measurementStartPointRef.current.y + Math.sin(snapAngle) * distance,
+          };
+        }
         
         // Update or create preview line
         if (measurementPreviewLineRef.current) {
@@ -3571,14 +3565,14 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       endPoint.y - arrowSize * Math.sin(angle + arrowAngle),
     ], { stroke: '#dc2626', strokeWidth: 1 });
     
-    // Create measurement label
+    // Create measurement label (centered on the line)
     const midX = (startPoint.x + endPoint.x) / 2;
     const midY = (startPoint.y + endPoint.y) / 2;
     const labelText = formatMeasurement(length);
     
     const label = new Text(labelText, {
       left: midX,
-      top: midY - 14,
+      top: midY,
       fontSize: 11,
       fill: '#dc2626',
       fontWeight: 'bold',
