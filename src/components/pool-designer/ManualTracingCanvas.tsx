@@ -112,10 +112,10 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
   
   // Coping and paver settings
   const [copingSize, setCopingSize] = useState<number>(12); // 12 or 16 inches (mandatory)
-  const [paverTop, setPaverTop] = useState<string>('3');
-  const [paverBottom, setPaverBottom] = useState<string>('3');
-  const [paverLeft, setPaverLeft] = useState<string>('8');
-  const [paverRight, setPaverRight] = useState<string>('10');
+  const [paverTop, setPaverTop] = useState<string>('0');
+  const [paverBottom, setPaverBottom] = useState<string>('0');
+  const [paverLeft, setPaverLeft] = useState<string>('0');
+  const [paverRight, setPaverRight] = useState<string>('0');
   const [showPaverSettings, setShowPaverSettings] = useState(false);
   
   // Pool calculations
@@ -1812,12 +1812,12 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     const pool = poolShapesRef.current[index];
     if (!pool) return;
     
-    // Remove old polygon
+    // Remove old polygon, coping, pavers, labels, and markers
     if (pool.fabricObject) {
       fabricCanvas.remove(pool.fabricObject);
     }
     
-    // Remove old edge labels, vertex markers, and pool label
+    // Remove all related objects (coping, pavers, labels, markers)
     const objects = fabricCanvas.getObjects();
     objects.forEach(obj => {
       if ((obj as any).shapeId === pool.id) {
@@ -1827,6 +1827,80 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         fabricCanvas.remove(obj);
       }
     });
+    
+    // Get pool dimensions and settings
+    const paverDims = pool.paverDimensions || { top: 0, bottom: 0, left: 0, right: 0 };
+    const poolCopingSize = pool.copingSize || 12;
+    
+    // Calculate pool bounds
+    const minX = Math.min(...newPoints.map(p => p.x));
+    const maxX = Math.max(...newPoints.map(p => p.x));
+    const minY = Math.min(...newPoints.map(p => p.y));
+    const maxY = Math.max(...newPoints.map(p => p.y));
+    const poolWidth = maxX - minX;
+    const poolHeight = maxY - minY;
+    const poolCenterX = (minX + maxX) / 2;
+    const poolCenterY = (minY + maxY) / 2;
+    
+    // Calculate coping size in pixels
+    const copingSizeInFeet = poolCopingSize / 12;
+    const copingSizePixels = (copingSizeInFeet / METERS_TO_FEET) * PIXELS_PER_METER;
+    
+    // Calculate paver dimensions in pixels
+    const paverTopPixels = (paverDims.top / METERS_TO_FEET) * PIXELS_PER_METER;
+    const paverBottomPixels = (paverDims.bottom / METERS_TO_FEET) * PIXELS_PER_METER;
+    const paverLeftPixels = (paverDims.left / METERS_TO_FEET) * PIXELS_PER_METER;
+    const paverRightPixels = (paverDims.right / METERS_TO_FEET) * PIXELS_PER_METER;
+    
+    const totalOuterWidth = poolWidth + copingSizePixels * 2 + paverLeftPixels + paverRightPixels;
+    const totalOuterHeight = poolHeight + copingSizePixels * 2 + paverTopPixels + paverBottomPixels;
+    
+    // Offset center based on asymmetric paver sizes
+    const offsetX = (paverLeftPixels - paverRightPixels) / 2;
+    const offsetY = (paverTopPixels - paverBottomPixels) / 2;
+    
+    // Create paver zone rectangle (outermost) - light gray
+    const hasPavers = paverDims.top > 0 || paverDims.bottom > 0 || paverDims.left > 0 || paverDims.right > 0;
+    if (hasPavers) {
+      const paverRect = new Rect({
+        left: poolCenterX - offsetX,
+        top: poolCenterY - offsetY,
+        width: totalOuterWidth,
+        height: totalOuterHeight,
+        fill: '#d4d4d4',
+        stroke: '#000000',
+        strokeWidth: 0.5,
+        originX: 'center',
+        originY: 'center',
+        selectable: false,
+        evented: false,
+      });
+      (paverRect as any).shapeId = pool.id;
+      (paverRect as any).isPaverZone = true;
+      fabricCanvas.add(paverRect);
+      fabricCanvas.sendObjectToBack(paverRect);
+    }
+    
+    // Create coping rectangle (around pool) - dark gray
+    const copingWidth = poolWidth + copingSizePixels * 2;
+    const copingHeight = poolHeight + copingSizePixels * 2;
+    
+    const copingRect = new Rect({
+      left: poolCenterX,
+      top: poolCenterY,
+      width: copingWidth,
+      height: copingHeight,
+      fill: '#525252',
+      stroke: '#000000',
+      strokeWidth: 0.5,
+      originX: 'center',
+      originY: 'center',
+      selectable: false,
+      evented: false,
+    });
+    (copingRect as any).shapeId = pool.id;
+    (copingRect as any).isCoping = true;
+    fabricCanvas.add(copingRect);
     
     // Create new polygon with water gradient and black stroke
     const fabricPoints = newPoints.map(p => new Point(p.x, p.y));
@@ -1838,6 +1912,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       evented: false,
     });
     (polygon as any).shapeType = 'pool';
+    (polygon as any).shapeId = pool.id;
     fabricCanvas.add(polygon);
     
     // Add new vertex markers
@@ -1856,12 +1931,26 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       });
       (marker as any).vertexIndex = idx;
       (marker as any).parentPolygon = polygon;
+      (marker as any).shapeId = pool.id;
       fabricCanvas.add(marker);
     });
+    
+    // Add paver dimension labels
+    if (hasPavers) {
+      addPaverDimensionLabels(fabricCanvas, pool.id, poolCenterX, poolCenterY, totalOuterWidth, totalOuterHeight, paverDims, offsetX, offsetY);
+    }
     
     // Add pool name label and edge measurements
     addPoolNameLabel(fabricCanvas, newPoints, pool.id, pool.name || 'Custom Pool');
     addPoolEdgeLabels(fabricCanvas, newPoints, pool.id);
+    
+    // Move grid to back
+    const allObjects = fabricCanvas.getObjects();
+    allObjects.forEach(obj => {
+      if ((obj as any).isGrid) {
+        fabricCanvas.sendObjectToBack(obj);
+      }
+    });
     
     // Update state
     const updatedPool: DrawnShape = {
