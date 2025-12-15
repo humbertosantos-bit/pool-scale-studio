@@ -113,17 +113,19 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
   // Property input mode
   const [propertyInputMode, setPropertyInputMode] = useState<'draw' | 'measure'>('draw');
   const [showPropertyMeasureInput, setShowPropertyMeasureInput] = useState(false);
-  const [propertyWidthFeet, setPropertyWidthFeet] = useState<string>('50');
-  const [propertyWidthInches, setPropertyWidthInches] = useState<string>('0');
-  const [propertyLengthFeet, setPropertyLengthFeet] = useState<string>('100');
-  const [propertyLengthInches, setPropertyLengthInches] = useState<string>('0');
+  const [propertyWidth, setPropertyWidth] = useState<string>('50');
+  const [propertyLength, setPropertyLength] = useState<string>('100');
   
   // Coping and paver settings
   const [copingSize, setCopingSize] = useState<number>(12); // 12 or 16 inches (mandatory)
-  const [paverTop, setPaverTop] = useState<string>('0');
-  const [paverBottom, setPaverBottom] = useState<string>('0');
-  const [paverLeft, setPaverLeft] = useState<string>('0');
-  const [paverRight, setPaverRight] = useState<string>('0');
+  const [paverTopFeet, setPaverTopFeet] = useState<string>('0');
+  const [paverTopInches, setPaverTopInches] = useState<string>('0');
+  const [paverBottomFeet, setPaverBottomFeet] = useState<string>('0');
+  const [paverBottomInches, setPaverBottomInches] = useState<string>('0');
+  const [paverLeftFeet, setPaverLeftFeet] = useState<string>('0');
+  const [paverLeftInches, setPaverLeftInches] = useState<string>('0');
+  const [paverRightFeet, setPaverRightFeet] = useState<string>('0');
+  const [paverRightInches, setPaverRightInches] = useState<string>('0');
   const [showPaverSettings, setShowPaverSettings] = useState(false);
   
   // Pool editing state
@@ -1046,24 +1048,32 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
   const addRectangularProperty = useCallback(() => {
     if (!fabricCanvas) return;
     
-    const widthFeet = parseFloat(propertyWidthFeet) || 0;
-    const widthInches = parseFloat(propertyWidthInches) || 0;
-    const lengthFeet = parseFloat(propertyLengthFeet) || 0;
-    const lengthInches = parseFloat(propertyLengthInches) || 0;
+    const widthValue = parseFloat(propertyWidth) || 0;
+    const lengthValue = parseFloat(propertyLength) || 0;
     
-    const totalWidthFeet = widthFeet + widthInches / 12;
-    const totalLengthFeet = lengthFeet + lengthInches / 12;
-    
-    if (totalWidthFeet <= 0 || totalLengthFeet <= 0) {
+    if (widthValue <= 0 || lengthValue <= 0) {
       toast.error('Please enter valid dimensions');
       return;
     }
     
-    // Convert feet to pixels (using the grid: 1 grid = 1 meter = PIXELS_PER_METER pixels)
-    const widthMeters = totalWidthFeet / METERS_TO_FEET;
-    const lengthMeters = totalLengthFeet / METERS_TO_FEET;
+    // Convert to meters based on unit selection
+    let widthMeters: number;
+    let lengthMeters: number;
+    
+    if (unit === 'ft') {
+      widthMeters = widthValue / METERS_TO_FEET;
+      lengthMeters = lengthValue / METERS_TO_FEET;
+    } else {
+      widthMeters = widthValue;
+      lengthMeters = lengthValue;
+    }
+    
     const widthPixels = widthMeters * PIXELS_PER_METER;
     const lengthPixels = lengthMeters * PIXELS_PER_METER;
+    
+    // For display purposes
+    const totalWidthFeet = unit === 'ft' ? widthValue : widthValue * METERS_TO_FEET;
+    const totalLengthFeet = unit === 'ft' ? lengthValue : lengthValue * METERS_TO_FEET;
     
     // Center the property on the canvas
     const canvasWidth = fabricCanvas.width!;
@@ -1148,7 +1158,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     setShowPropertyMeasureInput(false);
     fabricCanvas.renderAll();
     toast.success('Property boundary created! You can now draw the house or pool.');
-  }, [fabricCanvas, propertyWidthFeet, propertyWidthInches, propertyLengthFeet, propertyLengthInches]);
+  }, [fabricCanvas, propertyWidth, propertyLength, unit]);
 
   // Add edge length labels
   const addEdgeLengthLabels = (canvas: FabricCanvas, points: { x: number; y: number }[], shapeId: string) => {
@@ -2289,12 +2299,12 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     
     const shapeId = `pool-${Date.now()}`;
     
-    // Get paver dimensions
+    // Get paver dimensions (convert feet+inches to total feet)
     const paverDims: PaverDimensions = {
-      top: parseFloat(paverTop) || 0,
-      bottom: parseFloat(paverBottom) || 0,
-      left: parseFloat(paverLeft) || 0,
-      right: parseFloat(paverRight) || 0,
+      top: (parseFloat(paverTopFeet) || 0) + (parseFloat(paverTopInches) || 0) / 12,
+      bottom: (parseFloat(paverBottomFeet) || 0) + (parseFloat(paverBottomInches) || 0) / 12,
+      left: (parseFloat(paverLeftFeet) || 0) + (parseFloat(paverLeftInches) || 0) / 12,
+      right: (parseFloat(paverRightFeet) || 0) + (parseFloat(paverRightInches) || 0) / 12,
     };
     
     // Calculate coping size in pixels
@@ -2645,10 +2655,18 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     
     // Load current pool's paver settings into the form
     setCopingSize(pool.copingSize || 12);
-    setPaverTop(String(pool.paverDimensions?.top || 0));
-    setPaverBottom(String(pool.paverDimensions?.bottom || 0));
-    setPaverLeft(String(pool.paverDimensions?.left || 0));
-    setPaverRight(String(pool.paverDimensions?.right || 0));
+    const topTotal = pool.paverDimensions?.top || 0;
+    const bottomTotal = pool.paverDimensions?.bottom || 0;
+    const leftTotal = pool.paverDimensions?.left || 0;
+    const rightTotal = pool.paverDimensions?.right || 0;
+    setPaverTopFeet(String(Math.floor(topTotal)));
+    setPaverTopInches(String(Math.round((topTotal % 1) * 12)));
+    setPaverBottomFeet(String(Math.floor(bottomTotal)));
+    setPaverBottomInches(String(Math.round((bottomTotal % 1) * 12)));
+    setPaverLeftFeet(String(Math.floor(leftTotal)));
+    setPaverLeftInches(String(Math.round((leftTotal % 1) * 12)));
+    setPaverRightFeet(String(Math.floor(rightTotal)));
+    setPaverRightInches(String(Math.round((rightTotal % 1) * 12)));
     
     setEditingPoolId(poolId);
     setShowPaverSettings(true);
@@ -2659,10 +2677,10 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     if (!editingPoolId) return;
     
     const newPaverDims: PaverDimensions = {
-      top: parseFloat(paverTop) || 0,
-      bottom: parseFloat(paverBottom) || 0,
-      left: parseFloat(paverLeft) || 0,
-      right: parseFloat(paverRight) || 0,
+      top: (parseFloat(paverTopFeet) || 0) + (parseFloat(paverTopInches) || 0) / 12,
+      bottom: (parseFloat(paverBottomFeet) || 0) + (parseFloat(paverBottomInches) || 0) / 12,
+      left: (parseFloat(paverLeftFeet) || 0) + (parseFloat(paverLeftInches) || 0) / 12,
+      right: (parseFloat(paverRightFeet) || 0) + (parseFloat(paverRightInches) || 0) / 12,
     };
     
     updatePoolPavers(editingPoolId, copingSize, newPaverDims);
@@ -2674,10 +2692,14 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     setEditingPoolId(null);
     // Reset form to defaults
     setCopingSize(12);
-    setPaverTop('0');
-    setPaverBottom('0');
-    setPaverLeft('0');
-    setPaverRight('0');
+    setPaverTopFeet('0');
+    setPaverTopInches('0');
+    setPaverBottomFeet('0');
+    setPaverBottomInches('0');
+    setPaverLeftFeet('0');
+    setPaverLeftInches('0');
+    setPaverRightFeet('0');
+    setPaverRightInches('0');
   };
 
   // Delete last pool
@@ -3133,43 +3155,25 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
                 <Label className="text-xs">W:</Label>
                 <Input
                   type="number"
-                  value={propertyWidthFeet}
-                  onChange={(e) => setPropertyWidthFeet(e.target.value)}
-                  className="w-12 h-7 text-xs"
+                  value={propertyWidth}
+                  onChange={(e) => setPropertyWidth(e.target.value)}
+                  className="w-14 h-7 text-xs"
                   placeholder="50"
+                  step={unit === 'm' ? '0.1' : '1'}
                 />
-                <span className="text-xs">'</span>
-                <Input
-                  type="number"
-                  value={propertyWidthInches}
-                  onChange={(e) => setPropertyWidthInches(e.target.value)}
-                  className="w-10 h-7 text-xs"
-                  placeholder="0"
-                  min="0"
-                  max="11"
-                />
-                <span className="text-xs">"</span>
+                <span className="text-xs">{unit === 'ft' ? 'ft' : 'm'}</span>
               </div>
               <div className="flex items-center gap-1">
                 <Label className="text-xs">L:</Label>
                 <Input
                   type="number"
-                  value={propertyLengthFeet}
-                  onChange={(e) => setPropertyLengthFeet(e.target.value)}
-                  className="w-12 h-7 text-xs"
+                  value={propertyLength}
+                  onChange={(e) => setPropertyLength(e.target.value)}
+                  className="w-14 h-7 text-xs"
                   placeholder="100"
+                  step={unit === 'm' ? '0.1' : '1'}
                 />
-                <span className="text-xs">'</span>
-                <Input
-                  type="number"
-                  value={propertyLengthInches}
-                  onChange={(e) => setPropertyLengthInches(e.target.value)}
-                  className="w-10 h-7 text-xs"
-                  placeholder="0"
-                  min="0"
-                  max="11"
-                />
-                <span className="text-xs">"</span>
+                <span className="text-xs">{unit === 'ft' ? 'ft' : 'm'}</span>
               </div>
               <Button size="sm" className="h-7 text-xs" onClick={addRectangularProperty}>
                 Add
@@ -3333,47 +3337,87 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
                 16"
               </Button>
             </div>
-            <div className="border-l pl-3 flex items-center gap-2">
-              <Label className="text-xs font-medium">Pavers (ft):</Label>
+            <div className="border-l pl-3 flex items-center gap-2 flex-wrap">
+              <Label className="text-xs font-medium">Pavers:</Label>
               <div className="flex items-center gap-1">
                 <span className="text-[10px] text-muted-foreground">Top:</span>
                 <Input
                   type="number"
-                  value={paverTop}
-                  onChange={(e) => setPaverTop(e.target.value)}
-                  className="w-10 h-6 text-xs text-center p-0"
+                  value={paverTopFeet}
+                  onChange={(e) => setPaverTopFeet(e.target.value)}
+                  className="w-8 h-6 text-xs text-center p-0"
                   min="0"
                 />
+                <span className="text-[10px]">'</span>
+                <Input
+                  type="number"
+                  value={paverTopInches}
+                  onChange={(e) => setPaverTopInches(e.target.value)}
+                  className="w-8 h-6 text-xs text-center p-0"
+                  min="0"
+                  max="11"
+                />
+                <span className="text-[10px]">"</span>
               </div>
               <div className="flex items-center gap-1">
                 <span className="text-[10px] text-muted-foreground">Bot:</span>
                 <Input
                   type="number"
-                  value={paverBottom}
-                  onChange={(e) => setPaverBottom(e.target.value)}
-                  className="w-10 h-6 text-xs text-center p-0"
+                  value={paverBottomFeet}
+                  onChange={(e) => setPaverBottomFeet(e.target.value)}
+                  className="w-8 h-6 text-xs text-center p-0"
                   min="0"
                 />
+                <span className="text-[10px]">'</span>
+                <Input
+                  type="number"
+                  value={paverBottomInches}
+                  onChange={(e) => setPaverBottomInches(e.target.value)}
+                  className="w-8 h-6 text-xs text-center p-0"
+                  min="0"
+                  max="11"
+                />
+                <span className="text-[10px]">"</span>
               </div>
               <div className="flex items-center gap-1">
                 <span className="text-[10px] text-muted-foreground">Left:</span>
                 <Input
                   type="number"
-                  value={paverLeft}
-                  onChange={(e) => setPaverLeft(e.target.value)}
-                  className="w-10 h-6 text-xs text-center p-0"
+                  value={paverLeftFeet}
+                  onChange={(e) => setPaverLeftFeet(e.target.value)}
+                  className="w-8 h-6 text-xs text-center p-0"
                   min="0"
                 />
+                <span className="text-[10px]">'</span>
+                <Input
+                  type="number"
+                  value={paverLeftInches}
+                  onChange={(e) => setPaverLeftInches(e.target.value)}
+                  className="w-8 h-6 text-xs text-center p-0"
+                  min="0"
+                  max="11"
+                />
+                <span className="text-[10px]">"</span>
               </div>
               <div className="flex items-center gap-1">
                 <span className="text-[10px] text-muted-foreground">Right:</span>
                 <Input
                   type="number"
-                  value={paverRight}
-                  onChange={(e) => setPaverRight(e.target.value)}
-                  className="w-10 h-6 text-xs text-center p-0"
+                  value={paverRightFeet}
+                  onChange={(e) => setPaverRightFeet(e.target.value)}
+                  className="w-8 h-6 text-xs text-center p-0"
                   min="0"
                 />
+                <span className="text-[10px]">'</span>
+                <Input
+                  type="number"
+                  value={paverRightInches}
+                  onChange={(e) => setPaverRightInches(e.target.value)}
+                  className="w-8 h-6 text-xs text-center p-0"
+                  min="0"
+                  max="11"
+                />
+                <span className="text-[10px]">"</span>
               </div>
             </div>
             {editingPoolId ? (
