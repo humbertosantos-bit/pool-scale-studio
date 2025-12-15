@@ -184,36 +184,22 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     poolShapesRef.current = poolShapes;
   }, [poolShapes]);
 
-  // Create water pattern (gradient blue to white) for pools
+  // Create water pattern (full gradient blue to white) for pools
   const createWaterPattern = (): Pattern => {
     const patternCanvas = document.createElement('canvas');
-    patternCanvas.width = 40;
-    patternCanvas.height = 40;
+    patternCanvas.width = 60;
+    patternCanvas.height = 60;
     const ctx = patternCanvas.getContext('2d');
     if (ctx) {
-      // Create gradient from light blue to white
-      const gradient = ctx.createLinearGradient(0, 0, 40, 40);
-      gradient.addColorStop(0, '#87CEEB'); // Sky blue
-      gradient.addColorStop(0.3, '#B0E0E6'); // Powder blue
-      gradient.addColorStop(0.5, '#E0F4FF'); // Very light blue
-      gradient.addColorStop(0.7, '#B0E0E6'); // Powder blue
-      gradient.addColorStop(1, '#87CEEB'); // Sky blue
+      // Create full gradient from blue to white
+      const gradient = ctx.createLinearGradient(0, 0, 60, 60);
+      gradient.addColorStop(0, '#0EA5E9'); // Sky blue
+      gradient.addColorStop(0.25, '#38BDF8'); // Light blue
+      gradient.addColorStop(0.5, '#7DD3FC'); // Lighter blue
+      gradient.addColorStop(0.75, '#BAE6FD'); // Very light blue
+      gradient.addColorStop(1, '#FFFFFF'); // White
       ctx.fillStyle = gradient;
-      ctx.fillRect(0, 0, 40, 40);
-      
-      // Add subtle wave lines
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(0, 10);
-      ctx.quadraticCurveTo(10, 5, 20, 10);
-      ctx.quadraticCurveTo(30, 15, 40, 10);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(0, 25);
-      ctx.quadraticCurveTo(10, 20, 20, 25);
-      ctx.quadraticCurveTo(30, 30, 40, 25);
-      ctx.stroke();
+      ctx.fillRect(0, 0, 60, 60);
     }
     return new Pattern({
       source: patternCanvas,
@@ -803,7 +789,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       stroke = '#000000';
     } else if (mode === 'pool') {
       fill = createWaterPattern();
-      stroke = '#0EA5E9';
+      stroke = '#000000'; // Black contour for pools
     } else {
       fill = 'rgba(100, 100, 100, 0.1)';
       stroke = '#666666';
@@ -825,7 +811,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
 
     // Add vertex markers for editing
     const newMarkers: Circle[] = [];
-    const markerColor = mode === 'property' ? '#22c55e' : mode === 'pool' ? '#0EA5E9' : '#000000';
+    const markerColor = mode === 'property' ? '#22c55e' : '#000000'; // Black markers for house and pool
     points.forEach((p, index) => {
       const marker = new Circle({
         left: p.x,
@@ -1178,6 +1164,54 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       }
     };
 
+    // Handle pool movement
+    const handlePoolMouseDown = (e: any) => {
+      if (drawingModeRef.current !== 'move-pool') return;
+      
+      const pointer = fabricCanvas.getScenePoint(e.e);
+      
+      // Check if clicked inside any pool
+      for (let i = 0; i < poolShapesRef.current.length; i++) {
+        const pool = poolShapesRef.current[i];
+        if (isPointInsidePolygon({ x: pointer.x, y: pointer.y }, pool.points)) {
+          setSelectedPoolIndex(i);
+          setIsDraggingPool(true);
+          poolDragStartRef.current = { x: pointer.x, y: pointer.y };
+          originalPoolPointsRef.current = pool.points.map(p => ({ ...p }));
+          return;
+        }
+      }
+    };
+
+    const handlePoolMouseMove = (e: any) => {
+      if (!isDraggingPool || selectedPoolIndex === null || !poolDragStartRef.current || !originalPoolPointsRef.current) return;
+      
+      const pointer = fabricCanvas.getScenePoint(e.e);
+      const dx = pointer.x - poolDragStartRef.current.x;
+      const dy = pointer.y - poolDragStartRef.current.y;
+      
+      // Calculate new points
+      const newPoints = originalPoolPointsRef.current.map(p => ({
+        x: p.x + dx,
+        y: p.y + dy,
+      }));
+      
+      // Check if all points are still inside property
+      const allInside = newPoints.every(p => isPointInsideProperty(p));
+      if (!allInside) return;
+      
+      // Update pool shape
+      updatePoolPosition(selectedPoolIndex, newPoints);
+    };
+
+    const handlePoolMouseUp = () => {
+      if (isDraggingPool) {
+        setIsDraggingPool(false);
+        poolDragStartRef.current = null;
+        originalPoolPointsRef.current = null;
+      }
+    };
+
     const handlePanMouseUp = () => {
       if (isPanningRef.current) {
         setIsPanning(false);
@@ -1261,6 +1295,9 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     fabricCanvas.on('mouse:down', handleHouseMouseDown);
     fabricCanvas.on('mouse:move', handleHouseMouseMove);
     fabricCanvas.on('mouse:up', handleHouseMouseUp);
+    fabricCanvas.on('mouse:down', handlePoolMouseDown);
+    fabricCanvas.on('mouse:move', handlePoolMouseMove);
+    fabricCanvas.on('mouse:up', handlePoolMouseUp);
     fabricCanvas.on('mouse:up', handlePanMouseUp);
     fabricCanvas.on('mouse:down', handleVertexMouseDown);
     fabricCanvas.on('mouse:move', handleVertexMouseMove);
@@ -1272,12 +1309,15 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       fabricCanvas.off('mouse:down', handleHouseMouseDown);
       fabricCanvas.off('mouse:move', handleHouseMouseMove);
       fabricCanvas.off('mouse:up', handleHouseMouseUp);
+      fabricCanvas.off('mouse:down', handlePoolMouseDown);
+      fabricCanvas.off('mouse:move', handlePoolMouseMove);
+      fabricCanvas.off('mouse:up', handlePoolMouseUp);
       fabricCanvas.off('mouse:up', handlePanMouseUp);
       fabricCanvas.off('mouse:down', handleVertexMouseDown);
       fabricCanvas.off('mouse:move', handleVertexMouseMove);
       fabricCanvas.off('mouse:up', handleVertexMouseUp);
     };
-  }, [fabricCanvas, completeShape, gridSnapping, vertexSnapping, isDraggingHouse, selectedHouseIndex, isPanning]);
+  }, [fabricCanvas, completeShape, gridSnapping, vertexSnapping, isDraggingHouse, selectedHouseIndex, isDraggingPool, selectedPoolIndex, isPanning]);
 
   // Check if point is inside a polygon
   const isPointInsidePolygon = (point: { x: number; y: number }, pts: { x: number; y: number }[]): boolean => {
@@ -1369,6 +1409,99 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     fabricCanvas.renderAll();
   };
 
+  // Update pool position
+  const updatePoolPosition = (index: number, newPoints: { x: number; y: number }[]) => {
+    if (!fabricCanvas) return;
+    
+    const pool = poolShapesRef.current[index];
+    if (!pool) return;
+    
+    // Remove old polygon
+    if (pool.fabricObject) {
+      fabricCanvas.remove(pool.fabricObject);
+    }
+    
+    // Remove old edge labels, vertex markers, and pool label
+    const objects = fabricCanvas.getObjects();
+    objects.forEach(obj => {
+      if ((obj as any).shapeId === pool.id) {
+        fabricCanvas.remove(obj);
+      }
+      if ((obj as any).parentPolygon === pool.fabricObject) {
+        fabricCanvas.remove(obj);
+      }
+    });
+    
+    // Create new polygon with water pattern and black stroke
+    const fabricPoints = newPoints.map(p => new Point(p.x, p.y));
+    const polygon = new Polygon(fabricPoints, {
+      fill: createWaterPattern(),
+      stroke: '#000000',
+      strokeWidth: 2,
+      selectable: false,
+      evented: false,
+    });
+    (polygon as any).shapeType = 'pool';
+    fabricCanvas.add(polygon);
+    
+    // Add new vertex markers
+    newPoints.forEach((p, idx) => {
+      const marker = new Circle({
+        left: p.x,
+        top: p.y,
+        radius: 2,
+        fill: '#000000',
+        stroke: '#ffffff',
+        strokeWidth: 1,
+        originX: 'center',
+        originY: 'center',
+        selectable: false,
+        evented: false,
+      });
+      (marker as any).vertexIndex = idx;
+      (marker as any).parentPolygon = polygon;
+      fabricCanvas.add(marker);
+    });
+    
+    // Add new edge labels
+    addEdgeLengthLabels(fabricCanvas, newPoints, pool.id);
+    
+    // Add pool name label at center
+    const centerX = newPoints.reduce((sum, p) => sum + p.x, 0) / newPoints.length;
+    const centerY = newPoints.reduce((sum, p) => sum + p.y, 0) / newPoints.length;
+    const nameLabel = new Text(pool.name || 'Pool', {
+      left: centerX,
+      top: centerY,
+      fontSize: 12,
+      fill: '#0369A1',
+      fontWeight: 'bold',
+      backgroundColor: 'rgba(255, 255, 255, 0.8)',
+      originX: 'center',
+      originY: 'center',
+      selectable: false,
+      evented: false,
+    });
+    (nameLabel as any).isPoolLabel = true;
+    (nameLabel as any).shapeId = pool.id;
+    fabricCanvas.add(nameLabel);
+    
+    // Update state
+    const updatedPool: DrawnShape = {
+      ...pool,
+      points: newPoints,
+      fabricObject: polygon,
+    };
+    
+    setPoolShapes(prev => {
+      const newShapes = [...prev];
+      newShapes[index] = updatedPool;
+      return newShapes;
+    });
+    poolShapesRef.current[index] = updatedPool;
+    
+    fabricCanvas.renderAll();
+  };
+
   // Exit any drawing/move mode
   const exitMode = () => {
     if (!fabricCanvas) return;
@@ -1399,6 +1532,29 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     fabricCanvas.defaultCursor = 'move';
     fabricCanvas.hoverCursor = 'move';
     toast.info('Click and drag a house to move it. Click button again or press Escape to exit.');
+  };
+
+  // Start move pool mode (toggle)
+  const startMovePoolMode = () => {
+    if (!fabricCanvas) return;
+    
+    // Toggle off if already in move-pool mode
+    if (drawingMode === 'move-pool') {
+      exitMode();
+      toast.info('Exited move pool mode');
+      return;
+    }
+    
+    if (poolShapes.length === 0) {
+      toast.error('No pools to move');
+      return;
+    }
+    
+    setDrawingMode('move-pool');
+    drawingModeRef.current = 'move-pool';
+    fabricCanvas.defaultCursor = 'move';
+    fabricCanvas.hoverCursor = 'move';
+    toast.info('Click and drag a pool to move it. Click button again or press Escape to exit.');
   };
 
   // Add preset pool
@@ -1478,7 +1634,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     const fabricPoints = points.map(p => new Point(p.x, p.y));
     const polygon = new Polygon(fabricPoints, {
       fill: createWaterPattern(),
-      stroke: '#0EA5E9',
+      stroke: '#000000',
       strokeWidth: 2,
       selectable: false,
       evented: false,
@@ -1492,7 +1648,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         left: p.x,
         top: p.y,
         radius: 2,
-        fill: '#0EA5E9',
+        fill: '#000000',
         stroke: '#ffffff',
         strokeWidth: 1,
         originX: 'center',
@@ -1853,12 +2009,21 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
           
           <Button
             size="sm"
+            variant={drawingMode === 'move-pool' ? 'default' : 'outline'}
+            onClick={startMovePoolMode}
+            disabled={poolShapes.length === 0}
+            title="Move Pool"
+          >
+            <Move className="h-4 w-4" />
+          </Button>
+          <Button
+            size="sm"
             variant="ghost"
             onClick={deleteLastPool}
             disabled={poolShapes.length === 0}
             title="Delete Last Pool"
           >
-            <Trash2 className="h-4 w-4 text-sky-600" />
+            <Trash2 className="h-4 w-4" />
           </Button>
         </div>
 
@@ -1953,7 +2118,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         {spacePressed && <span className="text-primary font-medium">Pan Mode</span>}
         {drawingMode !== 'none' && (
           <span className="ml-auto font-medium text-primary">
-            Mode: {drawingMode === 'property' ? 'Drawing Property' : drawingMode === 'house' ? 'Drawing House' : drawingMode === 'pool' ? 'Drawing Pool' : 'Moving House'}
+            Mode: {drawingMode === 'property' ? 'Drawing Property' : drawingMode === 'house' ? 'Drawing House' : drawingMode === 'pool' ? 'Drawing Pool' : drawingMode === 'move-house' ? 'Moving House' : 'Moving Pool'}
             {currentPoints.length > 0 && ` (${currentPoints.length} points)`}
           </span>
         )}
