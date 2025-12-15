@@ -157,6 +157,15 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
           fabricCanvas.hoverCursor = 'grab';
         }
       }
+      // Escape key to exit any mode
+      if (e.key === 'Escape') {
+        setDrawingMode('none');
+        drawingModeRef.current = 'none';
+        if (fabricCanvas) {
+          fabricCanvas.defaultCursor = 'default';
+          fabricCanvas.hoverCursor = 'move';
+        }
+      }
     };
     const handleKeyUp = (e: KeyboardEvent) => {
       if (e.key === 'Shift') {
@@ -1236,9 +1245,26 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     fabricCanvas.renderAll();
   };
 
-  // Start move house mode
+  // Exit any drawing/move mode
+  const exitMode = () => {
+    if (!fabricCanvas) return;
+    setDrawingMode('none');
+    drawingModeRef.current = 'none';
+    fabricCanvas.defaultCursor = 'default';
+    fabricCanvas.hoverCursor = 'move';
+  };
+
+  // Start move house mode (toggle)
   const startMoveHouseMode = () => {
     if (!fabricCanvas) return;
+    
+    // Toggle off if already in move-house mode
+    if (drawingMode === 'move-house') {
+      exitMode();
+      toast.info('Exited move house mode');
+      return;
+    }
+    
     if (houseShapes.length === 0) {
       toast.error('No houses to move');
       return;
@@ -1248,7 +1274,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     drawingModeRef.current = 'move-house';
     fabricCanvas.defaultCursor = 'move';
     fabricCanvas.hoverCursor = 'move';
-    toast.info('Click and drag a house to move it');
+    toast.info('Click and drag a house to move it. Click button again or press Escape to exit.');
   };
 
 
