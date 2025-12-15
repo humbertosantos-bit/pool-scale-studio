@@ -52,26 +52,26 @@ export const PoolCalculations: React.FC<PoolCalculationsProps> = ({
               <h3 className="font-semibold text-sm">Pools</h3>
               {pools.map((pool) => (
                 <div key={pool.poolId} className="pl-4 space-y-1.5 text-sm border-l-2 border-primary/20">
-                  <p className="font-medium text-foreground">{pool.poolName}</p>
+                  <p className="font-medium text-foreground">{pool.poolName || 'Pool'}</p>
                   
                   {/* Coping */}
                   <div className="bg-muted/50 p-2 rounded">
                     <p className="text-xs font-medium text-muted-foreground">Coping Area (Net)</p>
-                    <p className="text-sm">{pool.copingSqFt.toFixed(2)} sq ft</p>
+                    <p className="text-sm">{(pool.copingSqFt ?? 0).toFixed(2)} sq ft</p>
                   </div>
                   
                   {/* Pavers */}
-                  {pool.paverNetSqFt > 0 && (
+                  {(pool.paverNetSqFt ?? 0) > 0 && (
                     <div className="bg-muted/50 p-2 rounded">
                       <p className="text-xs font-medium text-muted-foreground">Paver Area (Net)</p>
-                      <p className="text-sm">{pool.paverNetSqFt.toFixed(2)} sq ft</p>
+                      <p className="text-sm">{(pool.paverNetSqFt ?? 0).toFixed(2)} sq ft</p>
                     </div>
                   )}
                   
                   {/* Total with waste */}
                   <div className="bg-primary/10 p-2 rounded">
                     <p className="text-xs font-medium text-primary">Total</p>
-                    <p className="text-sm font-bold text-primary">{pool.totalWithWasteSqFt.toFixed(2)} sq ft</p>
+                    <p className="text-sm font-bold text-primary">{(pool.totalWithWasteSqFt ?? 0).toFixed(2)} sq ft</p>
                   </div>
                 </div>
               ))}
@@ -85,7 +85,7 @@ export const PoolCalculations: React.FC<PoolCalculationsProps> = ({
               {fences.map((fence) => (
                 <div key={fence.fenceId} className="pl-4 text-sm">
                   <p className="text-muted-foreground">
-                    {fence.name}: {fence.linearFt.toFixed(2)} linear ft
+                    {fence.name || 'Fence'}: {(fence.linearFt ?? 0).toFixed(2)} linear ft
                   </p>
                 </div>
               ))}
@@ -98,10 +98,10 @@ export const PoolCalculations: React.FC<PoolCalculationsProps> = ({
               <h3 className="font-semibold text-sm">Additional Pavers</h3>
               <div className="pl-4 text-sm space-y-1">
                 <p className="text-muted-foreground">
-                  Net: {pavers.reduce((sum, p) => sum + p.sqFt, 0).toFixed(2)} sq ft
+                  Net: {pavers.reduce((sum, p) => sum + (p.sqFt ?? 0), 0).toFixed(2)} sq ft
                 </p>
                 <p className="text-primary font-medium">
-                  + 10% Waste: {(pavers.reduce((sum, p) => sum + p.sqFt, 0) * 1.1).toFixed(2)} sq ft
+                  + 10% Waste: {(pavers.reduce((sum, p) => sum + (p.sqFt ?? 0), 0) * 1.1).toFixed(2)} sq ft
                 </p>
               </div>
             </div>
