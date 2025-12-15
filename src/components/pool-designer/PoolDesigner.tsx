@@ -52,11 +52,11 @@ export const PoolDesigner: React.FC = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-background to-pool-light/20">
       {/* Header */}
-      <div className="border-b bg-white/80 backdrop-blur-sm">
+      <div className="border-b bg-[hsl(var(--header-bg))] backdrop-blur-sm">
         <div className="px-6 py-4 flex items-center justify-between gap-6">
           <div className="flex items-center gap-6">
             <img src={logo} alt="Piscine Riviera" className="h-16 w-auto" />
-            <h1 className="text-3xl font-bold bg-gradient-hero bg-clip-text text-transparent">
+            <h1 className="text-3xl font-bold text-white">
               Piscine Riviera Design Tool
             </h1>
           </div>
