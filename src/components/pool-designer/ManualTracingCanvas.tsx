@@ -1913,13 +1913,16 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       (paverRect as any).isPaverZone = true;
       fabricCanvas.add(paverRect);
       
-      // Position paver zone above property but below pool elements
-      // First send to back, then bring above property and grid
-      fabricCanvas.sendObjectToBack(paverRect);
-      const objects = fabricCanvas.getObjects();
-      objects.forEach(obj => {
+      // Move grid and property to back, keep pavers above them
+      const allObjects = fabricCanvas.getObjects();
+      allObjects.forEach(obj => {
+        if ((obj as any).isGrid) {
+          fabricCanvas.sendObjectToBack(obj);
+        }
+      });
+      allObjects.forEach(obj => {
         if ((obj as any).shapeType === 'property') {
-          fabricCanvas.bringObjectForward(paverRect);
+          fabricCanvas.sendObjectToBack(obj);
         }
       });
     }
@@ -2225,12 +2228,16 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     (paverRect as any).isPaverZone = true;
     fabricCanvas.add(paverRect);
     
-    // Position paver zone above property but below pool elements
-    fabricCanvas.sendObjectToBack(paverRect);
-    const paverObjects = fabricCanvas.getObjects();
-    paverObjects.forEach(obj => {
+    // Move grid and property to back, keep pavers above them
+    const allObjs = fabricCanvas.getObjects();
+    allObjs.forEach(obj => {
+      if ((obj as any).isGrid) {
+        fabricCanvas.sendObjectToBack(obj);
+      }
+    });
+    allObjs.forEach(obj => {
       if ((obj as any).shapeType === 'property') {
-        fabricCanvas.bringObjectForward(paverRect);
+        fabricCanvas.sendObjectToBack(obj);
       }
     });
     
@@ -3413,7 +3420,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
                       <span className="font-medium">{calc.paverNetSqFt} sq ft</span>
                     </div>
                     <div className="flex justify-between border-t pt-1 mt-1">
-                      <span className="text-amber-700 font-medium">Total + 10% Waste:</span>
+                      <span className="text-amber-700 font-medium">Total:</span>
                       <span className="font-bold text-amber-700">{calc.totalWithWasteSqFt} sq ft</span>
                     </div>
                   </>

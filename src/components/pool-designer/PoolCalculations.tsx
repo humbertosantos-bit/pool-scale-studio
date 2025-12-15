@@ -70,7 +70,7 @@ export const PoolCalculations: React.FC<PoolCalculationsProps> = ({
                   
                   {/* Total with waste */}
                   <div className="bg-primary/10 p-2 rounded">
-                    <p className="text-xs font-medium text-primary">Total (Coping + Pavers + 10% Waste)</p>
+                    <p className="text-xs font-medium text-primary">Total</p>
                     <p className="text-sm font-bold text-primary">{pool.totalWithWasteSqFt.toFixed(2)} sq ft</p>
                   </div>
                 </div>
