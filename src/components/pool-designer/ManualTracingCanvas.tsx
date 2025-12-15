@@ -2651,7 +2651,9 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       });
       allObjects.forEach(obj => {
         if ((obj as any).shapeType === 'property') {
+          // Keep property visible above grid
           fabricCanvas.sendObjectToBack(obj);
+          fabricCanvas.bringObjectForward(obj);
         }
       });
     }
@@ -2957,16 +2959,25 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     (paverRect as any).isPaverZone = true;
     fabricCanvas.add(paverRect);
     
-    // Move grid and property to back, keep pavers above them
+    // Move grid to back first, then property above it
     const allObjs = fabricCanvas.getObjects();
     allObjs.forEach(obj => {
       if ((obj as any).isGrid) {
         fabricCanvas.sendObjectToBack(obj);
       }
     });
+    // Move property above grid (after grid is at back)
     allObjs.forEach(obj => {
       if ((obj as any).shapeType === 'property') {
+        // Keep property visible above grid
         fabricCanvas.sendObjectToBack(obj);
+        fabricCanvas.bringObjectForward(obj);
+      }
+    });
+    // Also ensure property edge labels stay visible
+    allObjs.forEach(obj => {
+      if ((obj as any).isEdgeLabel && (obj as any).shapeId?.startsWith('property')) {
+        fabricCanvas.bringObjectToFront(obj);
       }
     });
     
@@ -3037,11 +3048,25 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     addPoolNameLabel(fabricCanvas, points, shapeId, name);
     addPoolEdgeLabels(fabricCanvas, points, shapeId);
     
-    // Move grid to back
+    // Proper z-ordering: grid at bottom, then property, then pools
     const objects = fabricCanvas.getObjects();
     objects.forEach(obj => {
       if ((obj as any).isGrid) {
         fabricCanvas.sendObjectToBack(obj);
+      }
+    });
+    // Ensure property stays above grid
+    objects.forEach(obj => {
+      if ((obj as any).shapeType === 'property') {
+        // Keep property visible above grid
+        fabricCanvas.sendObjectToBack(obj);
+        fabricCanvas.bringObjectForward(obj);
+      }
+    });
+    // Ensure property edge labels stay visible
+    objects.forEach(obj => {
+      if ((obj as any).isEdgeLabel && (obj as any).shapeId?.startsWith('property')) {
+        fabricCanvas.bringObjectToFront(obj);
       }
     });
     
