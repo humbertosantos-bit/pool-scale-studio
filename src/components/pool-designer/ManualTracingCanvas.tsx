@@ -46,6 +46,7 @@ interface DrawnShape {
   lengthFeet?: number;
   copingSize?: number; // inches (12 or 16)
   paverDimensions?: PaverDimensions;
+  isPreset?: boolean; // true for predefined pools, false for custom
 }
 
 interface StandalonePaver {
@@ -1802,10 +1803,12 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       addEdgeLengthLabels(fabricCanvas, propertyShapeRef.current.points, propertyShapeRef.current.id);
     }
     
-    // Re-add pool name labels and edge labels
+    // Re-add pool name labels and edge labels (only for custom pools)
     poolShapesRef.current.forEach(pool => {
       addPoolNameLabel(fabricCanvas, pool.points, pool.id, pool.name || 'Custom Pool');
-      addPoolEdgeLabels(fabricCanvas, pool.points, pool.id);
+      if (!pool.isPreset) {
+        addPoolEdgeLabels(fabricCanvas, pool.points, pool.id);
+      }
     });
     
     fabricCanvas.renderAll();
@@ -2851,7 +2854,10 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       { x: centerX - halfWidth, y: centerY + halfLength },
     ];
     
-    createPoolShape(poolPoints, preset.displayName, widthFeet, lengthFeet);
+    createPoolShape(poolPoints, preset.displayName, widthFeet, lengthFeet, true);
+    
+    // Auto-deselect pool tool after adding
+    exitMode();
   };
 
   // Add custom sized pool
@@ -2891,12 +2897,15 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       { x: centerX - halfWidth, y: centerY + halfLength },
     ];
     
-    createPoolShape(poolPoints, `Custom ${widthFeet}'x${lengthFeet}'`, widthFeet, lengthFeet);
+    createPoolShape(poolPoints, `Custom ${widthFeet}'x${lengthFeet}'`, widthFeet, lengthFeet, false);
     setShowCustomPoolInput(false);
+    
+    // Auto-deselect pool tool after adding
+    exitMode();
   };
 
   // Create pool shape helper with coping and pavers
-  const createPoolShape = (points: { x: number; y: number }[], name: string, widthFeet: number, lengthFeet: number) => {
+  const createPoolShape = (points: { x: number; y: number }[], name: string, widthFeet: number, lengthFeet: number, isPreset: boolean = false) => {
     if (!fabricCanvas) return;
     
     const shapeId = `pool-${Date.now()}`;
@@ -3042,9 +3051,13 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     // Add paver dimension labels on each side (no rotation for new pools)
     addPaverDimensionLabels(fabricCanvas, shapeId, poolCenterX, poolCenterY, totalOuterWidth, totalOuterHeight, paverDims, offsetX, offsetY, 0);
     
-    // Add pool name label and edge measurements
+    // Add pool name label
     addPoolNameLabel(fabricCanvas, points, shapeId, name);
-    addPoolEdgeLabels(fabricCanvas, points, shapeId);
+    
+    // Only add edge measurements for custom pools, not presets
+    if (!isPreset) {
+      addPoolEdgeLabels(fabricCanvas, points, shapeId);
+    }
     
     // Proper z-ordering: grid at bottom, then property, then pools
     const objects = fabricCanvas.getObjects();
@@ -3078,6 +3091,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       lengthFeet,
       copingSize,
       paverDimensions: paverDims,
+      isPreset,
     };
     
     setPoolShapes(prev => [...prev, shape]);
