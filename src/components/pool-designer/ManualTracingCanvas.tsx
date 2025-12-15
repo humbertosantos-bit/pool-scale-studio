@@ -153,6 +153,10 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
   // Pool calculations
   const [poolCalculations, setPoolCalculations] = useState<PoolCalculation[]>([]);
   
+  // Selected item for deletion
+  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+  const [selectedItemType, setSelectedItemType] = useState<'house' | 'pool' | 'measurement' | 'paver' | null>(null);
+  
   // Pool movement state
   const [selectedPoolIndex, setSelectedPoolIndex] = useState<number | null>(null);
   const [isDraggingPool, setIsDraggingPool] = useState(false);
@@ -796,6 +800,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         evented: false,
       });
       (polygon as any).shapeType = 'house';
+      (polygon as any).shapeId = house.id;
       fabricCanvas.add(polygon);
       
       // Add new vertex markers
@@ -824,7 +829,8 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         fabricCanvas.add(marker);
       });
       
-      // No edge labels for houses
+      // Add house label ("maison")
+      addHouseLabel(fabricCanvas, newPoints, house.id, 'maison');
       
       // Update state
       const updatedHouse: DrawnShape = {
@@ -991,6 +997,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       evented: false,
     });
     (polygon as any).shapeType = mode;
+    (polygon as any).shapeId = shapeId;
     
     fabricCanvas.add(polygon);
 
@@ -1048,6 +1055,8 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       toast.success('Property boundary drawn! You can now draw the house or pool.');
     } else if (mode === 'house') {
       setHouseShapes(prev => [...prev, shape]);
+      // Add "maison" label in the center of the house
+      addHouseLabel(fabricCanvas, points, shapeId, 'maison');
       toast.success('House footprint added!');
     } else if (mode === 'pool') {
       setPoolShapes(prev => [...prev, shape]);
@@ -1289,6 +1298,52 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     canvas.add(nameLabel);
   };
   
+  // Add house label ("maison") in the center
+  const addHouseLabel = (canvas: FabricCanvas, points: { x: number; y: number }[], shapeId: string, name: string) => {
+    const minX = Math.min(...points.map(p => p.x));
+    const maxX = Math.max(...points.map(p => p.x));
+    const minY = Math.min(...points.map(p => p.y));
+    const maxY = Math.max(...points.map(p => p.y));
+    
+    const width = maxX - minX;
+    const height = maxY - minY;
+    
+    // Calculate available space with 10% padding
+    const availableWidth = width * 0.8;
+    const availableHeight = height * 0.8;
+    
+    // Start with a base font size and scale down to fit
+    let fontSize = Math.min(availableHeight * 0.3, 14);
+    
+    // Estimate text width
+    const estimatedTextWidth = name.length * fontSize * 0.6;
+    if (estimatedTextWidth > availableWidth) {
+      fontSize = (availableWidth / name.length) / 0.6;
+    }
+    
+    // Ensure minimum readable size
+    fontSize = Math.max(fontSize, 8);
+    
+    const labelX = minX + width / 2;
+    const labelY = minY + height / 2;
+    
+    const nameLabel = new Text(name, {
+      left: labelX,
+      top: labelY,
+      fontSize: fontSize,
+      fill: '#000000',
+      fontWeight: 'bold',
+      fontFamily: 'Poppins, sans-serif',
+      originX: 'center',
+      originY: 'center',
+      selectable: false,
+      evented: false,
+    });
+    (nameLabel as any).isHouseLabel = true;
+    (nameLabel as any).shapeId = shapeId;
+    canvas.add(nameLabel);
+  };
+
   // Add pool edge measurements
   const addPoolEdgeLabels = (canvas: FabricCanvas, points: { x: number; y: number }[], shapeId: string) => {
     for (let i = 0; i < points.length; i++) {
@@ -1977,6 +2032,12 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     };
     
     fabricCanvas.on('object:rotating', handleObjectRotating);
+    
+    // Handle selection of items by clicking
+    const handleSelectionClick = (e: any) => {
+      handleItemSelection(e);
+    };
+    fabricCanvas.on('mouse:dblclick', handleSelectionClick);
 
     return () => {
       fabricCanvas.off('mouse:down', handleMouseDown);
@@ -1995,6 +2056,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       fabricCanvas.off('mouse:move', handleVertexMouseMove);
       fabricCanvas.off('mouse:up', handleVertexMouseUp);
       fabricCanvas.off('object:rotating', handleObjectRotating);
+      fabricCanvas.off('mouse:dblclick', handleSelectionClick);
     };
   }, [fabricCanvas, completeShape, gridSnapping, vertexSnapping, isDraggingHouse, selectedHouseIndex, isDraggingPool, selectedPoolIndex, isRotatingPool, isPanning]);
 
@@ -2070,6 +2132,9 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     
     // Add new edge labels
     addEdgeLengthLabels(fabricCanvas, newPoints, house.id);
+    
+    // Add house label ("maison")
+    addHouseLabel(fabricCanvas, newPoints, house.id, 'maison');
     
     // Update state
     const updatedHouse: DrawnShape = {
@@ -3344,6 +3409,220 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     toast.success('Measurement deleted');
   };
 
+  // Delete selected item
+  const deleteSelectedItem = () => {
+    if (!fabricCanvas || !selectedItemId || !selectedItemType) return;
+    
+    if (selectedItemType === 'house') {
+      const houseIndex = houseShapesRef.current.findIndex(h => h.id === selectedItemId);
+      if (houseIndex === -1) return;
+      
+      const house = houseShapesRef.current[houseIndex];
+      
+      // Remove polygon
+      if (house.fabricObject) {
+        fabricCanvas.remove(house.fabricObject);
+      }
+      
+      // Remove related objects
+      const objects = fabricCanvas.getObjects();
+      objects.forEach(obj => {
+        if ((obj as any).shapeId === house.id || (obj as any).parentPolygon === house.fabricObject) {
+          fabricCanvas.remove(obj);
+        }
+      });
+      
+      // Update state
+      const newHouseShapes = houseShapesRef.current.filter(h => h.id !== selectedItemId);
+      setHouseShapes(newHouseShapes);
+      houseShapesRef.current = newHouseShapes;
+      
+      toast.success('House deleted');
+    } else if (selectedItemType === 'pool') {
+      const poolIndex = poolShapesRef.current.findIndex(p => p.id === selectedItemId);
+      if (poolIndex === -1) return;
+      
+      const pool = poolShapesRef.current[poolIndex];
+      
+      // Remove polygon
+      if (pool.fabricObject) {
+        fabricCanvas.remove(pool.fabricObject);
+      }
+      
+      // Remove all related objects
+      const objects = fabricCanvas.getObjects();
+      objects.forEach(obj => {
+        if ((obj as any).shapeId === pool.id || (obj as any).parentPolygon === pool.fabricObject) {
+          fabricCanvas.remove(obj);
+        }
+      });
+      
+      // Update state
+      const newPoolShapes = poolShapesRef.current.filter(p => p.id !== selectedItemId);
+      setPoolShapes(newPoolShapes);
+      poolShapesRef.current = newPoolShapes;
+      
+      // Update calculations
+      updatePoolCalculations(newPoolShapes);
+      
+      toast.success('Pool deleted');
+    } else if (selectedItemType === 'measurement') {
+      const measurement = measurementLinesRef.current.find(m => m.id === selectedItemId);
+      if (!measurement) return;
+      
+      if (measurement.fabricGroup) {
+        fabricCanvas.remove(measurement.fabricGroup);
+      }
+      
+      const newMeasurements = measurementLinesRef.current.filter(m => m.id !== selectedItemId);
+      setMeasurementLines(newMeasurements);
+      measurementLinesRef.current = newMeasurements;
+      
+      toast.success('Measurement deleted');
+    } else if (selectedItemType === 'paver') {
+      const paver = standalonePaversRef.current.find(p => p.id === selectedItemId);
+      if (!paver) return;
+      
+      // Remove fabric objects
+      const objects = fabricCanvas.getObjects();
+      objects.forEach(obj => {
+        if ((obj as any).shapeId === paver.id) {
+          fabricCanvas.remove(obj);
+        }
+      });
+      
+      const newPavers = standalonePaversRef.current.filter(p => p.id !== selectedItemId);
+      setStandalonePavers(newPavers);
+      standalonePaversRef.current = newPavers;
+      
+      toast.success('Paver zone deleted');
+    }
+    
+    // Clear selection
+    setSelectedItemId(null);
+    setSelectedItemType(null);
+    fabricCanvas.renderAll();
+  };
+
+  // Handle clicking on items to select them
+  const handleItemSelection = (e: any) => {
+    if (!fabricCanvas) return;
+    if (drawingModeRef.current !== 'none') return;
+    if (spacePressedRef.current) return;
+    
+    const pointer = fabricCanvas.getScenePoint(e.e);
+    
+    // Check if clicked on a measurement (fabric group)
+    const target = e.target;
+    if (target && (target as any).isMeasurementLine) {
+      const measurementId = (target as any).measurementId;
+      if (measurementId) {
+        setSelectedItemId(measurementId);
+        setSelectedItemType('measurement');
+        highlightSelectedItem(measurementId, 'measurement');
+        return;
+      }
+    }
+    
+    // Check pools first (they might overlap with other shapes)
+    for (const pool of poolShapesRef.current) {
+      if (isPointInsidePolygon({ x: pointer.x, y: pointer.y }, pool.points)) {
+        setSelectedItemId(pool.id);
+        setSelectedItemType('pool');
+        highlightSelectedItem(pool.id, 'pool');
+        return;
+      }
+    }
+    
+    // Check houses
+    for (const house of houseShapesRef.current) {
+      if (isPointInsidePolygon({ x: pointer.x, y: pointer.y }, house.points)) {
+        setSelectedItemId(house.id);
+        setSelectedItemType('house');
+        highlightSelectedItem(house.id, 'house');
+        return;
+      }
+    }
+    
+    // Check standalone pavers
+    for (const paver of standalonePaversRef.current) {
+      if (isPointInsidePolygon({ x: pointer.x, y: pointer.y }, paver.points)) {
+        setSelectedItemId(paver.id);
+        setSelectedItemType('paver');
+        highlightSelectedItem(paver.id, 'paver');
+        return;
+      }
+    }
+    
+    // If clicked on nothing, clear selection
+    setSelectedItemId(null);
+    setSelectedItemType(null);
+    clearHighlight();
+  };
+
+  // Highlight the selected item
+  const highlightSelectedItem = (itemId: string, itemType: 'house' | 'pool' | 'measurement' | 'paver') => {
+    if (!fabricCanvas) return;
+    
+    // First clear any existing highlight
+    clearHighlight();
+    
+    // Find and highlight the object
+    const objects = fabricCanvas.getObjects();
+    objects.forEach(obj => {
+      if ((obj as any).shapeId === itemId || (obj as any).measurementId === itemId) {
+        if (obj instanceof Polygon || obj instanceof Rect) {
+          (obj as any).originalStrokeWidth = obj.strokeWidth;
+          (obj as any).originalStroke = obj.stroke;
+          obj.set({
+            strokeWidth: 3,
+            stroke: '#ef4444', // Red highlight
+          });
+          (obj as any).isHighlighted = true;
+        }
+        if ((obj as any).isMeasurementLine && obj instanceof Group) {
+          (obj as any).isHighlighted = true;
+          // Highlight the line in the group
+          obj.getObjects().forEach(child => {
+            if (child instanceof Line) {
+              (child as any).originalStroke = child.stroke;
+              child.set({ stroke: '#ef4444' });
+            }
+          });
+        }
+      }
+    });
+    
+    fabricCanvas.renderAll();
+  };
+
+  // Clear highlight from all objects
+  const clearHighlight = () => {
+    if (!fabricCanvas) return;
+    
+    const objects = fabricCanvas.getObjects();
+    objects.forEach(obj => {
+      if ((obj as any).isHighlighted) {
+        if (obj instanceof Polygon || obj instanceof Rect) {
+          obj.set({
+            strokeWidth: (obj as any).originalStrokeWidth || 1,
+            stroke: (obj as any).originalStroke || '#000000',
+          });
+        }
+        if (obj instanceof Group) {
+          obj.getObjects().forEach(child => {
+            if (child instanceof Line && (child as any).originalStroke) {
+              child.set({ stroke: (child as any).originalStroke });
+            }
+          });
+        }
+        (obj as any).isHighlighted = false;
+      }
+    });
+    
+    fabricCanvas.renderAll();
+  };
+
   // Reset canvas
   const resetCanvas = () => {
     if (!fabricCanvas) return;
@@ -3943,6 +4222,14 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
           Reset
         </Button>
 
+        {/* Delete Selected Item Button */}
+        {selectedItemId && (
+          <Button size="sm" variant="destructive" onClick={deleteSelectedItem} className="bg-red-600 hover:bg-red-700">
+            <Trash2 className="h-4 w-4 mr-1" />
+            Delete {selectedItemType}
+          </Button>
+        )}
+
         {drawingMode !== 'none' && drawingMode !== 'move-house' && drawingMode !== 'move-pool' && drawingMode !== 'rotate-pool' && currentPoints.length >= 3 && (
           <Button size="sm" variant="default" onClick={completeShape} className="ml-auto">
             Close Shape
@@ -3960,6 +4247,11 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         <span>Unit: {unit === 'ft' ? 'Feet' : 'Meters'}</span>
         {shiftPressed && <span className="text-primary font-medium">⇧ Angle Snap Active</span>}
         {spacePressed && <span className="text-primary font-medium">Pan Mode</span>}
+        {selectedItemId && (
+          <span className="text-red-600 font-medium">
+            Selected: {selectedItemType} (double-click to select, use Delete button)
+          </span>
+        )}
         {drawingMode !== 'none' && (
           <span className="ml-auto font-medium text-primary">
             Mode: {drawingMode === 'property' ? 'Drawing Property' : drawingMode === 'house' ? 'Drawing House' : drawingMode === 'pool' ? 'Drawing Pool' : drawingMode === 'paver' ? 'Drawing Paver Zone' : drawingMode === 'move-house' ? 'Moving House' : drawingMode === 'move-pool' ? 'Moving Pool' : drawingMode === 'rotate-pool' ? 'Rotating Pool' : drawingMode === 'measure-draw' ? 'Drawing Measurement' : drawingMode}
