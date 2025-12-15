@@ -12,7 +12,7 @@ import {
   DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu';
 import { toast } from 'sonner';
-import { Undo2, Redo2, Grid3X3, Magnet, RotateCcw, Move, Trash2, ZoomIn, ZoomOut, Eye, EyeOff, Maximize, Waves, ChevronDown, Plus, Pencil, Ruler, Settings } from 'lucide-react';
+import { Undo2, Redo2, Grid3X3, Magnet, RotateCcw, Move, Trash2, ZoomIn, ZoomOut, Eye, EyeOff, Maximize, Waves, ChevronDown, Plus, Pencil, Ruler, Settings, Image, Lock, Unlock } from 'lucide-react';
 
 interface ManualTracingCanvasProps {
   onStateChange?: (state: any) => void;
@@ -206,6 +206,13 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
   
   // Grid visibility
   const [showGrid, setShowGrid] = useState(true);
+  
+  // Background image state
+  const [backgroundImage, setBackgroundImage] = useState<FabricImage | null>(null);
+  const backgroundImageRef = useRef<FabricImage | null>(null);
+  const [backgroundOpacity, setBackgroundOpacity] = useState(0.5);
+  const [backgroundLocked, setBackgroundLocked] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Measurement label state
   const [measurementLabel, setMeasurementLabel] = useState<Text | null>(null);
@@ -559,6 +566,111 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     setShowGrid(newShowGrid);
     drawGrid(fabricCanvas, containerRef.current.clientWidth, containerRef.current.clientHeight, newShowGrid);
     fabricCanvas.renderAll();
+  };
+
+  // Handle background image upload
+  const handleBackgroundImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !fabricCanvas) return;
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const dataUrl = event.target?.result as string;
+      
+      // Remove existing background image if any
+      if (backgroundImageRef.current) {
+        fabricCanvas.remove(backgroundImageRef.current);
+      }
+
+      const img = await FabricImage.fromURL(dataUrl);
+      
+      // Scale image to fit canvas while maintaining aspect ratio
+      const canvasWidth = fabricCanvas.width!;
+      const canvasHeight = fabricCanvas.height!;
+      const imgWidth = img.width!;
+      const imgHeight = img.height!;
+      
+      const scaleX = canvasWidth / imgWidth;
+      const scaleY = canvasHeight / imgHeight;
+      const scale = Math.min(scaleX, scaleY, 1); // Don't upscale
+      
+      img.set({
+        scaleX: scale,
+        scaleY: scale,
+        left: canvasWidth / 2,
+        top: canvasHeight / 2,
+        originX: 'center',
+        originY: 'center',
+        opacity: backgroundOpacity,
+        selectable: !backgroundLocked,
+        evented: !backgroundLocked,
+        hasControls: true,
+        hasBorders: true,
+      });
+      
+      (img as any).isBackgroundImage = true;
+      
+      fabricCanvas.add(img);
+      fabricCanvas.sendObjectToBack(img);
+      
+      // Move grid behind the image
+      const objects = fabricCanvas.getObjects();
+      objects.forEach(obj => {
+        if ((obj as any).isGrid) {
+          fabricCanvas.sendObjectToBack(obj);
+        }
+      });
+      
+      setBackgroundImage(img);
+      backgroundImageRef.current = img;
+      
+      fabricCanvas.renderAll();
+      toast.success('Background image loaded. You can drag, scale, and rotate it to trace over.');
+    };
+    
+    reader.readAsDataURL(file);
+    
+    // Reset file input so same file can be selected again
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  // Toggle background image lock
+  const toggleBackgroundLock = () => {
+    if (!backgroundImageRef.current || !fabricCanvas) return;
+    
+    const newLocked = !backgroundLocked;
+    setBackgroundLocked(newLocked);
+    
+    backgroundImageRef.current.set({
+      selectable: !newLocked,
+      evented: !newLocked,
+    });
+    
+    fabricCanvas.discardActiveObject();
+    fabricCanvas.renderAll();
+    toast.info(newLocked ? 'Background locked' : 'Background unlocked');
+  };
+
+  // Update background opacity
+  const updateBackgroundOpacity = (opacity: number) => {
+    setBackgroundOpacity(opacity);
+    if (backgroundImageRef.current && fabricCanvas) {
+      backgroundImageRef.current.set({ opacity });
+      fabricCanvas.renderAll();
+    }
+  };
+
+  // Remove background image
+  const removeBackgroundImage = () => {
+    if (!backgroundImageRef.current || !fabricCanvas) return;
+    
+    fabricCanvas.remove(backgroundImageRef.current);
+    setBackgroundImage(null);
+    backgroundImageRef.current = null;
+    fabricCanvas.renderAll();
+    toast.info('Background image removed');
   };
 
   // Snap point to grid if enabled
@@ -4213,6 +4325,59 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
           >
             m
           </Button>
+        </div>
+
+        {/* Background Image Controls */}
+        <div className="flex items-center gap-2 border-r pr-3">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleBackgroundImageUpload}
+            className="hidden"
+          />
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => fileInputRef.current?.click()}
+            title="Import Background Image"
+          >
+            <Image className="h-4 w-4 mr-1" />
+            Import
+          </Button>
+          
+          {backgroundImage && (
+            <>
+              <Button
+                size="sm"
+                variant={backgroundLocked ? 'secondary' : 'ghost'}
+                onClick={toggleBackgroundLock}
+                title={backgroundLocked ? 'Unlock Background' : 'Lock Background'}
+              >
+                {backgroundLocked ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
+              </Button>
+              <div className="flex items-center gap-1">
+                <span className="text-[10px] text-muted-foreground">Opacity:</span>
+                <input
+                  type="range"
+                  min="0.1"
+                  max="1"
+                  step="0.1"
+                  value={backgroundOpacity}
+                  onChange={(e) => updateBackgroundOpacity(parseFloat(e.target.value))}
+                  className="w-16 h-4"
+                />
+              </div>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={removeBackgroundImage}
+                title="Remove Background"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </>
+          )}
         </div>
 
         
