@@ -967,7 +967,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         return;
       }
       
-      if (drawingModeRef.current === 'none' || drawingModeRef.current === 'move-house' || drawingModeRef.current === 'move-pool') return;
+      if (drawingModeRef.current === 'none' || drawingModeRef.current === 'move-house' || drawingModeRef.current === 'move-pool' || drawingModeRef.current === 'rotate-pool') return;
       
       const pointer = fabricCanvas.getScenePoint(e.e);
       let snappedPoint = applySnapping({ x: pointer.x, y: pointer.y });
@@ -1058,7 +1058,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         return;
       }
       
-      if (drawingModeRef.current === 'none' || currentPointsRef.current.length === 0) return;
+      if (drawingModeRef.current === 'none' || drawingModeRef.current === 'move-house' || drawingModeRef.current === 'move-pool' || drawingModeRef.current === 'rotate-pool' || currentPointsRef.current.length === 0) return;
       
       const pointer = fabricCanvas.getScenePoint(e.e);
       let snappedPoint = applySnapping({ x: pointer.x, y: pointer.y });
