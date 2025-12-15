@@ -643,7 +643,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       const polygon = new Polygon(fabricPoints, {
         fill: 'rgba(34, 197, 94, 0.1)',
         stroke: '#22c55e',
-        strokeWidth: 2,
+        strokeWidth: 1,
         strokeDashArray: [8, 4],
         selectable: false,
         evented: false,
@@ -667,7 +667,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
           radius: 3,
           fill: '#22c55e',
           stroke: '#ffffff',
-          strokeWidth: 2,
+          strokeWidth: 1,
           originX: 'center',
           originY: 'center',
           selectable: false,
@@ -727,7 +727,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       const polygon = new Polygon(fabricPoints, {
         fill: createHatchPattern(),
         stroke: '#000000',
-        strokeWidth: 2,
+        strokeWidth: 1,
         selectable: false,
         evented: false,
       });
@@ -742,7 +742,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
           radius: 1.5,
           fill: '#000000',
           stroke: '#ffffff',
-          strokeWidth: 2,
+          strokeWidth: 1,
           originX: 'center',
           originY: 'center',
           selectable: false,
@@ -915,7 +915,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     const polygon = new Polygon(fabricPoints, {
       fill,
       stroke,
-      strokeWidth: 2,
+      strokeWidth: 1,
       strokeDashArray,
       selectable: false,
       evented: false,
@@ -1183,7 +1183,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
             radius: 4,
             fill: '#dc2626',
             stroke: '#ffffff',
-            strokeWidth: 2,
+            strokeWidth: 1,
             originX: 'center',
             originY: 'center',
             selectable: false,
@@ -1243,7 +1243,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         radius: 4,
         fill: markerColor,
         stroke: '#ffffff',
-        strokeWidth: 2,
+        strokeWidth: 1,
         originX: 'center',
         originY: 'center',
         selectable: false,
@@ -1259,7 +1259,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         const lineColor = drawingModeRef.current === 'property' ? '#22c55e' : drawingModeRef.current === 'pool' ? '#0EA5E9' : '#3b82f6';
         const line = new Line([prev.x, prev.y, snappedPoint.x, snappedPoint.y], {
           stroke: lineColor,
-          strokeWidth: 2,
+          strokeWidth: 1,
           strokeDashArray: drawingModeRef.current === 'property' ? [8, 4] : undefined,
           selectable: false,
           evented: false,
@@ -1323,7 +1323,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
             snappedPoint.y
           ], {
             stroke: '#dc2626',
-            strokeWidth: 2,
+            strokeWidth: 1,
             strokeDashArray: [5, 3],
             selectable: false,
             evented: false,
@@ -1731,7 +1731,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     const polygon = new Polygon(fabricPoints, {
       fill: createHatchPattern(),
       stroke: '#000000',
-      strokeWidth: 2,
+      strokeWidth: 1,
       selectable: false,
       evented: false,
     });
@@ -1805,7 +1805,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     const polygon = new Polygon(fabricPoints, {
       fill: createWaterGradient(newPoints),
       stroke: '#000000',
-      strokeWidth: 2,
+      strokeWidth: 1,
       selectable: false,
       evented: false,
     });
@@ -2013,7 +2013,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     const polygon = new Polygon(fabricPoints, {
       fill: createWaterGradient(points),
       stroke: '#000000',
-      strokeWidth: 2,
+      strokeWidth: 1,
       selectable: false,
       evented: false,
     });
@@ -2200,7 +2200,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         radius: 4,
         fill: drawingModeRef.current === 'property' ? '#22c55e' : '#3b82f6',
         stroke: '#ffffff',
-        strokeWidth: 2,
+        strokeWidth: 1,
         originX: 'center',
         originY: 'center',
         selectable: false,
@@ -2214,7 +2214,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         const prev = newPoints[newPoints.length - 2];
         const line = new Line([prev.x, prev.y, point.x, point.y], {
           stroke: drawingModeRef.current === 'property' ? '#22c55e' : '#3b82f6',
-          strokeWidth: 2,
+          strokeWidth: 1,
           strokeDashArray: drawingModeRef.current === 'property' ? [8, 4] : undefined,
           selectable: false,
           evented: false,
@@ -2265,7 +2265,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     // Create the main line
     const mainLine = new Line([startPoint.x, startPoint.y, endPoint.x, endPoint.y], {
       stroke: '#dc2626',
-      strokeWidth: 2,
+      strokeWidth: 1,
       originX: 'center',
       originY: 'center',
     });
@@ -2280,14 +2280,14 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       startPoint.y,
       startPoint.x + arrowSize * Math.cos(angle - arrowAngle),
       startPoint.y + arrowSize * Math.sin(angle - arrowAngle),
-    ], { stroke: '#dc2626', strokeWidth: 2 });
+    ], { stroke: '#dc2626', strokeWidth: 1 });
     
     const startArrow2 = new Line([
       startPoint.x,
       startPoint.y,
       startPoint.x + arrowSize * Math.cos(angle + arrowAngle),
       startPoint.y + arrowSize * Math.sin(angle + arrowAngle),
-    ], { stroke: '#dc2626', strokeWidth: 2 });
+    ], { stroke: '#dc2626', strokeWidth: 1 });
     
     // End arrow
     const endArrow1 = new Line([
@@ -2295,14 +2295,14 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       endPoint.y,
       endPoint.x - arrowSize * Math.cos(angle - arrowAngle),
       endPoint.y - arrowSize * Math.sin(angle - arrowAngle),
-    ], { stroke: '#dc2626', strokeWidth: 2 });
+    ], { stroke: '#dc2626', strokeWidth: 1 });
     
     const endArrow2 = new Line([
       endPoint.x,
       endPoint.y,
       endPoint.x - arrowSize * Math.cos(angle + arrowAngle),
       endPoint.y - arrowSize * Math.sin(angle + arrowAngle),
-    ], { stroke: '#dc2626', strokeWidth: 2 });
+    ], { stroke: '#dc2626', strokeWidth: 1 });
     
     // Create measurement label
     const midX = (startPoint.x + endPoint.x) / 2;
