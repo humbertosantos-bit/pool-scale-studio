@@ -83,76 +83,51 @@ export const PoolDesigner: React.FC = () => {
       {/* Main Content */}
       <div className="flex flex-col h-[calc(100vh-104px)]">
         <div className="flex flex-1 overflow-hidden">
-          {/* Left Sidebar - 1/4 width */}
-          <div className="w-1/4 border-r bg-white overflow-y-auto">
-            <div className="p-6 space-y-4">
-              {/* Tools Section - shown when image is uploaded (not for manual tracing) */}
-              {selectedImage && poolState && (
-                <PoolControls 
-                  {...poolState} 
-                  selectedImage={selectedImage}
-                  onFileSelect={handleFileSelect}
-                  showSunPath={poolState.showSunPath}
-                  onShowSunPathChange={poolState.onShowSunPathChange}
-                  isSettingNorth={poolState.isSettingNorth}
-                  onSetNorth={poolState.onSetNorth}
-                  location={poolState.location}
-                  onLocationChange={poolState.onLocationChange}
-                  selectedDate={poolState.selectedDate}
-                  onDateChange={poolState.onDateChange}
-                  timeOfDay={poolState.timeOfDay}
-                  onTimeOfDayChange={poolState.onTimeOfDayChange}
-                  bgImageOpacity={poolState.bgImageOpacity}
-                  onBgImageOpacityChange={poolState.onBgImageOpacityChange}
-                />
-              )}
-              
-              {/* Upload only when no image and not manual tracing */}
-              {!showCanvas && (
-                <div className="border rounded-lg overflow-hidden">
-                  <div className="bg-primary px-4 py-3">
-                    <h2 className="text-sm font-semibold text-primary-foreground">📁 Start Design</h2>
-                  </div>
-                  <div className="p-4">
-                    <ImageUploadOptions 
-                      onFileSelect={handleFileSelect} 
-                      onManualTraceSelect={handleManualTraceSelect}
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* Manual tracing info */}
-              {isManualTracing && (
-                <div className="border rounded-lg overflow-hidden">
-                  <div className="bg-primary px-4 py-3">
-                    <h2 className="text-sm font-semibold text-primary-foreground">✏️ Manual Tracing</h2>
-                  </div>
-                  <div className="p-4 space-y-3 text-xs text-muted-foreground">
-                    <p><strong>Instructions:</strong></p>
-                    <ol className="list-decimal pl-4 space-y-1">
-                      <li>Click "Draw Property" to start</li>
-                      <li>Click to add vertices</li>
-                      <li>Click near first point to close</li>
-                      <li>Set scale with a known distance</li>
-                      <li>Draw house inside property</li>
-                    </ol>
-                    <div className="pt-2 border-t">
-                      <p><strong>Snapping Options:</strong></p>
-                      <ul className="list-disc pl-4 space-y-0.5 mt-1">
-                        <li>Grid: Snap to 20px grid</li>
-                        <li>90°: Snap to 45°/90° angles</li>
-                        <li>Vertex: Snap to existing points</li>
-                      </ul>
+          {/* Left Sidebar - only show when NOT in manual tracing mode */}
+          {!isManualTracing && (
+            <div className="w-1/4 border-r bg-white overflow-y-auto">
+              <div className="p-6 space-y-4">
+                {/* Tools Section - shown when image is uploaded */}
+                {selectedImage && poolState && (
+                  <PoolControls 
+                    {...poolState} 
+                    selectedImage={selectedImage}
+                    onFileSelect={handleFileSelect}
+                    showSunPath={poolState.showSunPath}
+                    onShowSunPathChange={poolState.onShowSunPathChange}
+                    isSettingNorth={poolState.isSettingNorth}
+                    onSetNorth={poolState.onSetNorth}
+                    location={poolState.location}
+                    onLocationChange={poolState.onLocationChange}
+                    selectedDate={poolState.selectedDate}
+                    onDateChange={poolState.onDateChange}
+                    timeOfDay={poolState.timeOfDay}
+                    onTimeOfDayChange={poolState.onTimeOfDayChange}
+                    bgImageOpacity={poolState.bgImageOpacity}
+                    onBgImageOpacityChange={poolState.onBgImageOpacityChange}
+                  />
+                )}
+                
+                {/* Upload only when no image */}
+                {!selectedImage && (
+                  <div className="border rounded-lg overflow-hidden">
+                    <div className="bg-primary px-4 py-3">
+                      <h2 className="text-sm font-semibold text-primary-foreground">📁 Start Design</h2>
+                    </div>
+                    <div className="p-4">
+                      <ImageUploadOptions 
+                        onFileSelect={handleFileSelect} 
+                        onManualTraceSelect={handleManualTraceSelect}
+                      />
                     </div>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
-          </div>
+          )}
 
-          {/* Right Canvas - 3/4 width */}
-          <div className="w-3/4 bg-gradient-to-br from-background to-pool-light/20 overflow-auto">
+          {/* Canvas - full width when manual tracing, 3/4 width otherwise */}
+          <div className={`${isManualTracing ? 'w-full' : 'w-3/4'} bg-gradient-to-br from-background to-pool-light/20 overflow-auto`}>
             {isManualTracing ? (
               <ManualTracingCanvas onStateChange={handleStateChange} />
             ) : selectedImage ? (
