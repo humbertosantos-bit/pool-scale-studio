@@ -105,10 +105,18 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
   const [measurementInches, setMeasurementInches] = useState<string>('0');
   const [measurementMeters, setMeasurementMeters] = useState<string>('1.2');
   
-  // Custom pool dimensions input
+// Custom pool dimensions input
   const [customPoolWidth, setCustomPoolWidth] = useState<string>('12');
   const [customPoolLength, setCustomPoolLength] = useState<string>('24');
   const [showCustomPoolInput, setShowCustomPoolInput] = useState(false);
+  
+  // Property input mode
+  const [propertyInputMode, setPropertyInputMode] = useState<'draw' | 'measure'>('draw');
+  const [showPropertyMeasureInput, setShowPropertyMeasureInput] = useState(false);
+  const [propertyWidthFeet, setPropertyWidthFeet] = useState<string>('50');
+  const [propertyWidthInches, setPropertyWidthInches] = useState<string>('0');
+  const [propertyLengthFeet, setPropertyLengthFeet] = useState<string>('100');
+  const [propertyLengthInches, setPropertyLengthInches] = useState<string>('0');
   
   // Coping and paver settings
   const [copingSize, setCopingSize] = useState<number>(12); // 12 or 16 inches (mandatory)
@@ -1033,6 +1041,114 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     setUndoStack(prev => [...prev, { type: 'complete_shape', data: shape }]);
     setRedoStack([]);
   }, [fabricCanvas]);
+
+  // Add rectangular property from measurements
+  const addRectangularProperty = useCallback(() => {
+    if (!fabricCanvas) return;
+    
+    const widthFeet = parseFloat(propertyWidthFeet) || 0;
+    const widthInches = parseFloat(propertyWidthInches) || 0;
+    const lengthFeet = parseFloat(propertyLengthFeet) || 0;
+    const lengthInches = parseFloat(propertyLengthInches) || 0;
+    
+    const totalWidthFeet = widthFeet + widthInches / 12;
+    const totalLengthFeet = lengthFeet + lengthInches / 12;
+    
+    if (totalWidthFeet <= 0 || totalLengthFeet <= 0) {
+      toast.error('Please enter valid dimensions');
+      return;
+    }
+    
+    // Convert feet to pixels (using the grid: 1 grid = 1 meter = PIXELS_PER_METER pixels)
+    const widthMeters = totalWidthFeet / METERS_TO_FEET;
+    const lengthMeters = totalLengthFeet / METERS_TO_FEET;
+    const widthPixels = widthMeters * PIXELS_PER_METER;
+    const lengthPixels = lengthMeters * PIXELS_PER_METER;
+    
+    // Center the property on the canvas
+    const canvasWidth = fabricCanvas.width!;
+    const canvasHeight = fabricCanvas.height!;
+    const startX = (canvasWidth - widthPixels) / 2;
+    const startY = (canvasHeight - lengthPixels) / 2;
+    
+    // Create rectangular points
+    const points = [
+      { x: startX, y: startY },
+      { x: startX + widthPixels, y: startY },
+      { x: startX + widthPixels, y: startY + lengthPixels },
+      { x: startX, y: startY + lengthPixels },
+    ];
+    
+    const shapeId = `property-${Date.now()}`;
+    
+    // Create polygon
+    const fabricPoints = points.map(p => new Point(p.x, p.y));
+    const polygon = new Polygon(fabricPoints, {
+      fill: 'rgba(34, 197, 94, 0.1)',
+      stroke: '#22c55e',
+      strokeWidth: 1,
+      strokeDashArray: [8, 4],
+      selectable: false,
+      evented: false,
+    });
+    (polygon as any).shapeType = 'property';
+    
+    fabricCanvas.add(polygon);
+    fabricCanvas.sendObjectToBack(polygon);
+    
+    // Move grid to back
+    const objects = fabricCanvas.getObjects();
+    objects.forEach(obj => {
+      if ((obj as any).isGrid) {
+        fabricCanvas.sendObjectToBack(obj);
+      }
+    });
+    
+    // Add vertex markers
+    points.forEach((p, index) => {
+      const marker = new Circle({
+        left: p.x,
+        top: p.y,
+        radius: 3,
+        fill: '#22c55e',
+        stroke: '#ffffff',
+        strokeWidth: 2,
+        originX: 'center',
+        originY: 'center',
+        selectable: false,
+        evented: true,
+        hasControls: false,
+        hasBorders: false,
+        hoverCursor: 'pointer',
+      });
+      (marker as any).vertexIndex = index;
+      (marker as any).parentPolygon = polygon;
+      (marker as any).parentPoints = points;
+      (marker as any).shapeType = 'property';
+      (marker as any).shapeId = shapeId;
+      (marker as any).isVertexMarker = true;
+      
+      fabricCanvas.add(marker);
+    });
+    
+    // Add edge length labels
+    addEdgeLengthLabels(fabricCanvas, points, shapeId);
+    
+    const shape: DrawnShape = {
+      id: shapeId,
+      type: 'property',
+      points,
+      fabricObject: polygon,
+      widthFeet: totalWidthFeet,
+      lengthFeet: totalLengthFeet,
+    };
+    
+    setPropertyShape(shape);
+    propertyShapeRef.current = shape;
+    setShowPropertyMeasureInput(false);
+    fabricCanvas.renderAll();
+    toast.success('Property boundary created! You can now draw the house or pool.');
+  }, [fabricCanvas, propertyWidthFeet, propertyWidthInches, propertyLengthFeet, propertyLengthInches]);
 
   // Add edge length labels
   const addEdgeLengthLabels = (canvas: FabricCanvas, points: { x: number; y: number }[], shapeId: string) => {
@@ -2992,14 +3108,77 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       {/* Toolbar */}
       <div className="bg-white border-b p-3 flex items-center gap-2 flex-wrap">
         <div className="flex items-center gap-2 border-r pr-3">
-          <Button
-            size="sm"
-            variant={drawingMode === 'property' ? 'default' : 'outline'}
-            onClick={() => startDrawingMode('property')}
-            disabled={!!propertyShape}
-          >
-            Draw Property
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" variant="outline" disabled={!!propertyShape} className="gap-1">
+                Add Property
+                <ChevronDown className="h-3 w-3" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-56 bg-white z-50">
+              <DropdownMenuItem onClick={() => startDrawingMode('property')}>
+                <Pencil className="h-4 w-4 mr-2" />
+                Draw Property Line
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setShowPropertyMeasureInput(true)}>
+                <Ruler className="h-4 w-4 mr-2" />
+                Enter Measurements (Rectangle)
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          
+          {showPropertyMeasureInput && !propertyShape && (
+            <div className="flex items-center gap-2 bg-slate-50 p-2 rounded border">
+              <div className="flex items-center gap-1">
+                <Label className="text-xs">W:</Label>
+                <Input
+                  type="number"
+                  value={propertyWidthFeet}
+                  onChange={(e) => setPropertyWidthFeet(e.target.value)}
+                  className="w-12 h-7 text-xs"
+                  placeholder="50"
+                />
+                <span className="text-xs">'</span>
+                <Input
+                  type="number"
+                  value={propertyWidthInches}
+                  onChange={(e) => setPropertyWidthInches(e.target.value)}
+                  className="w-10 h-7 text-xs"
+                  placeholder="0"
+                  min="0"
+                  max="11"
+                />
+                <span className="text-xs">"</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <Label className="text-xs">L:</Label>
+                <Input
+                  type="number"
+                  value={propertyLengthFeet}
+                  onChange={(e) => setPropertyLengthFeet(e.target.value)}
+                  className="w-12 h-7 text-xs"
+                  placeholder="100"
+                />
+                <span className="text-xs">'</span>
+                <Input
+                  type="number"
+                  value={propertyLengthInches}
+                  onChange={(e) => setPropertyLengthInches(e.target.value)}
+                  className="w-10 h-7 text-xs"
+                  placeholder="0"
+                  min="0"
+                  max="11"
+                />
+                <span className="text-xs">"</span>
+              </div>
+              <Button size="sm" className="h-7 text-xs" onClick={addRectangularProperty}>
+                Add
+              </Button>
+              <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setShowPropertyMeasureInput(false)}>
+                ✕
+              </Button>
+            </div>
+          )}
           <Button
             size="sm"
             variant={drawingMode === 'house' ? 'default' : 'outline'}
