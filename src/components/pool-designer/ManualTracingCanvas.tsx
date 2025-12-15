@@ -105,13 +105,17 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
   const SNAP_DISTANCE = 10;
   const CLOSE_DISTANCE = 15;
 
-  // Create hatch pattern for house/roof
+  // Create hatch pattern for house/roof with white background
   const createHatchPattern = (): Pattern => {
     const patternCanvas = document.createElement('canvas');
     patternCanvas.width = 10;
     patternCanvas.height = 10;
     const ctx = patternCanvas.getContext('2d');
     if (ctx) {
+      // Fill white background first
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, 10, 10);
+      // Draw diagonal hatch line
       ctx.strokeStyle = '#000000';
       ctx.lineWidth = 0.5;
       ctx.beginPath();
