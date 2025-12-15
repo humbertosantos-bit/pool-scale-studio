@@ -1374,6 +1374,35 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     (nameLabel as any).isStandalonePaverLabel = true;
     (nameLabel as any).shapeId = shapeId;
     canvas.add(nameLabel);
+    
+    // Add edge dimension labels for each side
+    for (let i = 0; i < points.length; i++) {
+      const p1 = points[i];
+      const p2 = points[(i + 1) % points.length];
+      
+      const pixelDist = Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2));
+      
+      const midX = (p1.x + p2.x) / 2;
+      const midY = (p1.y + p2.y) / 2;
+      
+      const edgeLabel = formatMeasurement(pixelDist);
+
+      const edgeText = new Text(edgeLabel, {
+        left: midX,
+        top: midY - 12,
+        fontSize: 10,
+        fill: '#78716c',
+        fontFamily: 'Poppins, sans-serif',
+        backgroundColor: 'rgba(255, 255, 255, 0.9)',
+        originX: 'center',
+        originY: 'center',
+        selectable: false,
+        evented: false,
+      });
+      (edgeText as any).isStandalonePaverLabel = true;
+      (edgeText as any).shapeId = shapeId;
+      canvas.add(edgeText);
+    }
   };
 
   // Refresh all edge labels when unit changes
