@@ -118,6 +118,9 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
   const [paverRight, setPaverRight] = useState<string>('0');
   const [showPaverSettings, setShowPaverSettings] = useState(false);
   
+  // Pool editing state
+  const [editingPoolId, setEditingPoolId] = useState<string | null>(null);
+  
   // Pool calculations
   const [poolCalculations, setPoolCalculations] = useState<PoolCalculation[]>([]);
   
@@ -2388,6 +2391,81 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     setPoolCalculations(calculations);
   };
 
+  // Update pool pavers (for editing existing pools)
+  const updatePoolPavers = (poolId: string, newCopingSize: number, newPaverDims: PaverDimensions) => {
+    if (!fabricCanvas) return;
+    
+    const poolIndex = poolShapesRef.current.findIndex(p => p.id === poolId);
+    if (poolIndex === -1) return;
+    
+    const pool = poolShapesRef.current[poolIndex];
+    
+    // Update the pool's coping and paver dimensions
+    const updatedPool: DrawnShape = {
+      ...pool,
+      copingSize: newCopingSize,
+      paverDimensions: newPaverDims,
+    };
+    
+    // Use updatePoolPosition to redraw with new dimensions
+    poolShapesRef.current[poolIndex] = updatedPool;
+    setPoolShapes(prev => {
+      const newShapes = [...prev];
+      newShapes[poolIndex] = updatedPool;
+      return newShapes;
+    });
+    
+    // Redraw the pool with new pavers
+    updatePoolPosition(poolIndex, pool.points);
+    
+    // Update calculations
+    updatePoolCalculations(poolShapesRef.current);
+    
+    toast.success('Pool pavers updated');
+  };
+
+  // Start editing a pool's pavers
+  const startEditingPoolPavers = (poolId: string) => {
+    const pool = poolShapesRef.current.find(p => p.id === poolId);
+    if (!pool) return;
+    
+    // Load current pool's paver settings into the form
+    setCopingSize(pool.copingSize || 12);
+    setPaverTop(String(pool.paverDimensions?.top || 0));
+    setPaverBottom(String(pool.paverDimensions?.bottom || 0));
+    setPaverLeft(String(pool.paverDimensions?.left || 0));
+    setPaverRight(String(pool.paverDimensions?.right || 0));
+    
+    setEditingPoolId(poolId);
+    setShowPaverSettings(true);
+  };
+
+  // Apply paver edits to selected pool
+  const applyPaverEdits = () => {
+    if (!editingPoolId) return;
+    
+    const newPaverDims: PaverDimensions = {
+      top: parseFloat(paverTop) || 0,
+      bottom: parseFloat(paverBottom) || 0,
+      left: parseFloat(paverLeft) || 0,
+      right: parseFloat(paverRight) || 0,
+    };
+    
+    updatePoolPavers(editingPoolId, copingSize, newPaverDims);
+    setEditingPoolId(null);
+  };
+
+  // Cancel paver editing
+  const cancelPaverEditing = () => {
+    setEditingPoolId(null);
+    // Reset form to defaults
+    setCopingSize(12);
+    setPaverTop('0');
+    setPaverBottom('0');
+    setPaverLeft('0');
+    setPaverRight('0');
+  };
+
   // Delete last pool
   const deleteLastPool = () => {
     if (!fabricCanvas || poolShapesRef.current.length === 0) return;
@@ -3021,7 +3099,19 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
                 />
               </div>
             </div>
-            <span className="text-[10px] text-amber-700 italic">Set before adding pool</span>
+            {editingPoolId ? (
+              <div className="flex items-center gap-2 border-l pl-3">
+                <span className="text-[10px] text-amber-700 font-medium">Editing: {poolShapes.find(p => p.id === editingPoolId)?.name || 'Pool'}</span>
+                <Button size="sm" className="h-6 text-xs px-2 bg-green-600 hover:bg-green-700" onClick={applyPaverEdits}>
+                  Apply
+                </Button>
+                <Button size="sm" variant="outline" className="h-6 text-xs px-2" onClick={cancelPaverEditing}>
+                  Cancel
+                </Button>
+              </div>
+            ) : (
+              <span className="text-[10px] text-amber-700 italic">Set before adding pool</span>
+            )}
           </div>
         )}
 
@@ -3209,8 +3299,18 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         <div className="bg-white border-b px-3 py-2 text-xs">
           <div className="flex items-start gap-6 flex-wrap">
             {poolCalculations.map((calc) => (
-              <div key={calc.poolId} className="flex flex-col gap-1 bg-slate-50 p-2 rounded border min-w-[200px]">
-                <span className="font-semibold text-sm text-slate-800">{calc.poolName}</span>
+              <div key={calc.poolId} className={`flex flex-col gap-1 p-2 rounded border min-w-[200px] ${editingPoolId === calc.poolId ? 'bg-amber-50 border-amber-300' : 'bg-slate-50'}`}>
+                <div className="flex justify-between items-center">
+                  <span className="font-semibold text-sm text-slate-800">{calc.poolName}</span>
+                  <Button
+                    size="sm"
+                    variant={editingPoolId === calc.poolId ? 'default' : 'ghost'}
+                    className="h-5 text-[10px] px-1.5"
+                    onClick={() => editingPoolId === calc.poolId ? cancelPaverEditing() : startEditingPoolPavers(calc.poolId)}
+                  >
+                    {editingPoolId === calc.poolId ? 'Editing...' : 'Edit Pavers'}
+                  </Button>
+                </div>
                 <div className="flex justify-between">
                   <span className="text-slate-600">Coping:</span>
                   <span className="font-medium">{calc.copingSqFt} sq ft</span>
