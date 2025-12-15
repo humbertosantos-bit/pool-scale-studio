@@ -79,6 +79,8 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
   const [previewLine, setPreviewLine] = useState<Line | null>(null);
   const [vertexMarkers, setVertexMarkers] = useState<Circle[]>([]);
   const [drawnLines, setDrawnLines] = useState<Line[]>([]);
+  const vertexMarkersRef = useRef<Circle[]>([]);
+  const drawnLinesRef = useRef<Line[]>([]);
   
   // Snapping options
   const [gridSnapping, setGridSnapping] = useState(false);
@@ -592,10 +594,11 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
 
     const points = [...currentPointsRef.current];
     const mode = drawingModeRef.current;
+    const shapeId = `${mode}-${Date.now()}`;
 
-    // Remove preview elements
-    drawnLines.forEach(line => fabricCanvas.remove(line));
-    vertexMarkers.forEach(marker => fabricCanvas.remove(marker));
+    // Remove preview elements using refs for fresh data
+    drawnLinesRef.current.forEach(line => fabricCanvas.remove(line));
+    vertexMarkersRef.current.forEach(marker => fabricCanvas.remove(marker));
     if (previewLineRef.current) {
       fabricCanvas.remove(previewLineRef.current);
       previewLineRef.current = null;
@@ -656,8 +659,6 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       fabricCanvas.add(marker);
       newMarkers.push(marker);
     });
-
-    const shapeId = `${mode}-${Date.now()}`;
     
     // Add edge length labels (always, since 1 grid = 1 ft)
     addEdgeLengthLabels(fabricCanvas, points, shapeId);
@@ -684,7 +685,9 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     setCurrentPoints([]);
     currentPointsRef.current = [];
     setDrawnLines([]);
+    drawnLinesRef.current = [];
     setVertexMarkers([]);
+    vertexMarkersRef.current = [];
     
     fabricCanvas.defaultCursor = 'default';
     fabricCanvas.hoverCursor = 'move';
@@ -693,7 +696,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     // Push to undo stack
     setUndoStack(prev => [...prev, { type: 'complete_shape', data: shape }]);
     setRedoStack([]);
-  }, [fabricCanvas, drawnLines, vertexMarkers]);
+  }, [fabricCanvas]);
 
   // Add edge length labels
   const addEdgeLengthLabels = (canvas: FabricCanvas, points: { x: number; y: number }[], shapeId: string) => {
@@ -806,6 +809,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         evented: false,
       });
       fabricCanvas.add(marker);
+      vertexMarkersRef.current = [...vertexMarkersRef.current, marker];
       setVertexMarkers(prev => [...prev, marker]);
 
       // Add line from previous point
@@ -819,6 +823,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
           evented: false,
         });
         fabricCanvas.add(line);
+        drawnLinesRef.current = [...drawnLinesRef.current, line];
         setDrawnLines(prev => [...prev, line]);
       }
 
