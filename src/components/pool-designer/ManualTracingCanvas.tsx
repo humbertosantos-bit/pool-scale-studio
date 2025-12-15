@@ -446,7 +446,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         const marker = new Circle({
           left: p.x,
           top: p.y,
-          radius: 6,
+          radius: 3,
           fill: '#22c55e',
           stroke: '#ffffff',
           strokeWidth: 2,
@@ -521,7 +521,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         const marker = new Circle({
           left: p.x,
           top: p.y,
-          radius: 6,
+          radius: 3,
           fill: '#3b82f6',
           stroke: '#ffffff',
           strokeWidth: 2,
@@ -689,7 +689,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       const marker = new Circle({
         left: p.x,
         top: p.y,
-        radius: 6,
+        radius: 3,
         fill: mode === 'property' ? '#22c55e' : '#3b82f6',
         stroke: '#ffffff',
         strokeWidth: 2,
