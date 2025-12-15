@@ -2584,22 +2584,23 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     const poolCenterX = newPoints.reduce((sum, p) => sum + p.x, 0) / newPoints.length;
     const poolCenterY = newPoints.reduce((sum, p) => sum + p.y, 0) / newPoints.length;
     
-    // Calculate original pool dimensions (before rotation)
+    // Calculate original pool dimensions (before rotation) using dynamic scale
+    const currentScale = scalePixelsPerMeterRef.current;
     const widthFeet = pool.widthFeet || 12;
     const lengthFeet = pool.lengthFeet || 24;
-    const poolWidth = (widthFeet / METERS_TO_FEET) * PIXELS_PER_METER;
-    const poolHeight = (lengthFeet / METERS_TO_FEET) * PIXELS_PER_METER;
+    const poolWidth = (widthFeet / METERS_TO_FEET) * currentScale;
+    const poolHeight = (lengthFeet / METERS_TO_FEET) * currentScale;
     
     // Calculate coping size in pixels
     const copingSizeInFeet = poolCopingSize / 12;
-    const copingSizePixels = (copingSizeInFeet / METERS_TO_FEET) * PIXELS_PER_METER;
+    const copingSizePixels = (copingSizeInFeet / METERS_TO_FEET) * currentScale;
     
     // Calculate paver dimensions in pixels
     // NOTE: Paver input includes coping, so total outer = pool + paver input (not pool + coping + pavers)
-    const paverTopPixels = (paverDims.top / METERS_TO_FEET) * PIXELS_PER_METER;
-    const paverBottomPixels = (paverDims.bottom / METERS_TO_FEET) * PIXELS_PER_METER;
-    const paverLeftPixels = (paverDims.left / METERS_TO_FEET) * PIXELS_PER_METER;
-    const paverRightPixels = (paverDims.right / METERS_TO_FEET) * PIXELS_PER_METER;
+    const paverTopPixels = (paverDims.top / METERS_TO_FEET) * currentScale;
+    const paverBottomPixels = (paverDims.bottom / METERS_TO_FEET) * currentScale;
+    const paverLeftPixels = (paverDims.left / METERS_TO_FEET) * currentScale;
+    const paverRightPixels = (paverDims.right / METERS_TO_FEET) * currentScale;
     
     // Total outer dimension = pool + paver input on each side (paver input includes coping)
     const totalOuterWidth = poolWidth + paverLeftPixels + paverRightPixels;
@@ -2826,13 +2827,14 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       return;
     }
     
-    // Convert feet and inches to total feet, then to meters, then to pixels
+    // Convert feet and inches to total feet, then to meters, then to pixels using dynamic scale
     const widthFeet = preset.widthFeet + preset.widthInches / 12;
     const lengthFeet = preset.lengthFeet + preset.lengthInches / 12;
     const widthMeters = widthFeet / METERS_TO_FEET;
     const lengthMeters = lengthFeet / METERS_TO_FEET;
-    const widthPixels = widthMeters * PIXELS_PER_METER;
-    const lengthPixels = lengthMeters * PIXELS_PER_METER;
+    const currentScale = scalePixelsPerMeterRef.current;
+    const widthPixels = widthMeters * currentScale;
+    const lengthPixels = lengthMeters * currentScale;
     
     // Find center of property
     const propPoints = propertyShapeRef.current.points;
@@ -2867,11 +2869,12 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       return;
     }
     
-    // Convert feet to meters, then to pixels
+    // Convert feet to meters, then to pixels using dynamic scale
     const widthMeters = widthFeet / METERS_TO_FEET;
     const lengthMeters = lengthFeet / METERS_TO_FEET;
-    const widthPixels = widthMeters * PIXELS_PER_METER;
-    const lengthPixels = lengthMeters * PIXELS_PER_METER;
+    const currentScale = scalePixelsPerMeterRef.current;
+    const widthPixels = widthMeters * currentScale;
+    const lengthPixels = lengthMeters * currentScale;
     
     // Find center of property
     const propPoints = propertyShapeRef.current.points;
@@ -2906,9 +2909,10 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       right: (parseFloat(paverRightFeet) || 0) + (parseFloat(paverRightInches) || 0) / 12,
     };
     
-    // Calculate coping size in pixels
+    // Calculate coping size in pixels using dynamic scale
+    const currentScale = scalePixelsPerMeterRef.current;
     const copingSizeInFeet = copingSize / 12;
-    const copingSizePixels = (copingSizeInFeet / METERS_TO_FEET) * PIXELS_PER_METER;
+    const copingSizePixels = (copingSizeInFeet / METERS_TO_FEET) * currentScale;
     
     // Calculate pool bounds
     const minX = Math.min(...points.map(p => p.x));
@@ -2922,10 +2926,10 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     
     // Create paver zone rectangle (outermost) - light gray
     // NOTE: Paver input includes coping, so total outer = pool + paver input (not pool + coping + pavers)
-    const paverTopPixels = (paverDims.top / METERS_TO_FEET) * PIXELS_PER_METER;
-    const paverBottomPixels = (paverDims.bottom / METERS_TO_FEET) * PIXELS_PER_METER;
-    const paverLeftPixels = (paverDims.left / METERS_TO_FEET) * PIXELS_PER_METER;
-    const paverRightPixels = (paverDims.right / METERS_TO_FEET) * PIXELS_PER_METER;
+    const paverTopPixels = (paverDims.top / METERS_TO_FEET) * currentScale;
+    const paverBottomPixels = (paverDims.bottom / METERS_TO_FEET) * currentScale;
+    const paverLeftPixels = (paverDims.left / METERS_TO_FEET) * currentScale;
+    const paverRightPixels = (paverDims.right / METERS_TO_FEET) * currentScale;
     
     // Total outer dimension = pool + paver input on each side (paver input includes coping)
     const totalOuterWidth = poolWidth + paverLeftPixels + paverRightPixels;
