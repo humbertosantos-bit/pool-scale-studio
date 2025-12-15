@@ -1560,11 +1560,11 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
 
       const text = new Text(label, {
         left: midX,
-        top: midY - 12,
-        fontSize: 11,
+        top: midY - 6,
+        fontSize: 8,
         fill: '#374151',
         fontFamily: 'Poppins, sans-serif',
-        backgroundColor: 'rgba(255, 255, 255, 0.9)',
+        backgroundColor: 'rgba(255, 255, 255, 0.8)',
         originX: 'center',
         originY: 'center',
         selectable: false,
@@ -1591,16 +1591,16 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     const availableHeight = height * 0.9;
     
     // Start with a base font size and scale down to fit
-    let fontSize = Math.min(availableHeight * 0.3, 16); // Max 16px or 30% of height
+    let fontSize = Math.min(availableHeight * 0.25, 12); // Max 12px or 25% of height
     
-    // Estimate text width (approximate: each character ~0.6 * fontSize)
-    const estimatedTextWidth = name.length * fontSize * 0.6;
+    // Estimate text width (approximate: each character ~0.55 * fontSize for bold)
+    const estimatedTextWidth = name.length * fontSize * 0.55;
     if (estimatedTextWidth > availableWidth) {
-      fontSize = (availableWidth / name.length) / 0.6;
+      fontSize = (availableWidth / name.length) / 0.55;
     }
     
-    // Ensure minimum readable size
-    fontSize = Math.max(fontSize, 6);
+    // Ensure minimum readable size but cap at available space
+    fontSize = Math.max(Math.min(fontSize, availableWidth / (name.length * 0.4)), 5);
     
     // Center the label in the pool
     const labelX = minX + width / 2;
@@ -1684,11 +1684,11 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
 
       const text = new Text(label, {
         left: midX,
-        top: midY - 12,
-        fontSize: 10,
+        top: midY - 6,
+        fontSize: 7,
         fill: '#374151',
         fontFamily: 'Poppins, sans-serif',
-        backgroundColor: 'rgba(255, 255, 255, 0.9)',
+        backgroundColor: 'rgba(255, 255, 255, 0.8)',
         originX: 'center',
         originY: 'center',
         selectable: false,
@@ -1741,7 +1741,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     const nameLabel = new Text(labelText, {
       left: centerX,
       top: centerY,
-      fontSize: 10,
+      fontSize: 8,
       fill: '#44403c',
       fontWeight: 'bold',
       fontFamily: 'Poppins, sans-serif',
@@ -1769,11 +1769,11 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
 
       const edgeText = new Text(edgeLabel, {
         left: midX,
-        top: midY - 12,
-        fontSize: 10,
+        top: midY - 6,
+        fontSize: 7,
         fill: '#78716c',
         fontFamily: 'Poppins, sans-serif',
-        backgroundColor: 'rgba(255, 255, 255, 0.9)',
+        backgroundColor: 'rgba(255, 255, 255, 0.8)',
         originX: 'center',
         originY: 'center',
         selectable: false,
@@ -2123,18 +2123,18 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       if (measurementLabelRef.current) {
         measurementLabelRef.current.set({
           left: midX,
-          top: midY - 16,
+          top: midY - 8,
           text: measurementText,
         });
       } else {
         const label = new Text(measurementText, {
           left: midX,
-          top: midY - 16,
-          fontSize: 12,
+          top: midY - 8,
+          fontSize: 9,
           fill: '#1f2937',
           fontWeight: 'bold',
           fontFamily: 'Poppins, sans-serif',
-          backgroundColor: 'rgba(255, 255, 255, 0.95)',
+          backgroundColor: 'rgba(255, 255, 255, 0.9)',
           originX: 'center',
           originY: 'center',
           selectable: false,
@@ -3118,10 +3118,10 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     };
     
     const labelStyle = {
-      fontSize: 9,
+      fontSize: 7,
       fill: '#374151',
       fontFamily: 'Poppins, sans-serif',
-      backgroundColor: 'rgba(255, 255, 255, 0.9)',
+      backgroundColor: 'rgba(255, 255, 255, 0.8)',
       originX: 'center' as const,
       originY: 'center' as const,
       selectable: false,
@@ -3577,11 +3577,11 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     const label = new Text(labelText, {
       left: midX,
       top: midY,
-      fontSize: 11,
+      fontSize: 9,
       fill: '#dc2626',
       fontWeight: 'bold',
       fontFamily: 'Poppins, sans-serif',
-      backgroundColor: 'rgba(255, 255, 255, 0.95)',
+      backgroundColor: 'rgba(255, 255, 255, 0.9)',
       originX: 'center',
       originY: 'center',
     });
