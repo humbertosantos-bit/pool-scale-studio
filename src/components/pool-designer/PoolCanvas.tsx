@@ -53,7 +53,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, scaleInfo, cl
   const containerRef = useRef<HTMLDivElement>(null);
   const [bgImageOpacity, setBgImageOpacity] = useState(1);
   const [calculatedData, setCalculatedData] = useState<{
-    pools: Array<{ poolId: string; poolName: string; copingSqFt: number; paverAroundPoolSqFt: number }>;
+    pools: Array<{ poolId: string; poolName: string; copingSqFt: number; paverNetSqFt: number; paverWithWasteSqFt: number }>;
     fences: Array<{ fenceId: string; name: string; linearFt: number }>;
     pavers: Array<{ paverId: string; sqFt: number }>;
   }>({ pools: [], fences: [], pavers: [] });
@@ -74,34 +74,44 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, scaleInfo, cl
       const poolData = pool.poolData || {};
       const length = poolData.length || 0;
       const width = poolData.width || 0;
-      const copingSize = poolData.copingSize || 0;
+      const copingSizeInches = poolData.copingSize || 0;
       const paverDims = poolData.paverDimensions || {};
 
       // Calculate coping area (perimeter × width of coping)
-      const copingSizeInFeet = copingSize / 12;
-      const copingPerimeter = 2 * (length + width);
-      const copingSqFt = copingPerimeter * copingSizeInFeet;
+      // Coping follows the exact pool shape uniformly
+      const copingSizeInFeet = copingSizeInches / 12;
+      
+      // For a rectangular pool, coping area = outer coping rect - pool rect
+      // Outer coping dimensions: (length + 2*coping) x (width + 2*coping)
+      const copingOuterLength = length + (copingSizeInFeet * 2);
+      const copingOuterWidth = width + (copingSizeInFeet * 2);
+      const copingOuterArea = copingOuterLength * copingOuterWidth;
+      const poolArea = length * width;
+      const copingSqFt = copingOuterArea - poolArea;
 
-      // Calculate paver around pool area
+      // Calculate paver around pool area (pavers start OUTSIDE the coping)
       const paverLeft = (paverDims.leftFeet || 0) + (paverDims.leftInches || 0) / 12;
       const paverRight = (paverDims.rightFeet || 0) + (paverDims.rightInches || 0) / 12;
       const paverTop = (paverDims.topFeet || 0) + (paverDims.topInches || 0) / 12;
       const paverBottom = (paverDims.bottomFeet || 0) + (paverDims.bottomInches || 0) / 12;
 
-      // Total outer dimensions
-      const outerLength = length + paverLeft + paverRight;
-      const outerWidth = width + paverTop + paverBottom;
+      // Total outer dimensions (pool + coping + pavers on each side)
+      const outerLength = length + (copingSizeInFeet * 2) + paverLeft + paverRight;
+      const outerWidth = width + (copingSizeInFeet * 2) + paverTop + paverBottom;
       
-      // Paver area = outer area - pool area - coping area
+      // Paver area = outer area - coping outer area (which includes pool)
       const outerArea = outerLength * outerWidth;
-      const poolArea = length * width;
-      const paverAroundPoolSqFt = Math.max(0, outerArea - poolArea - copingSqFt);
+      const paverNetSqFt = Math.max(0, outerArea - copingOuterArea);
+      
+      // Apply mandatory 10% waste factor to pavers (NOT to coping)
+      const paverWithWasteSqFt = paverNetSqFt * 1.10;
 
       return {
         poolId: pool.poolId || 'unknown',
         poolName: poolData.poolName || 'Pool',
         copingSqFt: parseFloat(copingSqFt.toFixed(2)),
-        paverAroundPoolSqFt: parseFloat(paverAroundPoolSqFt.toFixed(2)),
+        paverNetSqFt: parseFloat(paverNetSqFt.toFixed(2)),
+        paverWithWasteSqFt: parseFloat(paverWithWasteSqFt.toFixed(2)),
       };
     });
 
