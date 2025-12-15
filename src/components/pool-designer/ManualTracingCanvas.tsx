@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { Canvas as FabricCanvas, Line, Circle, Polygon, Text, Group, Point } from 'fabric';
+import { Canvas as FabricCanvas, Line, Circle, Polygon, Text, Group, Point, Pattern } from 'fabric';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { Undo2, Redo2, Grid3X3, Magnet, RotateCcw, Move, Trash2, ZoomIn, ZoomOut, Eye, EyeOff, Maximize } from 'lucide-react';
@@ -105,7 +105,25 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
   const SNAP_DISTANCE = 10;
   const CLOSE_DISTANCE = 15;
 
-  // Sync refs
+  // Create hatch pattern for house/roof
+  const createHatchPattern = (): Pattern => {
+    const patternCanvas = document.createElement('canvas');
+    patternCanvas.width = 10;
+    patternCanvas.height = 10;
+    const ctx = patternCanvas.getContext('2d');
+    if (ctx) {
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = 0.5;
+      ctx.beginPath();
+      ctx.moveTo(0, 10);
+      ctx.lineTo(10, 0);
+      ctx.stroke();
+    }
+    return new Pattern({
+      source: patternCanvas,
+      repeat: 'repeat',
+    });
+  };
   useEffect(() => {
     unitRef.current = unit;
   }, [unit]);
@@ -504,11 +522,11 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         }
       });
       
-      // Create new polygon
+      // Create new polygon with hatch pattern
       const fabricPoints = newPoints.map(p => new Point(p.x, p.y));
       const polygon = new Polygon(fabricPoints, {
-        fill: 'rgba(59, 130, 246, 0.2)',
-        stroke: '#3b82f6',
+        fill: createHatchPattern(),
+        stroke: '#000000',
         strokeWidth: 2,
         selectable: false,
         evented: false,
@@ -521,8 +539,8 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         const marker = new Circle({
           left: p.x,
           top: p.y,
-          radius: 3,
-          fill: '#3b82f6',
+          radius: 1.5,
+          fill: '#000000',
           stroke: '#ffffff',
           strokeWidth: 2,
           originX: 'center',
@@ -672,9 +690,9 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     // Create polygon
     const fabricPoints = points.map(p => new Point(p.x, p.y));
     const polygon = new Polygon(fabricPoints, {
-      fill: mode === 'property' ? 'rgba(34, 197, 94, 0.1)' : 'rgba(59, 130, 246, 0.2)',
-      stroke: mode === 'property' ? '#22c55e' : '#3b82f6',
-      strokeWidth: mode === 'property' ? 2 : 2,
+      fill: mode === 'property' ? 'rgba(34, 197, 94, 0.1)' : createHatchPattern(),
+      stroke: mode === 'property' ? '#22c55e' : '#000000',
+      strokeWidth: 2,
       strokeDashArray: mode === 'property' ? [8, 4] : undefined,
       selectable: false,
       evented: false,
@@ -689,10 +707,10 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       const marker = new Circle({
         left: p.x,
         top: p.y,
-        radius: 3,
-        fill: mode === 'property' ? '#22c55e' : '#3b82f6',
+        radius: mode === 'property' ? 3 : 1.5,
+        fill: mode === 'property' ? '#22c55e' : '#000000',
         stroke: '#ffffff',
-        strokeWidth: 2,
+        strokeWidth: mode === 'property' ? 2 : 1,
         originX: 'center',
         originY: 'center',
         selectable: false,
