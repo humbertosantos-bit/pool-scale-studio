@@ -2274,7 +2274,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     poolShapesRef.current = [...poolShapesRef.current, shape];
     
     // Update calculations
-    updatePoolCalculations([...poolShapesRef.current, shape]);
+    updatePoolCalculations(poolShapesRef.current);
     
     fabricCanvas.renderAll();
     toast.success(`${name} pool added!`);
