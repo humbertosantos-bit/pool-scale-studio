@@ -448,6 +448,37 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     };
   }, [fabricCanvas]);
 
+  // Scale all text labels based on zoom level for readability
+  const scaleLabelsForZoom = useCallback((canvas: FabricCanvas, zoom: number) => {
+    // Base font sizes at zoom level 1
+    const baseFontSizes: { [key: string]: number } = {
+      isEdgeLabel: 6,
+      isPoolLabel: 9,
+      isPoolEdgeLabel: 5,
+      isHouseLabel: 10,
+      isStandalonePaverLabel: 6,
+      isMeasurementLabel: 7,
+    };
+    
+    // Calculate scale factor - labels should grow when zooming out, shrink when zooming in
+    // This keeps labels visually consistent on screen
+    const scaleFactor = 1 / zoom;
+    
+    const objects = canvas.getObjects();
+    objects.forEach(obj => {
+      if (obj.type === 'text') {
+        const textObj = obj as Text;
+        for (const [key, baseSize] of Object.entries(baseFontSizes)) {
+          if ((obj as any)[key]) {
+            textObj.set('fontSize', baseSize * scaleFactor);
+            break;
+          }
+        }
+      }
+    });
+    canvas.renderAll();
+  }, []);
+
   // Mouse wheel zoom
   useEffect(() => {
     if (!fabricCanvas) return;
@@ -469,7 +500,9 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       fabricCanvas.zoomToPoint(new Point(pointer.x, pointer.y), newZoom);
       
       setZoomLevel(newZoom);
-      fabricCanvas.renderAll();
+      
+      // Scale labels for readability
+      scaleLabelsForZoom(fabricCanvas, newZoom);
     };
 
     fabricCanvas.on('mouse:wheel', handleWheel);
@@ -477,7 +510,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     return () => {
       fabricCanvas.off('mouse:wheel', handleWheel);
     };
-  }, [fabricCanvas]);
+  }, [fabricCanvas, scaleLabelsForZoom]);
 
   // Initialize canvas
   // Function to add an independent, rotatable north indicator
@@ -1656,7 +1689,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
   };
 
   // Add pool name label inside with 5% padding and auto-sizing text
-  const addPoolNameLabel = (canvas: FabricCanvas, points: { x: number; y: number }[], shapeId: string, name: string) => {
+  const addPoolNameLabel = (canvas: FabricCanvas, points: { x: number; y: number }[], shapeId: string, name: string, rotationAngle: number = 0) => {
     const minX = Math.min(...points.map(p => p.x));
     const maxX = Math.max(...points.map(p => p.x));
     const minY = Math.min(...points.map(p => p.y));
@@ -1681,19 +1714,22 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     // Ensure minimum readable size but cap at available space
     fontSize = Math.max(Math.min(fontSize, availableWidth / (name.length * 0.4)), 5);
     
-    // Center the label in the pool
-    const labelX = minX + width / 2;
-    const labelY = minY + height / 2;
+    // Calculate center of pool polygon
+    const centerX = points.reduce((sum, p) => sum + p.x, 0) / points.length;
+    const centerY = points.reduce((sum, p) => sum + p.y, 0) / points.length;
+    
+    const rotationDegrees = (rotationAngle * 180) / Math.PI;
     
     const nameLabel = new Text(name, {
-      left: labelX,
-      top: labelY,
+      left: centerX,
+      top: centerY,
       fontSize: fontSize,
       fill: '#000000',
       fontWeight: 'bold',
       fontFamily: 'Poppins, sans-serif',
       originX: 'center',
       originY: 'center',
+      angle: rotationDegrees,
       selectable: false,
       evented: false,
     });
@@ -1883,7 +1919,8 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     
     // Re-add pool name labels and edge labels (only for custom pools)
     poolShapesRef.current.forEach(pool => {
-      addPoolNameLabel(fabricCanvas, pool.points, pool.id, pool.name || 'Custom Pool');
+      const rotationAngle = poolRotationsRef.current[pool.id] || 0;
+      addPoolNameLabel(fabricCanvas, pool.points, pool.id, pool.name || 'Custom Pool', rotationAngle);
       if (!pool.isPreset) {
         addPoolEdgeLabels(fabricCanvas, pool.points, pool.id);
       }
@@ -2794,9 +2831,11 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       addPaverDimensionLabels(fabricCanvas, pool.id, poolCenterX, poolCenterY, totalOuterWidth, totalOuterHeight, paverDims, baseOffsetX, baseOffsetY, rotationDegrees);
     }
     
-    // Add pool name label and edge measurements
-    addPoolNameLabel(fabricCanvas, newPoints, pool.id, pool.name || 'Custom Pool');
-    addPoolEdgeLabels(fabricCanvas, newPoints, pool.id);
+    // Add pool name label with rotation and edge measurements (only for custom pools)
+    addPoolNameLabel(fabricCanvas, newPoints, pool.id, pool.name || 'Custom Pool', rotationAngle);
+    if (!pool.isPreset) {
+      addPoolEdgeLabels(fabricCanvas, newPoints, pool.id);
+    }
     
     // Move grid to back
     const allObjects = fabricCanvas.getObjects();
@@ -3484,7 +3523,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     const newZoom = Math.min(zoomLevel + 0.25, 3);
     setZoomLevel(newZoom);
     fabricCanvas.setZoom(newZoom);
-    fabricCanvas.renderAll();
+    scaleLabelsForZoom(fabricCanvas, newZoom);
   };
 
   const zoomOut = () => {
@@ -3492,7 +3531,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     const newZoom = Math.max(zoomLevel - 0.25, 0.5);
     setZoomLevel(newZoom);
     fabricCanvas.setZoom(newZoom);
-    fabricCanvas.renderAll();
+    scaleLabelsForZoom(fabricCanvas, newZoom);
   };
 
   const resetView = () => {
@@ -3500,7 +3539,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     setZoomLevel(1);
     fabricCanvas.setZoom(1);
     fabricCanvas.setViewportTransform([1, 0, 0, 1, 0, 0]);
-    fabricCanvas.renderAll();
+    scaleLabelsForZoom(fabricCanvas, 1);
   };
 
   // Undo last action
