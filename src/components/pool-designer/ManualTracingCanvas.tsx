@@ -1452,10 +1452,10 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       const marker = new Circle({
         left: p.x,
         top: p.y,
-        radius: mode === 'property' ? 3 : (mode === 'pool' ? 1 : 2),
+        radius: mode === 'property' ? 1.5 : (mode === 'pool' ? 0.5 : 1),
         fill: markerColor,
         stroke: '#ffffff',
-        strokeWidth: mode === 'property' ? 2 : (mode === 'pool' ? 0.5 : 1),
+        strokeWidth: mode === 'property' ? 0.5 : (mode === 'pool' ? 0.15 : 0.25),
         originX: 'center',
         originY: 'center',
         selectable: false,
@@ -1994,14 +1994,14 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
           measurementStartPointRef.current = snappedPoint;
           setMeasurementStartPoint(snappedPoint);
           
-          // Add a temporary marker
+          // Add a temporary marker (75% smaller for discreteness)
           const marker = new Circle({
             left: snappedPoint.x,
             top: snappedPoint.y,
-            radius: 3,
+            radius: 0.75,
             fill: '#dc2626',
             stroke: '#ffffff',
-            strokeWidth: 1,
+            strokeWidth: 0.25,
             originX: 'center',
             originY: 'center',
             selectable: false,
@@ -2062,15 +2062,15 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       currentPointsRef.current = newPoints;
       setCurrentPoints(newPoints);
 
-      // Add vertex marker
+      // Add vertex marker (75% smaller for discreteness)
       const markerColor = drawingModeRef.current === 'property' ? '#22c55e' : drawingModeRef.current === 'pool' ? '#0EA5E9' : '#3b82f6';
       const marker = new Circle({
         left: snappedPoint.x,
         top: snappedPoint.y,
-        radius: 4,
+        radius: 1,
         fill: markerColor,
         stroke: '#ffffff',
-        strokeWidth: 1,
+        strokeWidth: 0.25,
         originX: 'center',
         originY: 'center',
         selectable: false,
@@ -3632,14 +3632,14 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       currentPointsRef.current = newPoints;
       setCurrentPoints(newPoints);
 
-      // Add marker
+      // Add marker (75% smaller for discreteness)
       const marker = new Circle({
         left: point.x,
         top: point.y,
-        radius: 4,
+        radius: 1,
         fill: drawingModeRef.current === 'property' ? '#22c55e' : '#3b82f6',
         stroke: '#ffffff',
-        strokeWidth: 1,
+        strokeWidth: 0.25,
         originX: 'center',
         originY: 'center',
         selectable: false,
@@ -3701,48 +3701,48 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     const length = Math.sqrt(dx * dx + dy * dy);
     const angle = Math.atan2(dy, dx);
     
-    // Create the main line
+    // Create the main line (50% thinner)
     const mainLine = new Line([startPoint.x, startPoint.y, endPoint.x, endPoint.y], {
       stroke: '#dc2626',
-      strokeWidth: 0.5,
+      strokeWidth: 0.25,
       originX: 'center',
       originY: 'center',
     });
     
-    // Dynamic arrow size: scales with length but has min/max bounds to avoid overlap
-    const baseArrowSize = Math.min(length * 0.08, 3); // 8% of length, max 3px
-    const arrowSize = Math.max(baseArrowSize, 1.5); // Minimum 1.5px for readability
+    // Dynamic arrow size: scales with length but has min/max bounds to avoid overlap (50% smaller)
+    const baseArrowSize = Math.min(length * 0.08, 1.5); // 8% of length, max 1.5px
+    const arrowSize = Math.max(baseArrowSize, 0.75); // Minimum 0.75px for readability
     const arrowAngle = Math.PI / 8; // Narrow angle for thin, sleek arrows
     
-    // Start arrow
+    // Start arrow (50% thinner)
     const startArrow1 = new Line([
       startPoint.x,
       startPoint.y,
       startPoint.x + arrowSize * Math.cos(angle - arrowAngle),
       startPoint.y + arrowSize * Math.sin(angle - arrowAngle),
-    ], { stroke: '#dc2626', strokeWidth: 0.5 });
+    ], { stroke: '#dc2626', strokeWidth: 0.25 });
     
     const startArrow2 = new Line([
       startPoint.x,
       startPoint.y,
       startPoint.x + arrowSize * Math.cos(angle + arrowAngle),
       startPoint.y + arrowSize * Math.sin(angle + arrowAngle),
-    ], { stroke: '#dc2626', strokeWidth: 0.5 });
+    ], { stroke: '#dc2626', strokeWidth: 0.25 });
     
-    // End arrow
+    // End arrow (50% thinner)
     const endArrow1 = new Line([
       endPoint.x,
       endPoint.y,
       endPoint.x - arrowSize * Math.cos(angle - arrowAngle),
       endPoint.y - arrowSize * Math.sin(angle - arrowAngle),
-    ], { stroke: '#dc2626', strokeWidth: 0.5 });
+    ], { stroke: '#dc2626', strokeWidth: 0.25 });
     
     const endArrow2 = new Line([
       endPoint.x,
       endPoint.y,
       endPoint.x - arrowSize * Math.cos(angle + arrowAngle),
       endPoint.y - arrowSize * Math.sin(angle + arrowAngle),
-    ], { stroke: '#dc2626', strokeWidth: 0.5 });
+    ], { stroke: '#dc2626', strokeWidth: 0.25 });
     
     // Create measurement label - position beside the line for short measurements
     const midX = (startPoint.x + endPoint.x) / 2;
