@@ -1081,7 +1081,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, scaleInfo, cl
   };
 
   const addPool = () => {
-    if (!fabricCanvas || !scaleReference) return;
+    if (!fabricCanvas) return;
 
     // Parse user input dimensions (feet + inches)
     const lengthFt = parseFloat(poolLengthFeet) || 0;
@@ -1097,8 +1097,12 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, scaleInfo, cl
       return;
     }
     
-    const pixelWidth = length * scaleReference.pixelLength / scaleReference.length;
-    const pixelHeight = width * scaleReference.pixelLength / scaleReference.length;
+    // Use scale reference if available, otherwise use default (10 pixels per foot)
+    const defaultScale = { length: 1, pixelLength: 10 };
+    const scale = scaleReference || defaultScale;
+    
+    const pixelWidth = length * scale.pixelLength / scale.length;
+    const pixelHeight = width * scale.pixelLength / scale.length;
     
     // Load textures
     Promise.all([
@@ -1121,7 +1125,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, scaleInfo, cl
       if (copingSize) {
         // Convert coping size from inches to feet, then to pixels
         const copingSizeInFeet = copingSize / 12; // Convert inches to feet
-        const copingPixelWidth = copingSizeInFeet * scaleReference.pixelLength / scaleReference.length;
+        const copingPixelWidth = copingSizeInFeet * scale.pixelLength / scale.length;
         
         // Create coping rectangle with dark grey color
         const coping = new Rect({
@@ -1484,10 +1488,14 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, scaleInfo, cl
   };
 
   const addPresetPool = (length: number, width: number, poolName: string) => {
-    if (!fabricCanvas || !scaleReference) return;
+    if (!fabricCanvas) return;
 
-    const pixelWidth = length * scaleReference.pixelLength / scaleReference.length;
-    const pixelHeight = width * scaleReference.pixelLength / scaleReference.length;
+    // Use scale reference if available, otherwise use default (10 pixels per foot)
+    const defaultScale = { length: 1, pixelLength: 10 };
+    const scale = scaleReference || defaultScale;
+
+    const pixelWidth = length * scale.pixelLength / scale.length;
+    const pixelHeight = width * scale.pixelLength / scale.length;
     
     // Load the preset pool image
     FabricImage.fromURL(pool12x24Image).then((poolImg) => {
@@ -1507,7 +1515,7 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, scaleInfo, cl
       if (copingSize) {
         // Convert coping size from inches to feet, then to pixels
         const copingSizeInFeet = copingSize / 12; // Convert inches to feet
-        const copingPixelWidth = copingSizeInFeet * scaleReference.pixelLength / scaleReference.length;
+        const copingPixelWidth = copingSizeInFeet * scale.pixelLength / scale.length;
         
         // Create coping rectangle with dark grey color
         const coping = new Rect({
