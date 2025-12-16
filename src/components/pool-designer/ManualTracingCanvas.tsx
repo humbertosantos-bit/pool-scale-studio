@@ -1474,7 +1474,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       }
       const objects = fabricCanvas.getObjects();
       objects.forEach(obj => {
-        if ((obj as any).shapeId === paver.id && ((obj as any).isVertexMarker || (obj as any).isPaverLabel)) {
+        if ((obj as any).shapeId === paver.id && ((obj as any).isVertexMarker || (obj as any).isStandalonePaverLabel)) {
           fabricCanvas.remove(obj);
         }
       });
