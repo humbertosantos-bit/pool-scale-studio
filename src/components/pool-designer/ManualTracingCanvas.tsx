@@ -3709,9 +3709,10 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       originY: 'center',
     });
     
-    // Smaller, thinner arrow heads for better visibility on short measurements
-    const arrowSize = 4;
-    const arrowAngle = Math.PI / 7; // Narrower angle for thinner arrows
+    // Dynamic arrow size: scales with length but has min/max bounds to avoid overlap
+    const baseArrowSize = Math.min(length * 0.08, 3); // 8% of length, max 3px
+    const arrowSize = Math.max(baseArrowSize, 1.5); // Minimum 1.5px for readability
+    const arrowAngle = Math.PI / 8; // Narrow angle for thin, sleek arrows
     
     // Start arrow
     const startArrow1 = new Line([
