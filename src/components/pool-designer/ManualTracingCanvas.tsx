@@ -1486,6 +1486,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     let fill: any;
     let stroke: string;
     let strokeDashArray: number[] | undefined;
+    let poolWaterPolygon: Polygon | null = null;
     
     if (mode === 'property') {
       fill = 'rgba(34, 197, 94, 0.1)';
@@ -1549,6 +1550,24 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       (copingPolygon as any).isCoping = true;
       fabricCanvas.add(copingPolygon);
       
+      // Create pool polygon (0.5px thin perimeter)
+      const poolFabricPoints = points.map(p => new Point(p.x, p.y));
+      poolWaterPolygon = new Polygon(poolFabricPoints, {
+        fill: createWaterGradient(points),
+        stroke: '#000000',
+        strokeWidth: 0.5,
+        selectable: false,
+        evented: false,
+      });
+      (poolWaterPolygon as any).shapeType = 'pool';
+      (poolWaterPolygon as any).shapeId = shapeId;
+      (poolWaterPolygon as any).isPoolWater = true;
+      fabricCanvas.add(poolWaterPolygon);
+      
+      // Ensure proper z-order: paver (back) → coping → pool water (front)
+      fabricCanvas.bringObjectToFront(copingPolygon);
+      fabricCanvas.bringObjectToFront(poolWaterPolygon);
+      
     } else if (mode === 'paver') {
       fill = '#d4d4d4'; // Light gray for standalone pavers
       stroke = '#78716c';
@@ -1558,20 +1577,23 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       stroke = '#666666';
     }
 
-    // Create polygon
-    const fabricPoints = points.map(p => new Point(p.x, p.y));
-    const polygon = new Polygon(fabricPoints, {
-      fill,
-      stroke,
-      strokeWidth: mode === 'pool' ? 0.5 : 1,
-      strokeDashArray,
-      selectable: false,
-      evented: false,
-    });
-    (polygon as any).shapeType = mode;
-    (polygon as any).shapeId = shapeId;
-    
-    fabricCanvas.add(polygon);
+    // Create polygon (for non-pool shapes)
+    let polygon: Polygon | null = poolWaterPolygon;
+    if (mode !== 'pool') {
+      const fabricPoints = points.map(p => new Point(p.x, p.y));
+      polygon = new Polygon(fabricPoints, {
+        fill,
+        stroke,
+        strokeWidth: 1,
+        strokeDashArray,
+        selectable: false,
+        evented: false,
+      });
+      (polygon as any).shapeType = mode;
+      (polygon as any).shapeId = shapeId;
+      
+      fabricCanvas.add(polygon);
+    }
 
     // Add vertex markers for editing (skip for pools - no corner circles)
     const newMarkers: Circle[] = [];
@@ -3001,7 +3023,12 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     });
     (polygon as any).shapeType = 'pool';
     (polygon as any).shapeId = pool.id;
+    (polygon as any).isPoolWater = true;
     fabricCanvas.add(polygon);
+    
+    // Ensure proper z-order: paver (back) → coping → pool water (front)
+    fabricCanvas.bringObjectToFront(copingPolygon);
+    fabricCanvas.bringObjectToFront(polygon);
     
     // No vertex markers for pools (removed corner circles)
     
@@ -3288,7 +3315,12 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     });
     (polygon as any).shapeType = 'pool';
     (polygon as any).shapeId = shapeId;
+    (polygon as any).isPoolWater = true;
     fabricCanvas.add(polygon);
+    
+    // Ensure proper z-order: paver (back) → coping → pool water (front)
+    fabricCanvas.bringObjectToFront(copingPolygon);
+    fabricCanvas.bringObjectToFront(polygon);
     
     // No vertex markers for pools (removed corner circles)
     
