@@ -3275,7 +3275,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
 
     // Vertex dragging handlers
     const handleVertexMouseDown = (e: any) => {
-      if (drawingModeRef.current !== 'none' || spacePressedRef.current) return;
+      if ((drawingModeRef.current !== 'none' && drawingModeRef.current !== 'move-paver') || spacePressedRef.current) return;
       
       const target = e.target;
       if (!target || !(target as any).isVertexMarker) return;
@@ -3340,7 +3340,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
 
     // Edge dragging handlers (for moving two vertices at once)
     const handleEdgeMouseDown = (e: any) => {
-      if (drawingModeRef.current !== 'none' || spacePressedRef.current) return;
+      if ((drawingModeRef.current !== 'none' && drawingModeRef.current !== 'move-paver') || spacePressedRef.current) return;
       
       const target = e.target;
       if (!target || !(target as any).isEdgeMarker) return;
