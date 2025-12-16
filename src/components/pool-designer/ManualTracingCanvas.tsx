@@ -1522,7 +1522,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         const paverOuterPoints = offsetPolygon(points, maxPaverPixels);
         const paverFabricPoints = paverOuterPoints.map(p => new Point(p.x, p.y));
         const paverPolygon = new Polygon(paverFabricPoints, {
-          fill: '#d4d4d4', // Light gray for pavers
+          fill: '#d8d8d8', // Light gray for pavers
           stroke: '#000000',
           strokeWidth: 0.5,
           selectable: false,
@@ -1540,7 +1540,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       const copingOuterPoints = offsetPolygon(points, copingSizePixels);
       const copingFabricPoints = copingOuterPoints.map(p => new Point(p.x, p.y));
       const copingPolygon = new Polygon(copingFabricPoints, {
-        fill: createCopingPattern(), // Concrete dot pattern for coping
+        fill: '#8f8f8f', // Solid gray for coping
         stroke: '#000000',
         strokeWidth: 0.5,
         selectable: false,
@@ -1569,7 +1569,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       fabricCanvas.bringObjectToFront(poolWaterPolygon);
       
     } else if (mode === 'paver') {
-      fill = '#d4d4d4'; // Light gray for standalone pavers
+      fill = '#d8d8d8'; // Light gray for standalone pavers
       stroke = '#78716c';
       strokeDashArray = [4, 2];
     } else {
@@ -3002,7 +3002,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     const copingOuterPoints = offsetPolygon(newPoints, copingSizePixels);
     const copingFabricPoints = copingOuterPoints.map(p => new Point(p.x, p.y));
     const copingPolygon = new Polygon(copingFabricPoints, {
-      fill: createCopingPattern(), // Concrete dot pattern for coping
+      fill: '#8f8f8f', // Solid gray for coping
       stroke: '#000000',
       strokeWidth: 0.5,
       selectable: false,
@@ -3259,7 +3259,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       const paverOuterPoints = offsetPolygon(points, maxPaverPixels);
       const paverFabricPoints = paverOuterPoints.map(p => new Point(p.x, p.y));
       const paverPolygon = new Polygon(paverFabricPoints, {
-        fill: '#d4d4d4', // Light gray for pavers
+        fill: '#d8d8d8', // Light gray for pavers
         stroke: '#000000',
         strokeWidth: 0.5,
         selectable: false,
@@ -3301,7 +3301,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     
     const copingFabricPoints = copingOuterPoints.map(p => new Point(p.x, p.y));
     const copingPolygon = new Polygon(copingFabricPoints, {
-      fill: createCopingPattern(), // Concrete dot pattern for coping
+      fill: '#8f8f8f', // Solid gray for coping
       stroke: '#000000',
       strokeWidth: 0.5,
       selectable: false,
