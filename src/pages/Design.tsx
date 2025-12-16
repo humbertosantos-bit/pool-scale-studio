@@ -109,66 +109,69 @@ const Design: React.FC = () => {
       {/* Main Content */}
       <div className="flex flex-col h-[calc(100vh-104px)]">
         <div className="flex flex-1 overflow-hidden">
-          {/* Left Sidebar */}
-          {!isManualTracing && (
-            <div className="w-1/4 border-r bg-white overflow-y-auto flex flex-col">
-              <div className="p-4 space-y-4 flex-1">
-                {/* Client & Rep Info */}
-                <ClientInfoDisplay clientInfo={clientInfo} />
-                
-                {/* Tools Section - shown when image is uploaded */}
-                {selectedImage && poolState && (
-                  <PoolControls 
-                    {...poolState} 
-                    selectedImage={selectedImage}
-                    onFileSelect={handleFileSelect}
-                    showSunPath={poolState.showSunPath}
-                    onShowSunPathChange={poolState.onShowSunPathChange}
-                    isSettingNorth={poolState.isSettingNorth}
-                    onSetNorth={poolState.onSetNorth}
-                    location={poolState.location}
-                    onLocationChange={poolState.onLocationChange}
-                    selectedDate={poolState.selectedDate}
-                    onDateChange={poolState.onDateChange}
-                    timeOfDay={poolState.timeOfDay}
-                    onTimeOfDayChange={poolState.onTimeOfDayChange}
-                    bgImageOpacity={poolState.bgImageOpacity}
-                    onBgImageOpacityChange={poolState.onBgImageOpacityChange}
-                  />
-                )}
-                
-                {/* Start Design Options - shown when no image */}
-                {!selectedImage && (
-                  <div className="border rounded-lg overflow-hidden">
-                    <div className="bg-primary px-4 py-2">
-                      <h2 className="text-xs font-semibold text-primary-foreground">📁 Import / Draw</h2>
-                    </div>
-                    <div className="p-4">
-                      <ImageUploadOptions 
-                        onFileSelect={handleFileSelect} 
-                        onManualTraceSelect={handleManualTraceSelect}
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
+          {/* Left Sidebar - Always visible */}
+          <div className="w-1/4 min-w-[280px] border-r bg-white overflow-y-auto flex flex-col">
+            <div className="p-4 space-y-4 flex-1">
+              {/* Client Name Header */}
+              {clientInfo.name && (
+                <div className="bg-primary/10 rounded-lg p-3">
+                  <p className="text-lg font-semibold text-primary">{clientInfo.name}</p>
+                  {clientInfo.address && (
+                    <p className="text-sm text-muted-foreground">{clientInfo.address}</p>
+                  )}
+                </div>
+              )}
               
-              {/* Calculations at bottom of sidebar */}
-              {selectedImage && poolState && poolState.calculatedData && (
-                <div className="border-t p-4">
-                  <PoolCalculations
-                    pools={poolState.calculatedData.pools || []}
-                    fences={poolState.calculatedData.fences || []}
-                    pavers={poolState.calculatedData.pavers || []}
-                    compact
-                  />
+              {/* Tools Section - shown when image is uploaded */}
+              {selectedImage && poolState && (
+                <PoolControls 
+                  {...poolState} 
+                  selectedImage={selectedImage}
+                  onFileSelect={handleFileSelect}
+                  showSunPath={poolState.showSunPath}
+                  onShowSunPathChange={poolState.onShowSunPathChange}
+                  isSettingNorth={poolState.isSettingNorth}
+                  onSetNorth={poolState.onSetNorth}
+                  location={poolState.location}
+                  onLocationChange={poolState.onLocationChange}
+                  selectedDate={poolState.selectedDate}
+                  onDateChange={poolState.onDateChange}
+                  timeOfDay={poolState.timeOfDay}
+                  onTimeOfDayChange={poolState.onTimeOfDayChange}
+                  bgImageOpacity={poolState.bgImageOpacity}
+                  onBgImageOpacityChange={poolState.onBgImageOpacityChange}
+                />
+              )}
+              
+              {/* Start Design Options - shown when no image and not manual tracing */}
+              {!selectedImage && !isManualTracing && (
+                <div className="border rounded-lg overflow-hidden">
+                  <div className="bg-primary px-4 py-2">
+                    <h2 className="text-xs font-semibold text-primary-foreground">📁 Import / Draw</h2>
+                  </div>
+                  <div className="p-4">
+                    <ImageUploadOptions 
+                      onFileSelect={handleFileSelect} 
+                      onManualTraceSelect={handleManualTraceSelect}
+                    />
+                  </div>
                 </div>
               )}
             </div>
-          )}
+            
+            {/* Calculations at bottom of sidebar - Always visible */}
+            <div className="border-t p-4">
+              <PoolCalculations
+                pools={poolState?.calculatedData?.pools || []}
+                fences={poolState?.calculatedData?.fences || []}
+                pavers={poolState?.calculatedData?.pavers || []}
+                compact
+              />
+            </div>
+          </div>
 
           {/* Canvas */}
-          <div className={`${isManualTracing ? 'w-full' : 'w-3/4'} bg-gradient-to-br from-background to-pool-light/20 overflow-auto`}>
+          <div className="flex-1 bg-gradient-to-br from-background to-pool-light/20 overflow-auto">
             {isManualTracing ? (
               <ManualTracingCanvas onStateChange={handleStateChange} />
             ) : selectedImage ? (
