@@ -361,62 +361,120 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     });
   };
 
-  // Offset polygon outward by a given distance (for coping around drawn pools)
+  // Check if polygon is clockwise (positive area = counterclockwise, negative = clockwise)
+  const isPolygonClockwise = (points: { x: number; y: number }[]): boolean => {
+    let sum = 0;
+    for (let i = 0; i < points.length; i++) {
+      const curr = points[i];
+      const next = points[(i + 1) % points.length];
+      sum += (next.x - curr.x) * (next.y + curr.y);
+    }
+    return sum > 0;
+  };
+
+  // Robust polygon offset algorithm with proper handling of concave corners, steps, and indentations
+  // Uses miter joints with fallback to prevent self-intersection
   const offsetPolygon = (points: { x: number; y: number }[], offset: number): { x: number; y: number }[] => {
     const n = points.length;
     if (n < 3) return points;
     
+    // Ensure consistent winding order (counterclockwise for outward offset)
+    let pts = [...points];
+    if (isPolygonClockwise(pts)) {
+      pts = pts.reverse();
+    }
+    
     const result: { x: number; y: number }[] = [];
     
+    // Calculate offset lines for each edge
+    const offsetLines: { p1: { x: number; y: number }; p2: { x: number; y: number }; nx: number; ny: number }[] = [];
+    
     for (let i = 0; i < n; i++) {
-      const prev = points[(i - 1 + n) % n];
-      const curr = points[i];
-      const next = points[(i + 1) % n];
+      const curr = pts[i];
+      const next = pts[(i + 1) % n];
       
-      // Calculate edge vectors
-      const dx1 = curr.x - prev.x;
-      const dy1 = curr.y - prev.y;
-      const dx2 = next.x - curr.x;
-      const dy2 = next.y - curr.y;
+      // Edge vector
+      const dx = next.x - curr.x;
+      const dy = next.y - curr.y;
+      const len = Math.sqrt(dx * dx + dy * dy);
       
-      // Calculate edge lengths
-      const len1 = Math.sqrt(dx1 * dx1 + dy1 * dy1);
-      const len2 = Math.sqrt(dx2 * dx2 + dy2 * dy2);
-      
-      if (len1 === 0 || len2 === 0) {
-        result.push({ x: curr.x, y: curr.y });
+      if (len === 0) {
+        offsetLines.push({ p1: curr, p2: next, nx: 0, ny: 0 });
         continue;
       }
       
-      // Calculate outward normals (perpendicular to edges, pointing outward)
-      // For a clockwise polygon, outward is to the left of the edge direction
-      const nx1 = -dy1 / len1;
-      const ny1 = dx1 / len1;
-      const nx2 = -dy2 / len2;
-      const ny2 = dx2 / len2;
+      // Outward normal (perpendicular, pointing outward for counterclockwise polygon)
+      const nx = -dy / len;
+      const ny = dx / len;
       
-      // Average the normals for the corner
-      let nx = (nx1 + nx2) / 2;
-      let ny = (ny1 + ny2) / 2;
-      const nLen = Math.sqrt(nx * nx + ny * ny);
-      
-      if (nLen > 0) {
-        nx /= nLen;
-        ny /= nLen;
-      }
-      
-      // Calculate the offset amount at this vertex (account for corner angle)
-      const dot = nx1 * nx2 + ny1 * ny2;
-      const angleFactor = Math.max(1 / Math.cos(Math.acos(Math.min(1, Math.max(-1, dot))) / 2), 1);
-      const adjustedOffset = offset * Math.min(angleFactor, 2); // Cap to avoid extreme values
-      
-      result.push({
-        x: curr.x + nx * adjustedOffset,
-        y: curr.y + ny * adjustedOffset,
+      // Offset the edge
+      offsetLines.push({
+        p1: { x: curr.x + nx * offset, y: curr.y + ny * offset },
+        p2: { x: next.x + nx * offset, y: next.y + ny * offset },
+        nx,
+        ny,
       });
     }
     
+    // Calculate intersection points of consecutive offset lines (miter joints)
+    for (let i = 0; i < n; i++) {
+      const line1 = offsetLines[(i - 1 + n) % n];
+      const line2 = offsetLines[i];
+      
+      // Line 1: from line1.p1 to line1.p2
+      // Line 2: from line2.p1 to line2.p2
+      
+      const dx1 = line1.p2.x - line1.p1.x;
+      const dy1 = line1.p2.y - line1.p1.y;
+      const dx2 = line2.p2.x - line2.p1.x;
+      const dy2 = line2.p2.y - line2.p1.y;
+      
+      // Calculate cross product to check for parallel lines
+      const cross = dx1 * dy2 - dy1 * dx2;
+      
+      if (Math.abs(cross) < 1e-10) {
+        // Lines are parallel, use midpoint
+        result.push({
+          x: (line1.p2.x + line2.p1.x) / 2,
+          y: (line1.p2.y + line2.p1.y) / 2,
+        });
+      } else {
+        // Find intersection point
+        const t = ((line2.p1.x - line1.p1.x) * dy2 - (line2.p1.y - line1.p1.y) * dx2) / cross;
+        
+        const ix = line1.p1.x + t * dx1;
+        const iy = line1.p1.y + t * dy1;
+        
+        // Check if miter is too long (sharp angle) - limit to 3x offset
+        const miterDist = Math.sqrt(
+          Math.pow(ix - pts[i].x, 2) + Math.pow(iy - pts[i].y, 2)
+        );
+        
+        if (miterDist > offset * 3) {
+          // Miter limit exceeded, use bevel (average of two offset points)
+          result.push({
+            x: (line1.p2.x + line2.p1.x) / 2,
+            y: (line1.p2.y + line2.p1.y) / 2,
+          });
+        } else {
+          result.push({ x: ix, y: iy });
+        }
+      }
+    }
+    
     return result;
+  };
+
+  // Create coping polygon that follows the pool perimeter exactly
+  const createCopingPolygonPoints = (
+    poolPoints: { x: number; y: number }[],
+    copingSizePixels: number
+  ): { outer: { x: number; y: number }[]; inner: { x: number; y: number }[] } => {
+    // Outer boundary is the pool offset outward by coping size
+    const outer = offsetPolygon(poolPoints, copingSizePixels);
+    // Inner boundary is the pool itself
+    const inner = [...poolPoints];
+    return { outer, inner };
   };
 
   // Create arrow cursor
@@ -1440,14 +1498,46 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       fill = createWaterGradient(points);
       stroke = '#000000'; // Black contour for pools
       
-      // Add coping around the drawn pool (follows perimeter shape)
+      // Get current coping and paver settings
       const currentScale = scalePixelsPerMeterRef.current;
       const copingSizeInFeet = copingSize / 12;
       const copingSizePixels = (copingSizeInFeet / METERS_TO_FEET) * currentScale;
       
-      // Create offset polygon for coping (expand outward)
-      const copingPoints = offsetPolygon(points, copingSizePixels);
-      const copingFabricPoints = copingPoints.map(p => new Point(p.x, p.y));
+      // Get paver dimensions
+      const paverDims: PaverDimensions = {
+        top: (parseFloat(paverTopFeet) || 0) + (parseFloat(paverTopInches) || 0) / 12,
+        bottom: (parseFloat(paverBottomFeet) || 0) + (parseFloat(paverBottomInches) || 0) / 12,
+        left: (parseFloat(paverLeftFeet) || 0) + (parseFloat(paverLeftInches) || 0) / 12,
+        right: (parseFloat(paverRightFeet) || 0) + (parseFloat(paverRightInches) || 0) / 12,
+      };
+      
+      // Calculate max paver offset (use uniform offset that equals the largest paver dimension)
+      const maxPaverFeet = Math.max(paverDims.top, paverDims.bottom, paverDims.left, paverDims.right);
+      const maxPaverPixels = (maxPaverFeet / METERS_TO_FEET) * currentScale;
+      
+      // Add paver zone if any paver dimensions are set (offset by max paver dimension)
+      const hasPavers = maxPaverFeet > 0;
+      if (hasPavers) {
+        const paverOuterPoints = offsetPolygon(points, maxPaverPixels);
+        const paverFabricPoints = paverOuterPoints.map(p => new Point(p.x, p.y));
+        const paverPolygon = new Polygon(paverFabricPoints, {
+          fill: '#d4d4d4', // Light gray for pavers
+          stroke: '#000000',
+          strokeWidth: 0.5,
+          selectable: false,
+          evented: false,
+        });
+        (paverPolygon as any).shapeId = shapeId;
+        (paverPolygon as any).isPaverZone = true;
+        fabricCanvas.add(paverPolygon);
+        
+        // Ensure background and grid are at the very back
+        sendBackgroundToBack(fabricCanvas);
+      }
+      
+      // Add coping polygon (follows perimeter shape exactly)
+      const copingOuterPoints = offsetPolygon(points, copingSizePixels);
+      const copingFabricPoints = copingOuterPoints.map(p => new Point(p.x, p.y));
       const copingPolygon = new Polygon(copingFabricPoints, {
         fill: createCopingPattern(), // Concrete dot pattern for coping
         stroke: '#000000',
@@ -1526,12 +1616,30 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       addPoolEdgeLabels(fabricCanvas, points, shapeId);
     }
 
-    const shape: DrawnShape = {
+    // Create base shape object
+    let shape: DrawnShape = {
       id: shapeId,
       type: mode as 'property' | 'house' | 'pool' | 'paver',
       points,
       fabricObject: polygon,
     };
+    
+    // For pools, add coping and paver information
+    if (mode === 'pool') {
+      const paverDims: PaverDimensions = {
+        top: (parseFloat(paverTopFeet) || 0) + (parseFloat(paverTopInches) || 0) / 12,
+        bottom: (parseFloat(paverBottomFeet) || 0) + (parseFloat(paverBottomInches) || 0) / 12,
+        left: (parseFloat(paverLeftFeet) || 0) + (parseFloat(paverLeftInches) || 0) / 12,
+        right: (parseFloat(paverRightFeet) || 0) + (parseFloat(paverRightInches) || 0) / 12,
+      };
+      shape = {
+        ...shape,
+        name: 'Custom Pool',
+        copingSize: copingSize,
+        paverDimensions: paverDims,
+        isPreset: false,
+      };
+    }
 
     if (mode === 'property') {
       setPropertyShape(shape);
@@ -1544,7 +1652,10 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       toast.success('House footprint added!');
     } else if (mode === 'pool') {
       setPoolShapes(prev => [...prev, shape]);
-      toast.success('Pool added!');
+      poolShapesRef.current = [...poolShapesRef.current, shape];
+      // Update calculations for the new pool
+      updatePoolCalculations(poolShapesRef.current);
+      toast.success('Custom pool added!');
     } else if (mode === 'paver') {
       // Calculate area for standalone paver
       const areaSqFt = calculatePolygonAreaSqFt(points);
@@ -2831,26 +2942,24 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     const rotatedOffsetX = baseOffsetX * cos - baseOffsetY * sin;
     const rotatedOffsetY = baseOffsetX * sin + baseOffsetY * cos;
     
-    // Create paver zone rectangle (outermost) - light gray
+    // Create paver zone polygon (outermost) - light gray
+    // For all pool types, use uniform offset with max paver dimension
     const hasPavers = paverDims.top > 0 || paverDims.bottom > 0 || paverDims.left > 0 || paverDims.right > 0;
     if (hasPavers) {
-      const paverRect = new Rect({
-        left: poolCenterX - rotatedOffsetX,
-        top: poolCenterY - rotatedOffsetY,
-        width: totalOuterWidth,
-        height: totalOuterHeight,
+      const maxPaverFeet = Math.max(paverDims.top, paverDims.bottom, paverDims.left, paverDims.right);
+      const maxPaverPixels = (maxPaverFeet / METERS_TO_FEET) * currentScale;
+      const paverOuterPoints = offsetPolygon(newPoints, maxPaverPixels);
+      const paverFabricPoints = paverOuterPoints.map(p => new Point(p.x, p.y));
+      const paverPolygon = new Polygon(paverFabricPoints, {
         fill: '#d4d4d4',
         stroke: '#000000',
         strokeWidth: 0.5,
-        originX: 'center',
-        originY: 'center',
-        angle: rotationDegrees,
         selectable: false,
         evented: false,
       });
-      (paverRect as any).shapeId = pool.id;
-      (paverRect as any).isPaverZone = true;
-      fabricCanvas.add(paverRect);
+      (paverPolygon as any).shapeId = pool.id;
+      (paverPolygon as any).isPaverZone = true;
+      fabricCanvas.add(paverPolygon);
       
       // Ensure background and grid are at the very back
       sendBackgroundToBack(fabricCanvas);
@@ -2866,27 +2975,20 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       });
     }
     
-    // Create coping rectangle (around pool) - concrete dot pattern
-    const copingWidth = poolWidth + copingSizePixels * 2;
-    const copingHeight = poolHeight + copingSizePixels * 2;
-    
-    const copingRect = new Rect({
-      left: poolCenterX,
-      top: poolCenterY,
-      width: copingWidth,
-      height: copingHeight,
+    // Create coping polygon (follows exact pool perimeter) - concrete dot pattern
+    // Use polygon offset algorithm to generate coping that hugs the pool shape
+    const copingOuterPoints = offsetPolygon(newPoints, copingSizePixels);
+    const copingFabricPoints = copingOuterPoints.map(p => new Point(p.x, p.y));
+    const copingPolygon = new Polygon(copingFabricPoints, {
       fill: createCopingPattern(), // Concrete dot pattern for coping
       stroke: '#000000',
       strokeWidth: 0.5,
-      originX: 'center',
-      originY: 'center',
-      angle: rotationDegrees,
       selectable: false,
       evented: false,
     });
-    (copingRect as any).shapeId = pool.id;
-    (copingRect as any).isCoping = true;
-    fabricCanvas.add(copingRect);
+    (copingPolygon as any).shapeId = pool.id;
+    (copingPolygon as any).isCoping = true;
+    fabricCanvas.add(copingPolygon);
     
     // Create new polygon with water gradient and black stroke (0.5px thin)
     const fabricPoints = newPoints.map(p => new Point(p.x, p.y));
@@ -2903,10 +3005,8 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     
     // No vertex markers for pools (removed corner circles)
     
-    // Add paver dimension labels
-    if (hasPavers) {
-      addPaverDimensionLabels(fabricCanvas, pool.id, poolCenterX, poolCenterY, totalOuterWidth, totalOuterHeight, paverDims, baseOffsetX, baseOffsetY, rotationDegrees);
-    }
+    // Note: Paver dimension labels are not added for polygon-based pools
+    // as they use uniform offset. The pool calculation shows the actual areas.
     
     // Add pool name label with rotation and edge measurements (only for custom pools)
     addPoolNameLabel(fabricCanvas, newPoints, pool.id, pool.name || 'Custom Pool', rotationAngle, pool.widthFeet, pool.lengthFeet);
@@ -3123,78 +3223,59 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     const poolCenterX = (minX + maxX) / 2;
     const poolCenterY = (minY + maxY) / 2;
     
-    // Create paver zone rectangle (outermost) - light gray
-    // NOTE: Paver input includes coping, so total outer = pool + paver input (not pool + coping + pavers)
-    const paverTopPixels = (paverDims.top / METERS_TO_FEET) * currentScale;
-    const paverBottomPixels = (paverDims.bottom / METERS_TO_FEET) * currentScale;
-    const paverLeftPixels = (paverDims.left / METERS_TO_FEET) * currentScale;
-    const paverRightPixels = (paverDims.right / METERS_TO_FEET) * currentScale;
+    // Create paver zone polygon (outermost) - light gray
+    // Use uniform offset with max paver dimension for consistent perimeter following
+    const maxPaverFeet = Math.max(paverDims.top, paverDims.bottom, paverDims.left, paverDims.right);
+    const hasPavers = maxPaverFeet > 0;
+    if (hasPavers) {
+      const maxPaverPixels = (maxPaverFeet / METERS_TO_FEET) * currentScale;
+      const paverOuterPoints = offsetPolygon(points, maxPaverPixels);
+      const paverFabricPoints = paverOuterPoints.map(p => new Point(p.x, p.y));
+      const paverPolygon = new Polygon(paverFabricPoints, {
+        fill: '#d4d4d4', // Light gray for pavers
+        stroke: '#000000',
+        strokeWidth: 0.5,
+        selectable: false,
+        evented: false,
+      });
+      (paverPolygon as any).shapeId = shapeId;
+      (paverPolygon as any).isPaverZone = true;
+      fabricCanvas.add(paverPolygon);
+      
+      // Ensure background and grid are at the very back
+      sendBackgroundToBack(fabricCanvas);
+      
+      // Keep property visible above grid
+      const allObjs = fabricCanvas.getObjects();
+      allObjs.forEach(obj => {
+        if ((obj as any).shapeType === 'property') {
+          fabricCanvas.sendObjectToBack(obj);
+          fabricCanvas.bringObjectForward(obj);
+          fabricCanvas.bringObjectForward(obj);
+        }
+      });
+      // Also ensure property edge labels stay visible
+      allObjs.forEach(obj => {
+        if ((obj as any).isEdgeLabel && (obj as any).shapeId?.startsWith('property')) {
+          fabricCanvas.bringObjectToFront(obj);
+        }
+      });
+    }
     
-    // Total outer dimension = pool + paver input on each side (paver input includes coping)
-    const totalOuterWidth = poolWidth + paverLeftPixels + paverRightPixels;
-    const totalOuterHeight = poolHeight + paverTopPixels + paverBottomPixels;
-    
-    // Offset center based on asymmetric paver sizes
-    const offsetX = (paverLeftPixels - paverRightPixels) / 2;
-    const offsetY = (paverTopPixels - paverBottomPixels) / 2;
-    
-    // Create paver zone rectangle
-    const paverRect = new Rect({
-      left: poolCenterX - offsetX,
-      top: poolCenterY - offsetY,
-      width: totalOuterWidth,
-      height: totalOuterHeight,
-      fill: '#d4d4d4', // Light gray for pavers
-      stroke: '#000000',
-      strokeWidth: 0.5,
-      originX: 'center',
-      originY: 'center',
-      selectable: false,
-      evented: false,
-    });
-    (paverRect as any).shapeId = shapeId;
-    (paverRect as any).isPaverZone = true;
-    fabricCanvas.add(paverRect);
-    
-    // Ensure background and grid are at the very back
-    sendBackgroundToBack(fabricCanvas);
-    
-    // Keep property visible above grid
-    const allObjs = fabricCanvas.getObjects();
-    allObjs.forEach(obj => {
-      if ((obj as any).shapeType === 'property') {
-        fabricCanvas.sendObjectToBack(obj);
-        fabricCanvas.bringObjectForward(obj);
-        fabricCanvas.bringObjectForward(obj);
-      }
-    });
-    // Also ensure property edge labels stay visible
-    allObjs.forEach(obj => {
-      if ((obj as any).isEdgeLabel && (obj as any).shapeId?.startsWith('property')) {
-        fabricCanvas.bringObjectToFront(obj);
-      }
-    });
-    
-    // Create coping rectangle (around pool) - concrete dot pattern
-    const copingWidth = poolWidth + copingSizePixels * 2;
-    const copingHeight = poolHeight + copingSizePixels * 2;
-    
-    const copingRect = new Rect({
-      left: poolCenterX,
-      top: poolCenterY,
-      width: copingWidth,
-      height: copingHeight,
+    // Create coping polygon (follows exact pool perimeter) - concrete dot pattern
+    // Use polygon offset algorithm to generate coping that hugs the pool shape
+    const copingOuterPoints = offsetPolygon(points, copingSizePixels);
+    const copingFabricPoints = copingOuterPoints.map(p => new Point(p.x, p.y));
+    const copingPolygon = new Polygon(copingFabricPoints, {
       fill: createCopingPattern(), // Concrete dot pattern for coping
       stroke: '#000000',
       strokeWidth: 0.5,
-      originX: 'center',
-      originY: 'center',
       selectable: false,
       evented: false,
     });
-    (copingRect as any).shapeId = shapeId;
-    (copingRect as any).isCoping = true;
-    fabricCanvas.add(copingRect);
+    (copingPolygon as any).shapeId = shapeId;
+    (copingPolygon as any).isCoping = true;
+    fabricCanvas.add(copingPolygon);
     
     // Create pool polygon (0.5px thin perimeter)
     const fabricPoints = points.map(p => new Point(p.x, p.y));
@@ -3211,8 +3292,8 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     
     // No vertex markers for pools (removed corner circles)
     
-    // Add paver dimension labels on each side (no rotation for new pools)
-    addPaverDimensionLabels(fabricCanvas, shapeId, poolCenterX, poolCenterY, totalOuterWidth, totalOuterHeight, paverDims, offsetX, offsetY, 0);
+    // Note: Paver dimension labels are not added for polygon-based pools
+    // as they use uniform offset. The pool calculation shows the actual areas.
     
     // Add pool name label
     addPoolNameLabel(fabricCanvas, points, shapeId, name, 0, widthFeet, lengthFeet);
@@ -3370,35 +3451,57 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
   // The visual shows the full input (4 ft), but calculation deducts coping to get net pavers.
   const updatePoolCalculations = (pools: DrawnShape[]) => {
     const calculations: PoolCalculation[] = pools.filter(p => p.type === 'pool').map(pool => {
-      const widthFeet = pool.widthFeet || 0;
-      const lengthFeet = pool.lengthFeet || 0;
       const copingSizeInches = pool.copingSize || 12;
       const copingSizeInFeet = copingSizeInches / 12;
       const paverDims = pool.paverDimensions || { top: 0, bottom: 0, left: 0, right: 0 };
       
-      // Pool area
-      const poolArea = widthFeet * lengthFeet;
+      let poolArea: number;
+      let copingSqFt: number;
+      let paverNetSqFt: number;
       
-      // Coping area = (pool + coping outer) - pool area
-      const copingOuterWidth = widthFeet + (copingSizeInFeet * 2);
-      const copingOuterLength = lengthFeet + (copingSizeInFeet * 2);
-      const copingOuterArea = copingOuterWidth * copingOuterLength;
-      const copingSqFt = copingOuterArea - poolArea;
-      
-      // Net paver dimensions = input - coping (since input includes coping)
-      const netPaverTop = Math.max(0, paverDims.top - copingSizeInFeet);
-      const netPaverBottom = Math.max(0, paverDims.bottom - copingSizeInFeet);
-      const netPaverLeft = Math.max(0, paverDims.left - copingSizeInFeet);
-      const netPaverRight = Math.max(0, paverDims.right - copingSizeInFeet);
-      
-      // Calculate net paver area (the actual paver zone minus the coping)
-      // Total outer = pool + full paver input on each side
-      const totalOuterWidth = widthFeet + paverDims.left + paverDims.right;
-      const totalOuterLength = lengthFeet + paverDims.top + paverDims.bottom;
-      const totalOuterArea = totalOuterWidth * totalOuterLength;
-      
-      // Net paver area = total outer area - coping outer area
-      const paverNetSqFt = totalOuterArea - copingOuterArea;
+      if (pool.isPreset || (pool.widthFeet && pool.lengthFeet)) {
+        // For preset/rectangular pools, use width x length calculations
+        const widthFeet = pool.widthFeet || 0;
+        const lengthFeet = pool.lengthFeet || 0;
+        
+        // Pool area
+        poolArea = widthFeet * lengthFeet;
+        
+        // Coping area = (pool + coping outer) - pool area
+        const copingOuterWidth = widthFeet + (copingSizeInFeet * 2);
+        const copingOuterLength = lengthFeet + (copingSizeInFeet * 2);
+        const copingOuterArea = copingOuterWidth * copingOuterLength;
+        copingSqFt = copingOuterArea - poolArea;
+        
+        // Calculate net paver area (the actual paver zone minus the coping)
+        const totalOuterWidth = widthFeet + paverDims.left + paverDims.right;
+        const totalOuterLength = lengthFeet + paverDims.top + paverDims.bottom;
+        const totalOuterArea = totalOuterWidth * totalOuterLength;
+        
+        // Net paver area = total outer area - coping outer area
+        paverNetSqFt = totalOuterArea - copingOuterArea;
+      } else {
+        // For custom-traced pools, use polygon area calculations
+        poolArea = calculatePolygonAreaSqFt(pool.points);
+        
+        // Calculate coping area using offset polygon
+        const currentScale = scalePixelsPerMeterRef.current;
+        const copingSizePixels = (copingSizeInFeet / METERS_TO_FEET) * currentScale;
+        const copingOuterPoints = offsetPolygon(pool.points, copingSizePixels);
+        const copingOuterArea = calculatePolygonAreaSqFt(copingOuterPoints);
+        copingSqFt = copingOuterArea - poolArea;
+        
+        // For custom pools, use uniform paver offset (max of all paver dimensions)
+        const maxPaverFeet = Math.max(paverDims.top, paverDims.bottom, paverDims.left, paverDims.right);
+        if (maxPaverFeet > 0) {
+          const maxPaverPixels = (maxPaverFeet / METERS_TO_FEET) * currentScale;
+          const paverOuterPoints = offsetPolygon(pool.points, maxPaverPixels);
+          const paverOuterArea = calculatePolygonAreaSqFt(paverOuterPoints);
+          paverNetSqFt = paverOuterArea - copingOuterArea;
+        } else {
+          paverNetSqFt = 0;
+        }
+      }
       
       // Total = coping (net) + paver area (net), then apply 10% waste
       const combinedNet = copingSqFt + Math.max(0, paverNetSqFt);
