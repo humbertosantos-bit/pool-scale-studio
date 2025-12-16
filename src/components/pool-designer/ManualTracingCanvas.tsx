@@ -206,6 +206,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     shapeType: 'standalone-paver';
     shapeId: string;
     startPoint: { x: number; y: number };
+    lastPoint: { x: number; y: number }; // For incremental movement
     startVertex1: { x: number; y: number };
     startVertex2: { x: number; y: number };
   } | null>(null);
@@ -1736,13 +1737,12 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     if (paver.fabricObject) {
       fabricCanvas.remove(paver.fabricObject);
     }
-    const objects = fabricCanvas.getObjects();
-    objects.forEach(obj => {
-      if ((obj as any).shapeId === paver.id && 
-          ((obj as any).isVertexMarker || (obj as any).isEdgeMarker || (obj as any).isStandalonePaverLabel)) {
-        fabricCanvas.remove(obj);
-      }
-    });
+    // Collect objects to remove first, then remove (to avoid mutation during iteration)
+    const objectsToRemove = fabricCanvas.getObjects().filter(obj => 
+      (obj as any).shapeId === paver.id && 
+      ((obj as any).isVertexMarker || (obj as any).isEdgeMarker || (obj as any).isStandalonePaverLabel)
+    );
+    objectsToRemove.forEach(obj => fabricCanvas.remove(obj));
     
     // Create new polygon with solid black 0.5px stroke
     const fabricPoints = newPoints.map(p => new Point(p.x, p.y));
@@ -3283,6 +3283,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         shapeType,
         shapeId,
         startPoint: { x: target.left!, y: target.top! },
+        lastPoint: { x: target.left!, y: target.top! },
         startVertex1: { ...paver.points[edgeIndex] },
         startVertex2: { ...paver.points[nextIndex] },
       };
@@ -3294,16 +3295,26 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       if (!isDraggingEdgeRef.current || !draggingEdgeRef.current) return;
       
       const pointer = fabricCanvas.getScenePoint(e.e);
-      let delta = {
+      
+      // Calculate total delta from original start for shift constraint detection
+      const totalDelta = {
         x: pointer.x - draggingEdgeRef.current.startPoint.x,
         y: pointer.y - draggingEdgeRef.current.startPoint.y,
       };
       
-      // If shift is pressed, constrain to horizontal or vertical
+      // Calculate incremental delta from last position
+      let delta = {
+        x: pointer.x - draggingEdgeRef.current.lastPoint.x,
+        y: pointer.y - draggingEdgeRef.current.lastPoint.y,
+      };
+      
+      // If shift is pressed, constrain to horizontal or vertical based on total movement
       if (e.e.shiftKey) {
-        if (Math.abs(delta.x) > Math.abs(delta.y)) {
+        if (Math.abs(totalDelta.x) > Math.abs(totalDelta.y)) {
+          // Horizontal movement - only apply x delta
           delta.y = 0;
         } else {
+          // Vertical movement - only apply y delta
           delta.x = 0;
         }
       }
@@ -3315,8 +3326,8 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         delta
       );
       
-      // Update start point for next delta calculation
-      draggingEdgeRef.current.startPoint = { x: pointer.x, y: pointer.y };
+      // Update last point for next incremental delta calculation
+      draggingEdgeRef.current.lastPoint = { x: pointer.x, y: pointer.y };
       
       fabricCanvas.renderAll();
     };
