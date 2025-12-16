@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { ImageUploadOptions } from '@/components/pool-designer/ImageUploadOptions';
 import { PoolCanvas } from '@/components/pool-designer/PoolCanvas';
 import { PoolControls } from '@/components/pool-designer/PoolControls';
 import { PoolCalculations } from '@/components/pool-designer/PoolCalculations';
 import { ManualTracingCanvas } from '@/components/pool-designer/ManualTracingCanvas';
-import { ClientInfoDisplay } from '@/components/pool-designer/ClientInfoDisplay';
 import { ClientInfo } from '@/components/pool-designer/ClientInfoForm';
+import { representatives } from '@/data/representatives';
 import logo from '@/assets/piscineriviera-logo.png';
 import { Button } from '@/components/ui/button';
 import {
@@ -21,13 +20,16 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
+interface StoredClientInfo extends ClientInfo {
+  createdAt?: string;
+}
+
 const Design: React.FC = () => {
-  const navigate = useNavigate();
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [scaleInfo, setScaleInfo] = useState<{ metersPerPixel: number; latitude: number; zoom: number } | null>(null);
   const [poolState, setPoolState] = useState<any>(null);
   const [isManualTracing, setIsManualTracing] = useState(false);
-  const [clientInfo, setClientInfo] = useState<ClientInfo>({
+  const [clientInfo, setClientInfo] = useState<StoredClientInfo>({
     name: '',
     phone: '',
     address: '',
@@ -66,8 +68,15 @@ const Design: React.FC = () => {
     setIsManualTracing(false);
   };
 
-  const handleBackToHome = () => {
-    navigate('/');
+  const representative = representatives.find(r => r.id === clientInfo.representativeId);
+  
+  const formatDate = (isoString?: string) => {
+    if (!isoString) return '';
+    return new Date(isoString).toLocaleDateString('fr-CA', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
   };
 
   const showCanvas = selectedImage || isManualTracing;
@@ -77,12 +86,7 @@ const Design: React.FC = () => {
       {/* Header */}
       <div className="border-b bg-[hsl(var(--header-bg))] backdrop-blur-sm">
         <div className="px-6 py-4 flex items-center justify-between gap-6 relative">
-          <div className="flex items-center gap-4">
-            <Button variant="outline" size="sm" onClick={handleBackToHome} className="text-white border-white/30 hover:bg-white/10">
-              ← Back
-            </Button>
-            <img src={logo} alt="Piscine Riviera" className="h-16 w-auto" />
-          </div>
+          <img src={logo} alt="Piscine Riviera" className="h-16 w-auto" />
           <h1 className="text-3xl font-bold text-white absolute left-1/2 -translate-x-1/2">
             Piscine Riviera Design Tool
           </h1>
@@ -112,15 +116,27 @@ const Design: React.FC = () => {
           {/* Left Sidebar - Always visible */}
           <div className="w-64 min-w-[240px] border-r bg-white overflow-y-auto flex flex-col">
             <div className="p-3 space-y-3 flex-1">
-              {/* Client Name Header */}
-              {clientInfo.name && (
-                <div className="bg-primary/10 rounded-lg p-2">
+              {/* Client Info Header */}
+              <div className="bg-primary/10 rounded-lg p-2 space-y-1">
+                {clientInfo.createdAt && (
+                  <p className="text-[10px] text-muted-foreground">{formatDate(clientInfo.createdAt)}</p>
+                )}
+                {clientInfo.name && (
                   <p className="text-sm font-semibold text-primary">{clientInfo.name}</p>
-                  {clientInfo.address && (
-                    <p className="text-xs text-muted-foreground">{clientInfo.address}</p>
-                  )}
-                </div>
-              )}
+                )}
+                {clientInfo.address && (
+                  <p className="text-xs text-muted-foreground">{clientInfo.address}</p>
+                )}
+                {clientInfo.phone && (
+                  <p className="text-xs text-muted-foreground">{clientInfo.phone}</p>
+                )}
+                {clientInfo.email && (
+                  <p className="text-xs text-muted-foreground">{clientInfo.email}</p>
+                )}
+                {representative && (
+                  <p className="text-xs font-medium text-primary/80">Rep: {representative.name}</p>
+                )}
+              </div>
               
               {/* Calculations - Always visible */}
               <PoolCalculations

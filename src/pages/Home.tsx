@@ -15,8 +15,12 @@ const Home: React.FC = () => {
   });
 
   const handleStartDesign = () => {
-    // Store client info in sessionStorage to pass to design page
-    sessionStorage.setItem('clientInfo', JSON.stringify(clientInfo));
+    // Store client info with creation date in sessionStorage
+    const dataToStore = {
+      ...clientInfo,
+      createdAt: new Date().toISOString(),
+    };
+    sessionStorage.setItem('clientInfo', JSON.stringify(dataToStore));
     navigate('/design');
   };
 
