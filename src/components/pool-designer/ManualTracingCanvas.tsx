@@ -1586,13 +1586,12 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         }
       });
       
-      // Create new polygon
+      // Create new polygon with solid black 0.5px stroke
       const fabricPoints = newPoints.map(p => new Point(p.x, p.y));
       const polygon = new Polygon(fabricPoints, {
         fill: '#d4d4d4',
-        stroke: '#78716c',
-        strokeWidth: 1,
-        strokeDashArray: [4, 2],
+        stroke: '#000000',
+        strokeWidth: 0.5,
         selectable: false,
         evented: false,
       });
@@ -1603,31 +1602,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       // Ensure proper z-order
       sendBackgroundToBack(fabricCanvas);
       
-      // Add new vertex markers
-      newPoints.forEach((p, index) => {
-        const marker = new Circle({
-          left: p.x,
-          top: p.y,
-          radius: 4,
-          fill: '#d8d8d8',
-          stroke: '#000000',
-          strokeWidth: 1,
-          originX: 'center',
-          originY: 'center',
-          selectable: false,
-          evented: true,
-          hasControls: false,
-          hasBorders: false,
-          hoverCursor: 'pointer',
-        });
-        (marker as any).vertexIndex = index;
-        (marker as any).parentPolygon = polygon;
-        (marker as any).parentPoints = newPoints;
-        (marker as any).shapeType = 'standalone-paver';
-        (marker as any).shapeId = paver.id;
-        (marker as any).isVertexMarker = true;
-        fabricCanvas.add(marker);
-      });
+      // No corner circles for standalone pavers
       
       // Recalculate area
       const areaSqFt = calculatePolygonAreaSqFt(newPoints);
@@ -1894,8 +1869,8 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       
     } else if (mode === 'paver') {
       fill = '#d8d8d8'; // Light gray for standalone pavers
-      stroke = '#78716c';
-      strokeDashArray = [4, 2];
+      stroke = '#000000';
+      strokeDashArray = undefined;
     } else {
       fill = 'rgba(100, 100, 100, 0.1)';
       stroke = '#666666';
@@ -1908,7 +1883,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       polygon = new Polygon(fabricPoints, {
         fill,
         stroke,
-        strokeWidth: 1,
+        strokeWidth: mode === 'paver' ? 0.5 : 1,
         strokeDashArray,
         selectable: false,
         evented: false,
@@ -1919,10 +1894,10 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       fabricCanvas.add(polygon);
     }
 
-    // Add vertex markers for editing (skip for pools - no corner circles)
+    // Add vertex markers for editing (skip for pools and pavers - no corner circles)
     const newMarkers: Circle[] = [];
-    if (mode !== 'pool') {
-      const markerColor = mode === 'property' ? '#22c55e' : mode === 'paver' ? '#78716c' : '#000000';
+    if (mode !== 'pool' && mode !== 'paver') {
+      const markerColor = mode === 'property' ? '#22c55e' : '#000000';
       points.forEach((p, index) => {
         const marker = new Circle({
           left: p.x,
@@ -2020,31 +1995,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       setStandalonePavers(prev => [...prev, standalonePaver]);
       standalonePaversRef.current = [...standalonePaversRef.current, standalonePaver];
       
-      // Add draggable vertex markers for standalone paver
-      points.forEach((p, index) => {
-        const marker = new Circle({
-          left: p.x,
-          top: p.y,
-          radius: 4,
-          fill: '#d8d8d8',
-          stroke: '#000000',
-          strokeWidth: 1,
-          originX: 'center',
-          originY: 'center',
-          selectable: false,
-          evented: true,
-          hasControls: false,
-          hasBorders: false,
-          hoverCursor: 'pointer',
-        });
-        (marker as any).vertexIndex = index;
-        (marker as any).parentPolygon = polygon;
-        (marker as any).parentPoints = points;
-        (marker as any).shapeType = 'standalone-paver';
-        (marker as any).shapeId = shapeId;
-        (marker as any).isVertexMarker = true;
-        fabricCanvas.add(marker);
-      });
+      // No corner circles for standalone pavers - grab corners directly to drag
       
       // Add paver name label with area
       addStandalonePaverLabel(fabricCanvas, points, shapeId, paverName, areaSqFt);
@@ -2363,8 +2314,9 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     }
     area = Math.abs(area) / 2;
     
-    // Convert from pixels² to meters² then to feet²
-    const areaMeters = area / (PIXELS_PER_METER * PIXELS_PER_METER);
+    // Convert from pixels² to meters² then to feet² using dynamic scale
+    const currentScale = scalePixelsPerMeterRef.current;
+    const areaMeters = area / (currentScale * currentScale);
     const areaFeet = areaMeters * (METERS_TO_FEET * METERS_TO_FEET);
     
     return areaFeet;
@@ -4457,16 +4409,15 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     const areaSqFt = widthFeet * lengthFeet;
     const areaWithWasteSqFt = areaSqFt * 1.10;
     
-    // Create rectangle
+    // Create rectangle with solid black 0.5px stroke
     const rect = new Rect({
       left: centerX,
       top: centerY,
       width: widthPixels,
       height: lengthPixels,
       fill: '#d4d4d4',
-      stroke: '#78716c',
-      strokeWidth: 1,
-      strokeDashArray: [4, 2],
+      stroke: '#000000',
+      strokeWidth: 0.5,
       originX: 'center',
       originY: 'center',
       selectable: false,
@@ -4476,31 +4427,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     (rect as any).isStandalonePaver = true;
     fabricCanvas.add(rect);
     
-    // Add draggable vertex markers
-    points.forEach((p, index) => {
-      const marker = new Circle({
-        left: p.x,
-        top: p.y,
-        radius: 4,
-        fill: '#d8d8d8',
-        stroke: '#000000',
-        strokeWidth: 1,
-        originX: 'center',
-        originY: 'center',
-        selectable: false,
-        evented: true,
-        hasControls: false,
-        hasBorders: false,
-        hoverCursor: 'pointer',
-      });
-      (marker as any).vertexIndex = index;
-      (marker as any).parentPolygon = rect;
-      (marker as any).parentPoints = points;
-      (marker as any).shapeType = 'standalone-paver';
-      (marker as any).shapeId = shapeId;
-      (marker as any).isVertexMarker = true;
-      fabricCanvas.add(marker);
-    });
+    // No corner circles for standalone pavers
     
     // Add label
     addStandalonePaverLabel(fabricCanvas, points, shapeId, paverName, areaSqFt);
