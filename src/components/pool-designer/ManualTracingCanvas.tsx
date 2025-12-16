@@ -509,12 +509,20 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         shiftPressedRef.current = true;
       }
       if (e.key === ' ' || e.code === 'Space') {
-        e.preventDefault();
-        setSpacePressed(true);
-        spacePressedRef.current = true;
-        if (fabricCanvas) {
-          fabricCanvas.defaultCursor = 'grab';
-          fabricCanvas.hoverCursor = 'grab';
+        // Don't trigger pan if user is typing in an input field
+        const activeElement = document.activeElement;
+        const isTyping = activeElement?.tagName === 'INPUT' || 
+                         activeElement?.tagName === 'TEXTAREA' ||
+                         activeElement?.getAttribute('contenteditable') === 'true';
+        
+        if (!isTyping) {
+          e.preventDefault();
+          setSpacePressed(true);
+          spacePressedRef.current = true;
+          if (fabricCanvas) {
+            fabricCanvas.defaultCursor = 'grab';
+            fabricCanvas.hoverCursor = 'grab';
+          }
         }
       }
       // Escape key to exit any mode
@@ -533,13 +541,21 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         shiftPressedRef.current = false;
       }
       if (e.key === ' ' || e.code === 'Space') {
-        setSpacePressed(false);
-        spacePressedRef.current = false;
-        setIsPanning(false);
-        lastPanPoint.current = null;
-        if (fabricCanvas) {
-          fabricCanvas.defaultCursor = 'default';
-          fabricCanvas.hoverCursor = 'move';
+        // Don't reset pan if user was typing in an input field
+        const activeElement = document.activeElement;
+        const isTyping = activeElement?.tagName === 'INPUT' || 
+                         activeElement?.tagName === 'TEXTAREA' ||
+                         activeElement?.getAttribute('contenteditable') === 'true';
+        
+        if (!isTyping) {
+          setSpacePressed(false);
+          spacePressedRef.current = false;
+          setIsPanning(false);
+          lastPanPoint.current = null;
+          if (fabricCanvas) {
+            fabricCanvas.defaultCursor = 'default';
+            fabricCanvas.hoverCursor = 'move';
+          }
         }
       }
     };
