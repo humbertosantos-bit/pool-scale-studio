@@ -197,6 +197,19 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     startPoint: { x: number; y: number };
   } | null>(null);
   
+  // Edge dragging state (for moving two vertices at once)
+  const [isDraggingEdge, setIsDraggingEdge] = useState(false);
+  const isDraggingEdgeRef = useRef(false);
+  const draggingEdgeRef = useRef<{
+    marker: Circle;
+    edgeIndex: number; // Index of the first vertex of the edge
+    shapeType: 'standalone-paver';
+    shapeId: string;
+    startPoint: { x: number; y: number };
+    startVertex1: { x: number; y: number };
+    startVertex2: { x: number; y: number };
+  } | null>(null);
+  
   // Pool paver zones state (editable independently from pool)
   interface PaverZone {
     id: string;
@@ -1581,7 +1594,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       }
       const objects = fabricCanvas.getObjects();
       objects.forEach(obj => {
-        if ((obj as any).shapeId === paver.id && ((obj as any).isVertexMarker || (obj as any).isStandalonePaverLabel)) {
+        if ((obj as any).shapeId === paver.id && ((obj as any).isVertexMarker || (obj as any).isEdgeMarker || (obj as any).isStandalonePaverLabel)) {
           fabricCanvas.remove(obj);
         }
       });
@@ -1628,6 +1641,9 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         fabricCanvas.add(marker);
       });
       
+      // Add edge markers for edge dragging
+      addPaverEdgeMarkers(fabricCanvas, newPoints, paver.id, polygon);
+      
       // Recalculate area
       const areaSqFt = calculatePolygonAreaSqFt(newPoints);
       const areaWithWasteSqFt = areaSqFt * 1.10;
@@ -1653,7 +1669,149 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     }
   };
 
-  // Check if point is close to first point (to close shape)
+  // Add edge markers to standalone paver for edge dragging
+  const addPaverEdgeMarkers = (
+    canvas: FabricCanvas,
+    points: { x: number; y: number }[],
+    shapeId: string,
+    parentPolygon: any
+  ) => {
+    for (let i = 0; i < points.length; i++) {
+      const nextIndex = (i + 1) % points.length;
+      const midX = (points[i].x + points[nextIndex].x) / 2;
+      const midY = (points[i].y + points[nextIndex].y) / 2;
+      
+      const edgeMarker = new Circle({
+        left: midX,
+        top: midY,
+        radius: 4,
+        fill: 'transparent',
+        stroke: 'transparent',
+        strokeWidth: 0,
+        originX: 'center',
+        originY: 'center',
+        selectable: false,
+        evented: true,
+        hasControls: false,
+        hasBorders: false,
+        hoverCursor: 'ew-resize',
+      });
+      (edgeMarker as any).isEdgeMarker = true;
+      (edgeMarker as any).edgeIndex = i;
+      (edgeMarker as any).shapeType = 'standalone-paver';
+      (edgeMarker as any).shapeId = shapeId;
+      (edgeMarker as any).parentPolygon = parentPolygon;
+      (edgeMarker as any).parentPoints = points;
+      canvas.add(edgeMarker);
+    }
+  };
+
+  // Update edge position - moves two adjacent vertices
+  const updateEdgePosition = (
+    shapeId: string,
+    edgeIndex: number,
+    delta: { x: number; y: number }
+  ) => {
+    if (!fabricCanvas) return;
+    
+    const paverIndex = standalonePaversRef.current.findIndex(p => p.id === shapeId);
+    if (paverIndex === -1) return;
+    
+    const paver = standalonePaversRef.current[paverIndex];
+    const newPoints = [...paver.points];
+    const nextIndex = (edgeIndex + 1) % newPoints.length;
+    
+    // Move both vertices of the edge
+    newPoints[edgeIndex] = {
+      x: newPoints[edgeIndex].x + delta.x,
+      y: newPoints[edgeIndex].y + delta.y,
+    };
+    newPoints[nextIndex] = {
+      x: newPoints[nextIndex].x + delta.x,
+      y: newPoints[nextIndex].y + delta.y,
+    };
+    
+    // Remove old polygon/rect and markers and label
+    if (paver.fabricObject) {
+      fabricCanvas.remove(paver.fabricObject);
+    }
+    const objects = fabricCanvas.getObjects();
+    objects.forEach(obj => {
+      if ((obj as any).shapeId === paver.id && 
+          ((obj as any).isVertexMarker || (obj as any).isEdgeMarker || (obj as any).isStandalonePaverLabel)) {
+        fabricCanvas.remove(obj);
+      }
+    });
+    
+    // Create new polygon with solid black 0.5px stroke
+    const fabricPoints = newPoints.map(p => new Point(p.x, p.y));
+    const polygon = new Polygon(fabricPoints, {
+      fill: '#d4d4d4',
+      stroke: '#000000',
+      strokeWidth: 0.5,
+      selectable: false,
+      evented: false,
+    });
+    (polygon as any).shapeId = paver.id;
+    (polygon as any).isStandalonePaver = true;
+    fabricCanvas.add(polygon);
+    
+    // Ensure proper z-order
+    sendBackgroundToBack(fabricCanvas);
+    
+    // Add vertex markers
+    newPoints.forEach((p, index) => {
+      const marker = new Circle({
+        left: p.x,
+        top: p.y,
+        radius: 2,
+        fill: 'transparent',
+        stroke: '#000000',
+        strokeWidth: 0.5,
+        originX: 'center',
+        originY: 'center',
+        selectable: false,
+        evented: true,
+        hasControls: false,
+        hasBorders: false,
+        hoverCursor: 'pointer',
+      });
+      (marker as any).vertexIndex = index;
+      (marker as any).parentPolygon = polygon;
+      (marker as any).parentPoints = newPoints;
+      (marker as any).shapeType = 'standalone-paver';
+      (marker as any).shapeId = paver.id;
+      (marker as any).isVertexMarker = true;
+      fabricCanvas.add(marker);
+    });
+    
+    // Add edge markers
+    addPaverEdgeMarkers(fabricCanvas, newPoints, paver.id, polygon);
+    
+    // Recalculate area
+    const areaSqFt = calculatePolygonAreaSqFt(newPoints);
+    const areaWithWasteSqFt = areaSqFt * 1.10;
+    
+    // Add label back
+    addStandalonePaverLabel(fabricCanvas, newPoints, paver.id, paver.name, areaSqFt);
+    
+    // Update state
+    const updatedPaver = {
+      ...paver,
+      points: newPoints,
+      fabricObject: polygon,
+      areaSqFt: parseFloat(areaSqFt.toFixed(2)),
+      areaWithWasteSqFt: parseFloat(areaWithWasteSqFt.toFixed(2)),
+    };
+    
+    standalonePaversRef.current[paverIndex] = updatedPaver;
+    setStandalonePavers(prev => {
+      const newPavers = [...prev];
+      newPavers[paverIndex] = updatedPaver;
+      return newPavers;
+    });
+  };
+
   const isCloseToFirstPoint = (point: { x: number; y: number }): boolean => {
     if (currentPointsRef.current.length < 3) return false;
     const first = currentPointsRef.current[0];
@@ -2044,6 +2202,9 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         (marker as any).isVertexMarker = true;
         fabricCanvas.add(marker);
       });
+      
+      // Add edge markers for edge dragging
+      addPaverEdgeMarkers(fabricCanvas, points, shapeId, polygon);
       
       // Add paver name label with area
       addStandalonePaverLabel(fabricCanvas, points, shapeId, paverName, areaSqFt);
@@ -3094,6 +3255,71 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       }
     };
 
+    // Edge dragging handlers (for moving two vertices at once)
+    const handleEdgeMouseDown = (e: any) => {
+      if (drawingModeRef.current !== 'none' || spacePressedRef.current) return;
+      
+      const target = e.target;
+      if (!target || !(target as any).isEdgeMarker) return;
+      
+      const edgeIndex = (target as any).edgeIndex;
+      const shapeType = (target as any).shapeType;
+      const shapeId = (target as any).shapeId;
+      const parentPoints = (target as any).parentPoints;
+      
+      if (shapeType !== 'standalone-paver') return;
+      
+      const paver = standalonePaversRef.current.find(p => p.id === shapeId);
+      if (!paver) return;
+      
+      const nextIndex = (edgeIndex + 1) % paver.points.length;
+      
+      setIsDraggingEdge(true);
+      isDraggingEdgeRef.current = true;
+      draggingEdgeRef.current = {
+        marker: target as Circle,
+        edgeIndex,
+        shapeType,
+        shapeId,
+        startPoint: { x: target.left!, y: target.top! },
+        startVertex1: { ...paver.points[edgeIndex] },
+        startVertex2: { ...paver.points[nextIndex] },
+      };
+      
+      fabricCanvas.defaultCursor = 'grabbing';
+    };
+
+    const handleEdgeMouseMove = (e: any) => {
+      if (!isDraggingEdgeRef.current || !draggingEdgeRef.current) return;
+      
+      const pointer = fabricCanvas.getScenePoint(e.e);
+      const delta = {
+        x: pointer.x - draggingEdgeRef.current.startPoint.x,
+        y: pointer.y - draggingEdgeRef.current.startPoint.y,
+      };
+      
+      // Update edge position (moves two vertices)
+      updateEdgePosition(
+        draggingEdgeRef.current.shapeId,
+        draggingEdgeRef.current.edgeIndex,
+        delta
+      );
+      
+      // Update start point for next delta calculation
+      draggingEdgeRef.current.startPoint = { x: pointer.x, y: pointer.y };
+      
+      fabricCanvas.renderAll();
+    };
+
+    const handleEdgeMouseUp = () => {
+      if (isDraggingEdgeRef.current) {
+        setIsDraggingEdge(false);
+        isDraggingEdgeRef.current = false;
+        draggingEdgeRef.current = null;
+        fabricCanvas.defaultCursor = 'default';
+      }
+    };
+
     fabricCanvas.on('mouse:down', handleMouseDown);
     fabricCanvas.on('mouse:move', handleMouseMove);
     fabricCanvas.on('mouse:down', handleHouseMouseDown);
@@ -3109,6 +3335,9 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     fabricCanvas.on('mouse:down', handleVertexMouseDown);
     fabricCanvas.on('mouse:move', handleVertexMouseMove);
     fabricCanvas.on('mouse:up', handleVertexMouseUp);
+    fabricCanvas.on('mouse:down', handleEdgeMouseDown);
+    fabricCanvas.on('mouse:move', handleEdgeMouseMove);
+    fabricCanvas.on('mouse:up', handleEdgeMouseUp);
     
     // Handle rotation snapping for measurements (45° when Shift is pressed)
     const handleObjectRotating = (e: any) => {
@@ -3149,6 +3378,9 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       fabricCanvas.off('mouse:down', handleVertexMouseDown);
       fabricCanvas.off('mouse:move', handleVertexMouseMove);
       fabricCanvas.off('mouse:up', handleVertexMouseUp);
+      fabricCanvas.off('mouse:down', handleEdgeMouseDown);
+      fabricCanvas.off('mouse:move', handleEdgeMouseMove);
+      fabricCanvas.off('mouse:up', handleEdgeMouseUp);
       fabricCanvas.off('object:rotating', handleObjectRotating);
       fabricCanvas.off('mouse:dblclick', handleSelectionClick);
     };
@@ -4500,6 +4732,9 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       (marker as any).isVertexMarker = true;
       fabricCanvas.add(marker);
     });
+    
+    // Add edge markers for edge dragging
+    addPaverEdgeMarkers(fabricCanvas, points, shapeId, rect);
     
     // Add label
     addStandalonePaverLabel(fabricCanvas, points, shapeId, paverName, areaSqFt);
