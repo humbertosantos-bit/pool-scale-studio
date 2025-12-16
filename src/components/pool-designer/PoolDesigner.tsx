@@ -4,6 +4,7 @@ import { PoolCanvas } from './PoolCanvas';
 import { PoolControls } from './PoolControls';
 import { PoolCalculations } from './PoolCalculations';
 import { ManualTracingCanvas } from './ManualTracingCanvas';
+import { ClientInfoForm, ClientInfo } from './ClientInfoForm';
 import logo from '@/assets/piscineriviera-logo.png';
 import { Button } from '@/components/ui/button';
 import {
@@ -23,6 +24,13 @@ export const PoolDesigner: React.FC = () => {
   const [scaleInfo, setScaleInfo] = useState<{ metersPerPixel: number; latitude: number; zoom: number } | null>(null);
   const [poolState, setPoolState] = useState<any>(null);
   const [isManualTracing, setIsManualTracing] = useState(false);
+  const [clientInfo, setClientInfo] = useState<ClientInfo>({
+    name: '',
+    phone: '',
+    address: '',
+    email: '',
+    representativeId: '',
+  });
 
   const handleFileSelect = (file: File, scaleData?: { metersPerPixel: number; latitude: number; zoom: number }) => {
     setSelectedImage(file);
@@ -106,19 +114,26 @@ export const PoolDesigner: React.FC = () => {
                   />
                 )}
                 
-                {/* Upload only when no image */}
+                {/* Client Info Form - always show when no image */}
                 {!selectedImage && (
-                  <div className="border rounded-lg overflow-hidden">
-                    <div className="bg-primary px-4 py-3">
-                      <h2 className="text-sm font-semibold text-primary-foreground">📁 Start Design</h2>
+                  <>
+                    <ClientInfoForm 
+                      clientInfo={clientInfo}
+                      onClientInfoChange={setClientInfo}
+                    />
+                    
+                    <div className="border rounded-lg overflow-hidden">
+                      <div className="bg-primary px-4 py-3">
+                        <h2 className="text-sm font-semibold text-primary-foreground">📁 Start Design</h2>
+                      </div>
+                      <div className="p-4">
+                        <ImageUploadOptions 
+                          onFileSelect={handleFileSelect} 
+                          onManualTraceSelect={handleManualTraceSelect}
+                        />
+                      </div>
                     </div>
-                    <div className="p-4">
-                      <ImageUploadOptions 
-                        onFileSelect={handleFileSelect} 
-                        onManualTraceSelect={handleManualTraceSelect}
-                      />
-                    </div>
-                  </div>
+                  </>
                 )}
               </div>
             </div>
