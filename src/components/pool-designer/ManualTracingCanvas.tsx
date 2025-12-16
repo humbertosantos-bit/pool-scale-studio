@@ -288,6 +288,34 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       repeat: 'repeat',
     });
   };
+
+  // Create concrete dot pattern for coping (CAD-style texture)
+  const createCopingPattern = (): Pattern => {
+    const patternCanvas = document.createElement('canvas');
+    patternCanvas.width = 6;
+    patternCanvas.height = 6;
+    const ctx = patternCanvas.getContext('2d');
+    if (ctx) {
+      // Fill with slightly lighter coping color (10% lighter than #525252)
+      ctx.fillStyle = '#5e5e5e';
+      ctx.fillRect(0, 0, 6, 6);
+      // Draw small dots for concrete texture
+      ctx.fillStyle = '#4a4a4a';
+      ctx.beginPath();
+      ctx.arc(1.5, 1.5, 0.5, 0, Math.PI * 2);
+      ctx.arc(4.5, 4.5, 0.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#6a6a6a';
+      ctx.beginPath();
+      ctx.arc(4, 1, 0.4, 0, Math.PI * 2);
+      ctx.arc(1, 4, 0.4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    return new Pattern({
+      source: patternCanvas,
+      repeat: 'repeat',
+    });
+  };
   useEffect(() => {
     unitRef.current = unit;
   }, [unit]);
@@ -466,6 +494,16 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     if (backgroundImageRef.current) {
       canvas.sendObjectToBack(backgroundImageRef.current);
     }
+  }, []);
+
+  // Helper function to ensure measurement arrows are always on top of everything
+  const bringMeasurementsToFront = useCallback((canvas: FabricCanvas) => {
+    const objects = canvas.getObjects();
+    objects.forEach(obj => {
+      if ((obj as any).isMeasurementLine) {
+        canvas.bringObjectToFront(obj);
+      }
+    });
   }, []);
 
   // Scale measurement labels based on zoom level (only for measurement tool)
@@ -1411,7 +1449,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       const copingPoints = offsetPolygon(points, copingSizePixels);
       const copingFabricPoints = copingPoints.map(p => new Point(p.x, p.y));
       const copingPolygon = new Polygon(copingFabricPoints, {
-        fill: '#525252', // Dark gray for coping
+        fill: createCopingPattern(), // Concrete dot pattern for coping
         stroke: '#000000',
         strokeWidth: 0.5,
         selectable: false,
@@ -1445,35 +1483,37 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     
     fabricCanvas.add(polygon);
 
-    // Add vertex markers for editing
+    // Add vertex markers for editing (skip for pools - no corner circles)
     const newMarkers: Circle[] = [];
-    const markerColor = mode === 'property' ? '#22c55e' : mode === 'paver' ? '#78716c' : '#000000';
-    points.forEach((p, index) => {
-      const marker = new Circle({
-        left: p.x,
-        top: p.y,
-        radius: mode === 'property' ? 1.5 : (mode === 'pool' ? 0.5 : 1),
-        fill: markerColor,
-        stroke: '#ffffff',
-        strokeWidth: mode === 'property' ? 0.5 : (mode === 'pool' ? 0.15 : 0.25),
-        originX: 'center',
-        originY: 'center',
-        selectable: false,
-        evented: true,
-        hasControls: false,
-        hasBorders: false,
-        hoverCursor: 'pointer',
+    if (mode !== 'pool') {
+      const markerColor = mode === 'property' ? '#22c55e' : mode === 'paver' ? '#78716c' : '#000000';
+      points.forEach((p, index) => {
+        const marker = new Circle({
+          left: p.x,
+          top: p.y,
+          radius: mode === 'property' ? 1.5 : 1,
+          fill: markerColor,
+          stroke: '#ffffff',
+          strokeWidth: mode === 'property' ? 0.5 : 0.25,
+          originX: 'center',
+          originY: 'center',
+          selectable: false,
+          evented: true,
+          hasControls: false,
+          hasBorders: false,
+          hoverCursor: 'pointer',
+        });
+        (marker as any).vertexIndex = index;
+        (marker as any).parentPolygon = polygon;
+        (marker as any).parentPoints = points;
+        (marker as any).shapeType = mode;
+        (marker as any).shapeId = shapeId;
+        (marker as any).isVertexMarker = true;
+        
+        fabricCanvas.add(marker);
+        newMarkers.push(marker);
       });
-      (marker as any).vertexIndex = index;
-      (marker as any).parentPolygon = polygon;
-      (marker as any).parentPoints = points;
-      (marker as any).shapeType = mode;
-      (marker as any).shapeId = shapeId;
-      (marker as any).isVertexMarker = true;
-      
-      fabricCanvas.add(marker);
-      newMarkers.push(marker);
-    });
+    }
     
     // Add edge length labels only for property
     if (mode === 'property') {
@@ -1542,6 +1582,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     fabricCanvas.defaultCursor = 'default';
     fabricCanvas.hoverCursor = 'move';
     fabricCanvas.renderAll();
+    bringMeasurementsToFront(fabricCanvas);
 
     // Push to undo stack
     setUndoStack(prev => [...prev, { type: 'complete_shape', data: shape }]);
@@ -2825,7 +2866,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       });
     }
     
-    // Create coping rectangle (around pool) - dark gray
+    // Create coping rectangle (around pool) - concrete dot pattern
     const copingWidth = poolWidth + copingSizePixels * 2;
     const copingHeight = poolHeight + copingSizePixels * 2;
     
@@ -2834,7 +2875,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       top: poolCenterY,
       width: copingWidth,
       height: copingHeight,
-      fill: '#525252',
+      fill: createCopingPattern(), // Concrete dot pattern for coping
       stroke: '#000000',
       strokeWidth: 0.5,
       originX: 'center',
@@ -2847,12 +2888,12 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     (copingRect as any).isCoping = true;
     fabricCanvas.add(copingRect);
     
-    // Create new polygon with water gradient and black stroke
+    // Create new polygon with water gradient and black stroke (0.5px thin)
     const fabricPoints = newPoints.map(p => new Point(p.x, p.y));
     const polygon = new Polygon(fabricPoints, {
       fill: createWaterGradient(newPoints),
       stroke: '#000000',
-      strokeWidth: 1,
+      strokeWidth: 0.5,
       selectable: false,
       evented: false,
     });
@@ -2860,25 +2901,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     (polygon as any).shapeId = pool.id;
     fabricCanvas.add(polygon);
     
-    // Add new vertex markers
-    newPoints.forEach((p, idx) => {
-      const marker = new Circle({
-        left: p.x,
-        top: p.y,
-        radius: 2,
-        fill: '#000000',
-        stroke: '#ffffff',
-        strokeWidth: 1,
-        originX: 'center',
-        originY: 'center',
-        selectable: false,
-        evented: false,
-      });
-      (marker as any).vertexIndex = idx;
-      (marker as any).parentPolygon = polygon;
-      (marker as any).shapeId = pool.id;
-      fabricCanvas.add(marker);
-    });
+    // No vertex markers for pools (removed corner circles)
     
     // Add paver dimension labels
     if (hasPavers) {
@@ -2909,6 +2932,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     poolShapesRef.current[index] = updatedPool;
     
     fabricCanvas.renderAll();
+    bringMeasurementsToFront(fabricCanvas);
   };
 
   // Exit any drawing/move mode
@@ -3151,7 +3175,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       }
     });
     
-    // Create coping rectangle (around pool) - dark gray
+    // Create coping rectangle (around pool) - concrete dot pattern
     const copingWidth = poolWidth + copingSizePixels * 2;
     const copingHeight = poolHeight + copingSizePixels * 2;
     
@@ -3160,7 +3184,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       top: poolCenterY,
       width: copingWidth,
       height: copingHeight,
-      fill: '#525252', // Dark gray for coping
+      fill: createCopingPattern(), // Concrete dot pattern for coping
       stroke: '#000000',
       strokeWidth: 0.5,
       originX: 'center',
@@ -3172,7 +3196,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     (copingRect as any).isCoping = true;
     fabricCanvas.add(copingRect);
     
-    // Create pool polygon
+    // Create pool polygon (0.5px thin perimeter)
     const fabricPoints = points.map(p => new Point(p.x, p.y));
     const polygon = new Polygon(fabricPoints, {
       fill: createWaterGradient(points),
@@ -3185,31 +3209,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     (polygon as any).shapeId = shapeId;
     fabricCanvas.add(polygon);
     
-    // Add vertex markers
-    points.forEach((p, index) => {
-      const marker = new Circle({
-        left: p.x,
-        top: p.y,
-        radius: 1,
-        fill: '#000000',
-        stroke: '#ffffff',
-        strokeWidth: 0.5,
-        originX: 'center',
-        originY: 'center',
-        selectable: false,
-        evented: true,
-        hasControls: false,
-        hasBorders: false,
-        hoverCursor: 'pointer',
-      });
-      (marker as any).vertexIndex = index;
-      (marker as any).parentPolygon = polygon;
-      (marker as any).parentPoints = points;
-      (marker as any).shapeType = 'pool';
-      (marker as any).shapeId = shapeId;
-      (marker as any).isVertexMarker = true;
-      fabricCanvas.add(marker);
-    });
+    // No vertex markers for pools (removed corner circles)
     
     // Add paver dimension labels on each side (no rotation for new pools)
     addPaverDimensionLabels(fabricCanvas, shapeId, poolCenterX, poolCenterY, totalOuterWidth, totalOuterHeight, paverDims, offsetX, offsetY, 0);
@@ -3261,6 +3261,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     updatePoolCalculations(poolShapesRef.current);
     
     fabricCanvas.renderAll();
+    bringMeasurementsToFront(fabricCanvas);
     toast.success(`${name} pool added!`);
   };
   
