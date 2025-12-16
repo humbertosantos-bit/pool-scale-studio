@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
-import { ImageUploadOptions } from './ImageUploadOptions';
-import { PoolCanvas } from './PoolCanvas';
-import { PoolControls } from './PoolControls';
-import { PoolCalculations } from './PoolCalculations';
-import { ManualTracingCanvas } from './ManualTracingCanvas';
-import { ClientInfoForm, ClientInfo } from './ClientInfoForm';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { ImageUploadOptions } from '@/components/pool-designer/ImageUploadOptions';
+import { PoolCanvas } from '@/components/pool-designer/PoolCanvas';
+import { PoolControls } from '@/components/pool-designer/PoolControls';
+import { PoolCalculations } from '@/components/pool-designer/PoolCalculations';
+import { ManualTracingCanvas } from '@/components/pool-designer/ManualTracingCanvas';
+import { ClientInfoDisplay } from '@/components/pool-designer/ClientInfoDisplay';
+import { ClientInfo } from '@/components/pool-designer/ClientInfoForm';
 import logo from '@/assets/piscineriviera-logo.png';
 import { Button } from '@/components/ui/button';
 import {
@@ -19,7 +21,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
-export const PoolDesigner: React.FC = () => {
+const Design: React.FC = () => {
+  const navigate = useNavigate();
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [scaleInfo, setScaleInfo] = useState<{ metersPerPixel: number; latitude: number; zoom: number } | null>(null);
   const [poolState, setPoolState] = useState<any>(null);
@@ -31,6 +34,14 @@ export const PoolDesigner: React.FC = () => {
     email: '',
     representativeId: '',
   });
+
+  useEffect(() => {
+    // Load client info from sessionStorage
+    const stored = sessionStorage.getItem('clientInfo');
+    if (stored) {
+      setClientInfo(JSON.parse(stored));
+    }
+  }, []);
 
   const handleFileSelect = (file: File, scaleData?: { metersPerPixel: number; latitude: number; zoom: number }) => {
     setSelectedImage(file);
@@ -55,6 +66,10 @@ export const PoolDesigner: React.FC = () => {
     setIsManualTracing(false);
   };
 
+  const handleBackToHome = () => {
+    navigate('/');
+  };
+
   const showCanvas = selectedImage || isManualTracing;
 
   return (
@@ -62,7 +77,12 @@ export const PoolDesigner: React.FC = () => {
       {/* Header */}
       <div className="border-b bg-[hsl(var(--header-bg))] backdrop-blur-sm">
         <div className="px-6 py-4 flex items-center justify-between gap-6 relative">
-          <img src={logo} alt="Piscine Riviera" className="h-16 w-auto" />
+          <div className="flex items-center gap-4">
+            <Button variant="outline" size="sm" onClick={handleBackToHome} className="text-white border-white/30 hover:bg-white/10">
+              ← Back
+            </Button>
+            <img src={logo} alt="Piscine Riviera" className="h-16 w-auto" />
+          </div>
           <h1 className="text-3xl font-bold text-white absolute left-1/2 -translate-x-1/2">
             Piscine Riviera Design Tool
           </h1>
@@ -89,10 +109,13 @@ export const PoolDesigner: React.FC = () => {
       {/* Main Content */}
       <div className="flex flex-col h-[calc(100vh-104px)]">
         <div className="flex flex-1 overflow-hidden">
-          {/* Left Sidebar - only show when NOT in manual tracing mode */}
+          {/* Left Sidebar */}
           {!isManualTracing && (
-            <div className="w-1/4 border-r bg-white overflow-y-auto">
-              <div className="p-6 space-y-4">
+            <div className="w-1/4 border-r bg-white overflow-y-auto flex flex-col">
+              <div className="p-4 space-y-4 flex-1">
+                {/* Client & Rep Info */}
+                <ClientInfoDisplay clientInfo={clientInfo} />
+                
                 {/* Tools Section - shown when image is uploaded */}
                 {selectedImage && poolState && (
                   <PoolControls 
@@ -114,32 +137,37 @@ export const PoolDesigner: React.FC = () => {
                   />
                 )}
                 
-                {/* Client Info Form - always show when no image */}
+                {/* Start Design Options - shown when no image */}
                 {!selectedImage && (
-                  <>
-                    <ClientInfoForm 
-                      clientInfo={clientInfo}
-                      onClientInfoChange={setClientInfo}
-                    />
-                    
-                    <div className="border rounded-lg overflow-hidden">
-                      <div className="bg-primary px-4 py-3">
-                        <h2 className="text-sm font-semibold text-primary-foreground">📁 Start Design</h2>
-                      </div>
-                      <div className="p-4">
-                        <ImageUploadOptions 
-                          onFileSelect={handleFileSelect} 
-                          onManualTraceSelect={handleManualTraceSelect}
-                        />
-                      </div>
+                  <div className="border rounded-lg overflow-hidden">
+                    <div className="bg-primary px-4 py-2">
+                      <h2 className="text-xs font-semibold text-primary-foreground">📁 Import / Draw</h2>
                     </div>
-                  </>
+                    <div className="p-4">
+                      <ImageUploadOptions 
+                        onFileSelect={handleFileSelect} 
+                        onManualTraceSelect={handleManualTraceSelect}
+                      />
+                    </div>
+                  </div>
                 )}
               </div>
+              
+              {/* Calculations at bottom of sidebar */}
+              {selectedImage && poolState && poolState.calculatedData && (
+                <div className="border-t p-4">
+                  <PoolCalculations
+                    pools={poolState.calculatedData.pools || []}
+                    fences={poolState.calculatedData.fences || []}
+                    pavers={poolState.calculatedData.pavers || []}
+                    compact
+                  />
+                </div>
+              )}
             </div>
           )}
 
-          {/* Canvas - full width when manual tracing, 3/4 width otherwise */}
+          {/* Canvas */}
           <div className={`${isManualTracing ? 'w-full' : 'w-3/4'} bg-gradient-to-br from-background to-pool-light/20 overflow-auto`}>
             {isManualTracing ? (
               <ManualTracingCanvas onStateChange={handleStateChange} />
@@ -155,16 +183,9 @@ export const PoolDesigner: React.FC = () => {
             )}
           </div>
         </div>
-        
-        {/* Calculations Section at Bottom - shown when image is uploaded */}
-        {selectedImage && poolState && poolState.calculatedData && (
-          <PoolCalculations
-            pools={poolState.calculatedData.pools || []}
-            fences={poolState.calculatedData.fences || []}
-            pavers={poolState.calculatedData.pavers || []}
-          />
-        )}
       </div>
     </div>
   );
 };
+
+export default Design;
