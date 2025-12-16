@@ -24,22 +24,24 @@ interface PoolCalculationsProps {
   pools: PoolData[];
   fences: FenceData[];
   pavers: PaverData[];
+  compact?: boolean;
 }
 
 export const PoolCalculations: React.FC<PoolCalculationsProps> = ({
   pools,
   fences,
   pavers,
+  compact = false,
 }) => {
   const hasAnyElements = pools.length > 0 || fences.length > 0 || pavers.length > 0;
 
   return (
-    <div className="w-full border-t bg-background">
+    <div className={compact ? "w-full bg-background" : "w-full border-t bg-background"}>
       <Card className="rounded-none border-0">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-lg">Calculations</CardTitle>
+        <CardHeader className={compact ? "pb-2 px-0 pt-0" : "pb-3"}>
+          <CardTitle className={compact ? "text-sm" : "text-lg"}>Calculations</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className={compact ? "space-y-3 px-0 pb-0" : "space-y-4"}>
           {!hasAnyElements && (
             <p className="text-sm text-muted-foreground text-center py-2">
               No elements yet. Add pools, fences, or pavers to see calculations.
