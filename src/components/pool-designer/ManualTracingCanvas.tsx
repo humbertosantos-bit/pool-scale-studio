@@ -118,6 +118,8 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
   const measurementStartPointRef = useRef<{ x: number; y: number } | null>(null);
   const [measurementPreviewLine, setMeasurementPreviewLine] = useState<Line | null>(null);
   const measurementPreviewLineRef = useRef<Line | null>(null);
+  const [measurementPreviewLabel, setMeasurementPreviewLabel] = useState<Text | null>(null);
+  const measurementPreviewLabelRef = useRef<Text | null>(null);
   
   // Custom measurement input
   const [showMeasurementInput, setShowMeasurementInput] = useState(false);
@@ -466,6 +468,35 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     }
   }, []);
 
+  // Scale measurement labels based on zoom level (only for measurement tool)
+  const scaleMeasurementLabelsForZoom = useCallback((canvas: FabricCanvas, zoom: number) => {
+    // For measurement labels, we want them to shrink when zooming in so they don't hide arrows
+    // Scale factor is inverse of zoom - when zoomed in (zoom > 1), labels get smaller
+    const baseFontSize = 7;
+    const scaleFactor = 1 / zoom;
+    // Clamp the scale factor to keep labels readable
+    const clampedScale = Math.max(0.5, Math.min(2, scaleFactor));
+    const newFontSize = baseFontSize * clampedScale;
+    
+    const objects = canvas.getObjects();
+    objects.forEach(obj => {
+      // Scale labels inside measurement groups
+      if ((obj as any).isMeasurementLine && obj instanceof Group) {
+        const groupObjects = obj.getObjects();
+        groupObjects.forEach(groupObj => {
+          if (groupObj.type === 'text') {
+            (groupObj as Text).set('fontSize', newFontSize);
+          }
+        });
+      }
+      // Scale preview measurement label
+      if ((obj as any).isMeasurementPreviewLabel) {
+        (obj as Text).set('fontSize', newFontSize);
+      }
+    });
+    canvas.renderAll();
+  }, []);
+
   // Mouse wheel zoom
   useEffect(() => {
     if (!fabricCanvas) return;
@@ -487,6 +518,9 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       fabricCanvas.zoomToPoint(new Point(pointer.x, pointer.y), newZoom);
       
       setZoomLevel(newZoom);
+      
+      // Scale measurement labels for readability
+      scaleMeasurementLabelsForZoom(fabricCanvas, newZoom);
     };
 
     fabricCanvas.on('mouse:wheel', handleWheel);
@@ -494,7 +528,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     return () => {
       fabricCanvas.off('mouse:wheel', handleWheel);
     };
-  }, [fabricCanvas]);
+  }, [fabricCanvas, scaleMeasurementLabelsForZoom]);
 
   // Initialize canvas
   // Function to add an independent, rotatable north indicator
@@ -1980,10 +2014,10 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
           // Second click - complete the measurement
           addMeasurementFromPoints(measurementStartPointRef.current, snappedPoint);
           
-          // Clean up temp marker and preview line
+          // Clean up temp marker, preview line, and preview label
           const objects = fabricCanvas.getObjects();
           objects.forEach(obj => {
-            if ((obj as any).isMeasurementTempMarker || (obj as any).isMeasurementPreviewLine) {
+            if ((obj as any).isMeasurementTempMarker || (obj as any).isMeasurementPreviewLine || (obj as any).isMeasurementPreviewLabel) {
               fabricCanvas.remove(obj);
             }
           });
@@ -1992,6 +2026,8 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
           setMeasurementStartPoint(null);
           measurementPreviewLineRef.current = null;
           setMeasurementPreviewLine(null);
+          measurementPreviewLabelRef.current = null;
+          setMeasurementPreviewLabel(null);
           fabricCanvas.renderAll();
         }
         return;
@@ -2115,6 +2151,20 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
           };
         }
         
+        // Calculate measurement for real-time display
+        const dx = snappedPoint.x - measurementStartPointRef.current.x;
+        const dy = snappedPoint.y - measurementStartPointRef.current.y;
+        const lengthPixels = Math.sqrt(dx * dx + dy * dy);
+        const labelText = formatMeasurement(lengthPixels);
+        const midX = (measurementStartPointRef.current.x + snappedPoint.x) / 2;
+        const midY = (measurementStartPointRef.current.y + snappedPoint.y) / 2;
+        
+        // Calculate font size based on current zoom
+        const currentZoom = fabricCanvas.getZoom();
+        const baseFontSize = 7;
+        const scaleFactor = Math.max(0.5, Math.min(2, 1 / currentZoom));
+        const fontSize = baseFontSize * scaleFactor;
+        
         // Update or create preview line
         if (measurementPreviewLineRef.current) {
           measurementPreviewLineRef.current.set({
@@ -2139,6 +2189,34 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
           fabricCanvas.add(line);
           measurementPreviewLineRef.current = line;
           setMeasurementPreviewLine(line);
+        }
+        
+        // Update or create preview label (real-time measurement display)
+        if (measurementPreviewLabelRef.current) {
+          measurementPreviewLabelRef.current.set({
+            left: midX,
+            top: midY - 10,
+            text: labelText,
+            fontSize: fontSize,
+          });
+        } else {
+          const label = new Text(labelText, {
+            left: midX,
+            top: midY - 10,
+            fontSize: fontSize,
+            fill: '#dc2626',
+            fontWeight: 'bold',
+            fontFamily: 'Poppins, sans-serif',
+            backgroundColor: 'rgba(255, 255, 255, 0.9)',
+            originX: 'center',
+            originY: 'center',
+            selectable: false,
+            evented: false,
+          });
+          (label as any).isMeasurementPreviewLabel = true;
+          fabricCanvas.add(label);
+          measurementPreviewLabelRef.current = label;
+          setMeasurementPreviewLabel(label);
         }
         
         fabricCanvas.renderAll();
@@ -3488,6 +3566,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     const newZoom = Math.min(zoomLevel + 0.25, 3);
     setZoomLevel(newZoom);
     fabricCanvas.setZoom(newZoom);
+    scaleMeasurementLabelsForZoom(fabricCanvas, newZoom);
   };
 
   const zoomOut = () => {
@@ -3495,6 +3574,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     const newZoom = Math.max(zoomLevel - 0.25, 0.5);
     setZoomLevel(newZoom);
     fabricCanvas.setZoom(newZoom);
+    scaleMeasurementLabelsForZoom(fabricCanvas, newZoom);
   };
 
   const resetView = () => {
@@ -3502,6 +3582,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     setZoomLevel(1);
     fabricCanvas.setZoom(1);
     fabricCanvas.setViewportTransform([1, 0, 0, 1, 0, 0]);
+    scaleMeasurementLabelsForZoom(fabricCanvas, 1);
   };
 
   // Undo last action
