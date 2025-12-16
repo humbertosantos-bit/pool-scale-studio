@@ -403,9 +403,9 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         continue;
       }
       
-      // Outward normal (perpendicular, pointing outward for counterclockwise polygon)
-      const nx = -dy / len;
-      const ny = dx / len;
+      // Outward normal in screen coordinates (Y increases downward)
+      const nx = dy / len;
+      const ny = -dx / len;
       
       // Offset the edge
       offsetLines.push({
