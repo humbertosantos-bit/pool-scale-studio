@@ -207,168 +207,175 @@ export const PoolControls: React.FC<PoolControlsProps> = ({
         </div>
       </div>
 
-      {scaleReference && (
-        <>
-          {/* Pool Size & Coping Section */}
-          <div className="border rounded-lg overflow-hidden">
-            <div className="px-4 py-3" style={{ backgroundColor: '#00bdf2' }}>
-              <h2 className="text-sm font-semibold text-black">Pool Size</h2>
+      {/* Pool Size & Coping Section - Always visible */}
+      <div className="border rounded-lg overflow-hidden">
+        <div className="px-4 py-3" style={{ backgroundColor: '#00bdf2' }}>
+          <h2 className="text-sm font-semibold text-black">Pool Size</h2>
+        </div>
+        <div className="p-4 space-y-2">
+          {!scaleReference && (
+            <div className="p-2 bg-amber-100 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-700 rounded-md mb-3">
+              <p className="text-xs text-amber-800 dark:text-amber-200">
+                ⚠️ Scale not set - dimensions may not be accurate. Set scale reference above for precise measurements.
+              </p>
             </div>
-            <div className="p-4 space-y-2">
-              <div className="mb-3">
-                <label className="text-xs font-semibold mb-2 block">Coping Size</label>
-                <div className="flex gap-1.5">
-                  <button
-                    onClick={() => onCopingSizeChange(null)}
-                    className={`flex-1 px-2 py-1.5 border rounded-md text-xs transition-colors ${
-                      copingSize === null 
-                        ? 'bg-foreground text-background' 
-                        : 'bg-background hover:bg-muted'
-                    }`}
-                  >
-                    None
-                  </button>
-                  <button
-                    onClick={() => onCopingSizeChange(12)}
-                    className={`flex-1 px-2 py-1.5 border rounded-md text-xs transition-colors ${
-                      copingSize === 12 
-                        ? 'bg-foreground text-background' 
-                        : 'bg-background hover:bg-muted'
-                    }`}
-                  >
-                    12"
-                  </button>
-                  <button
-                    onClick={() => onCopingSizeChange(16)}
-                    className={`flex-1 px-2 py-1.5 border rounded-md text-xs transition-colors ${
-                      copingSize === 16 
-                        ? 'bg-foreground text-background' 
-                        : 'bg-background hover:bg-muted'
-                    }`}
-                  >
-                    16"
-                  </button>
-                </div>
-              </div>
-              
-              <div className="pt-3 border-t">
-                <label className="text-xs font-semibold mb-2 block">Pavers Around Pool</label>
-                <p className="text-[10px] text-muted-foreground mb-3">💡 Set before adding pool, or click pool + adjust values to update</p>
-                
-                {/* Visual Pool Diagram with Input Areas */}
-                <div className="relative flex flex-col items-center gap-1.5 bg-muted/30 p-3 rounded-lg">
-                  
-                  {/* Top Input */}
-                  <div className="flex flex-col items-center gap-0.5">
-                    <div className="flex items-center gap-0.5 bg-background p-1 rounded border border-primary/20">
-                      <input
-                        type="text"
-                        value={paverTopFeet}
-                        onChange={(e) => onPaverTopFeetChange(e.target.value)}
-                        placeholder="0"
-                        className="w-8 px-0.5 py-0.5 border rounded text-[10px] text-center"
-                      />
-                      <span className="text-[9px] text-muted-foreground">'</span>
-                      <input
-                        type="text"
-                        value={paverTopInches}
-                        onChange={(e) => onPaverTopInchesChange(e.target.value)}
-                        placeholder="0"
-                        className="w-8 px-0.5 py-0.5 border rounded text-[10px] text-center"
-                      />
-                      <span className="text-[9px] text-muted-foreground">"</span>
-                    </div>
-                  </div>
-                  
-                  {/* Middle Row: Left + Pool + Right */}
-                  <div className="flex items-center gap-1.5">
-                    {/* Left Input */}
-                    <div className="flex items-center gap-0.5 bg-background p-1 rounded border border-primary/20">
-                      <input
-                        type="text"
-                        value={paverLeftFeet}
-                        onChange={(e) => onPaverLeftFeetChange(e.target.value)}
-                        placeholder="0"
-                        className="w-8 px-0.5 py-0.5 border rounded text-[10px] text-center"
-                      />
-                      <span className="text-[9px] text-muted-foreground">'</span>
-                      <input
-                        type="text"
-                        value={paverLeftInches}
-                        onChange={(e) => onPaverLeftInchesChange(e.target.value)}
-                        placeholder="0"
-                        className="w-8 px-0.5 py-0.5 border rounded text-[10px] text-center"
-                      />
-                      <span className="text-[9px] text-muted-foreground">"</span>
-                    </div>
-                    
-                    {/* Pool Visual - Replace with actual pool image */}
-                    <div className="w-24 h-16 rounded flex items-center justify-center overflow-hidden">
-                      <img 
-                        src={pool8x14Image} 
-                        alt="Pool"
-                        className="w-full h-full object-contain"
-                      />
-                    </div>
-                    
-                    {/* Right Input */}
-                    <div className="flex items-center gap-0.5 bg-background p-1 rounded border border-primary/20">
-                      <input
-                        type="text"
-                        value={paverRightFeet}
-                        onChange={(e) => onPaverRightFeetChange(e.target.value)}
-                        placeholder="0"
-                        className="w-8 px-0.5 py-0.5 border rounded text-[10px] text-center"
-                      />
-                      <span className="text-[9px] text-muted-foreground">'</span>
-                      <input
-                        type="text"
-                        value={paverRightInches}
-                        onChange={(e) => onPaverRightInchesChange(e.target.value)}
-                        placeholder="0"
-                        className="w-8 px-0.5 py-0.5 border rounded text-[10px] text-center"
-                      />
-                      <span className="text-[9px] text-muted-foreground">"</span>
-                    </div>
-                  </div>
-                  
-                  {/* Bottom Input */}
-                  <div className="flex flex-col items-center gap-0.5">
-                    <div className="flex items-center gap-0.5 bg-background p-1 rounded border border-primary/20">
-                      <input
-                        type="text"
-                        value={paverBottomFeet}
-                        onChange={(e) => onPaverBottomFeetChange(e.target.value)}
-                        placeholder="0"
-                        className="w-8 px-0.5 py-0.5 border rounded text-[10px] text-center"
-                      />
-                      <span className="text-[9px] text-muted-foreground">'</span>
-                      <input
-                        type="text"
-                        value={paverBottomInches}
-                        onChange={(e) => onPaverBottomInchesChange(e.target.value)}
-                        placeholder="0"
-                        className="w-8 px-0.5 py-0.5 border rounded text-[10px] text-center"
-                      />
-                      <span className="text-[9px] text-muted-foreground">"</span>
-                    </div>
-                  </div>
-                  
-                </div>
-              </div>
-              
-              <div className="pt-3 border-t">
-                <label className="text-xs font-semibold mb-2 block">Preset Pools</label>
-                <button
-                  onClick={() => onAddPresetPool?.(23, 11, "Azoria Topaze 12x24")}
-                  className="w-auto px-3 py-1.5 bg-pool-light text-pool-dark rounded-md hover:bg-pool-light/80 text-xs font-medium"
-                >
-                  Azoria Topaze 12x24
-                </button>
-              </div>
+          )}
+          <div className="mb-3">
+            <label className="text-xs font-semibold mb-2 block">Coping Size</label>
+            <div className="flex gap-1.5">
+              <button
+                onClick={() => onCopingSizeChange(null)}
+                className={`flex-1 px-2 py-1.5 border rounded-md text-xs transition-colors ${
+                  copingSize === null 
+                    ? 'bg-foreground text-background' 
+                    : 'bg-background hover:bg-muted'
+                }`}
+              >
+                None
+              </button>
+              <button
+                onClick={() => onCopingSizeChange(12)}
+                className={`flex-1 px-2 py-1.5 border rounded-md text-xs transition-colors ${
+                  copingSize === 12 
+                    ? 'bg-foreground text-background' 
+                    : 'bg-background hover:bg-muted'
+                }`}
+              >
+                12"
+              </button>
+              <button
+                onClick={() => onCopingSizeChange(16)}
+                className={`flex-1 px-2 py-1.5 border rounded-md text-xs transition-colors ${
+                  copingSize === 16 
+                    ? 'bg-foreground text-background' 
+                    : 'bg-background hover:bg-muted'
+                }`}
+              >
+                16"
+              </button>
             </div>
           </div>
+          
+          <div className="pt-3 border-t">
+            <label className="text-xs font-semibold mb-2 block">Pavers Around Pool</label>
+            <p className="text-[10px] text-muted-foreground mb-3">💡 Set before adding pool, or click pool + adjust values to update</p>
+            
+            {/* Visual Pool Diagram with Input Areas */}
+            <div className="relative flex flex-col items-center gap-1.5 bg-muted/30 p-3 rounded-lg">
+              
+              {/* Top Input */}
+              <div className="flex flex-col items-center gap-0.5">
+                <div className="flex items-center gap-0.5 bg-background p-1 rounded border border-primary/20">
+                  <input
+                    type="text"
+                    value={paverTopFeet}
+                    onChange={(e) => onPaverTopFeetChange(e.target.value)}
+                    placeholder="0"
+                    className="w-8 px-0.5 py-0.5 border rounded text-[10px] text-center"
+                  />
+                  <span className="text-[9px] text-muted-foreground">'</span>
+                  <input
+                    type="text"
+                    value={paverTopInches}
+                    onChange={(e) => onPaverTopInchesChange(e.target.value)}
+                    placeholder="0"
+                    className="w-8 px-0.5 py-0.5 border rounded text-[10px] text-center"
+                  />
+                  <span className="text-[9px] text-muted-foreground">"</span>
+                </div>
+              </div>
+              
+              {/* Middle Row: Left + Pool + Right */}
+              <div className="flex items-center gap-1.5">
+                {/* Left Input */}
+                <div className="flex items-center gap-0.5 bg-background p-1 rounded border border-primary/20">
+                  <input
+                    type="text"
+                    value={paverLeftFeet}
+                    onChange={(e) => onPaverLeftFeetChange(e.target.value)}
+                    placeholder="0"
+                    className="w-8 px-0.5 py-0.5 border rounded text-[10px] text-center"
+                  />
+                  <span className="text-[9px] text-muted-foreground">'</span>
+                  <input
+                    type="text"
+                    value={paverLeftInches}
+                    onChange={(e) => onPaverLeftInchesChange(e.target.value)}
+                    placeholder="0"
+                    className="w-8 px-0.5 py-0.5 border rounded text-[10px] text-center"
+                  />
+                  <span className="text-[9px] text-muted-foreground">"</span>
+                </div>
+                
+                {/* Pool Visual - Replace with actual pool image */}
+                <div className="w-24 h-16 rounded flex items-center justify-center overflow-hidden">
+                  <img 
+                    src={pool8x14Image} 
+                    alt="Pool"
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+                
+                {/* Right Input */}
+                <div className="flex items-center gap-0.5 bg-background p-1 rounded border border-primary/20">
+                  <input
+                    type="text"
+                    value={paverRightFeet}
+                    onChange={(e) => onPaverRightFeetChange(e.target.value)}
+                    placeholder="0"
+                    className="w-8 px-0.5 py-0.5 border rounded text-[10px] text-center"
+                  />
+                  <span className="text-[9px] text-muted-foreground">'</span>
+                  <input
+                    type="text"
+                    value={paverRightInches}
+                    onChange={(e) => onPaverRightInchesChange(e.target.value)}
+                    placeholder="0"
+                    className="w-8 px-0.5 py-0.5 border rounded text-[10px] text-center"
+                  />
+                  <span className="text-[9px] text-muted-foreground">"</span>
+                </div>
+              </div>
+              
+              {/* Bottom Input */}
+              <div className="flex flex-col items-center gap-0.5">
+                <div className="flex items-center gap-0.5 bg-background p-1 rounded border border-primary/20">
+                  <input
+                    type="text"
+                    value={paverBottomFeet}
+                    onChange={(e) => onPaverBottomFeetChange(e.target.value)}
+                    placeholder="0"
+                    className="w-8 px-0.5 py-0.5 border rounded text-[10px] text-center"
+                  />
+                  <span className="text-[9px] text-muted-foreground">'</span>
+                  <input
+                    type="text"
+                    value={paverBottomInches}
+                    onChange={(e) => onPaverBottomInchesChange(e.target.value)}
+                    placeholder="0"
+                    className="w-8 px-0.5 py-0.5 border rounded text-[10px] text-center"
+                  />
+                  <span className="text-[9px] text-muted-foreground">"</span>
+                </div>
+              </div>
+              
+            </div>
+          </div>
+          
+          <div className="pt-3 border-t">
+            <label className="text-xs font-semibold mb-2 block">Preset Pools</label>
+            <button
+              onClick={() => onAddPresetPool?.(23, 11, "Azoria Topaze 12x24")}
+              className="w-auto px-3 py-1.5 bg-pool-light text-pool-dark rounded-md hover:bg-pool-light/80 text-xs font-medium"
+            >
+              Azoria Topaze 12x24
+            </button>
+          </div>
+        </div>
+      </div>
 
+      {scaleReference && (
+        <>
           {/* Measure Section */}
           <div className="border rounded-lg overflow-hidden">
             <div className="px-4 py-3" style={{ backgroundColor: '#00bdf2' }}>
