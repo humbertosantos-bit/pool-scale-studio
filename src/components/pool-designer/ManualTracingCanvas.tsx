@@ -1323,7 +1323,8 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     return snapped;
   };
 
-  // Snap vertex drag to angles (0°, 45°, 90°) when Shift is held
+  // Snap vertex drag to angles (45°, 90°) when Shift is held - "sticky" snapping
+  // Only snaps when close to the target angle, otherwise allows free movement
   const snapVertexToAngle = (point: { x: number; y: number }, startPoint: { x: number; y: number }): { x: number; y: number } => {
     const dx = point.x - startPoint.x;
     const dy = point.y - startPoint.y;
@@ -1332,13 +1333,26 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     if (distance < 5) return point; // Don't snap for tiny movements
     
     const angle = Math.atan2(dy, dx);
-    // Snap to nearest 45° angle (0°, 45°, 90°, 135°, 180°, etc.)
-    const snapAngle = Math.round(angle / (Math.PI / 4)) * (Math.PI / 4);
+    const angleDegrees = (angle * 180) / Math.PI;
     
-    return {
-      x: startPoint.x + Math.cos(snapAngle) * distance,
-      y: startPoint.y + Math.sin(snapAngle) * distance,
-    };
+    // Check if we're within 8 degrees of a 45° snap point (0°, 45°, 90°, 135°, 180°, -45°, -90°, -135°)
+    const snapAngles = [0, 45, 90, 135, 180, -45, -90, -135, -180];
+    const snapThreshold = 8; // degrees
+    
+    for (const snapAngleDeg of snapAngles) {
+      const diff = Math.abs(angleDegrees - snapAngleDeg);
+      if (diff <= snapThreshold || diff >= 360 - snapThreshold) {
+        // Snap to this angle
+        const snapAngleRad = (snapAngleDeg * Math.PI) / 180;
+        return {
+          x: startPoint.x + Math.cos(snapAngleRad) * distance,
+          y: startPoint.y + Math.sin(snapAngleRad) * distance,
+        };
+      }
+    }
+    
+    // Not close to any snap angle - return original point for free movement
+    return point;
   };
 
   // Update vertex position in a shape
@@ -2736,6 +2750,9 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       
       if (drawingModeRef.current === 'none' || drawingModeRef.current === 'move-house' || drawingModeRef.current === 'move-pool' || drawingModeRef.current === 'rotate-pool' || drawingModeRef.current === 'move-paver') return;
       
+      // Don't create shapes if we're dragging a vertex or edge
+      if (isDraggingVertexRef.current || isDraggingEdgeRef.current) return;
+      
       const pointer = fabricCanvas.getScenePoint(e.e);
       let snappedPoint = applySnapping({ x: pointer.x, y: pointer.y });
 
@@ -3390,30 +3407,40 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         y: pointer.y - draggingEdgeRef.current.lastPoint.y,
       };
       
-      // If shift is pressed, constrain to horizontal, vertical, or 45° based on total movement
+      // If shift is pressed, use "sticky" snapping - only snap when close to 45°/90° angles
       if (e.e.shiftKey || shiftPressedRef.current) {
         const distance = Math.sqrt(totalDelta.x * totalDelta.x + totalDelta.y * totalDelta.y);
         if (distance > 5) {
           const angle = Math.atan2(totalDelta.y, totalDelta.x);
-          // Snap to nearest 45° angle (0°, 45°, 90°, 135°, 180°, etc.)
-          const snapAngle = Math.round(angle / (Math.PI / 4)) * (Math.PI / 4);
+          const angleDegrees = (angle * 180) / Math.PI;
           
-          // Calculate constrained delta based on snapped angle
-          const constrainedX = Math.cos(snapAngle) * distance;
-          const constrainedY = Math.sin(snapAngle) * distance;
+          // Check if we're within 8 degrees of a snap angle
+          const snapAngles = [0, 45, 90, 135, 180, -45, -90, -135, -180];
+          const snapThreshold = 8;
+          let snapped = false;
           
-          // Calculate the new target position
-          const targetX = draggingEdgeRef.current.startPoint.x + constrainedX;
-          const targetY = draggingEdgeRef.current.startPoint.y + constrainedY;
+          for (const snapAngleDeg of snapAngles) {
+            const diff = Math.abs(angleDegrees - snapAngleDeg);
+            if (diff <= snapThreshold || diff >= 360 - snapThreshold) {
+              // Snap to this angle
+              const snapAngleRad = (snapAngleDeg * Math.PI) / 180;
+              const targetX = draggingEdgeRef.current.startPoint.x + Math.cos(snapAngleRad) * distance;
+              const targetY = draggingEdgeRef.current.startPoint.y + Math.sin(snapAngleRad) * distance;
+              
+              delta = {
+                x: targetX - draggingEdgeRef.current.lastPoint.x,
+                y: targetY - draggingEdgeRef.current.lastPoint.y,
+              };
+              draggingEdgeRef.current.lastPoint = { x: targetX, y: targetY };
+              snapped = true;
+              break;
+            }
+          }
           
-          // Delta is from last point to constrained target
-          delta = {
-            x: targetX - draggingEdgeRef.current.lastPoint.x,
-            y: targetY - draggingEdgeRef.current.lastPoint.y,
-          };
-          
-          // Update last point to constrained position
-          draggingEdgeRef.current.lastPoint = { x: targetX, y: targetY };
+          if (!snapped) {
+            // Not close to snap angle - allow free movement
+            draggingEdgeRef.current.lastPoint = { x: pointer.x, y: pointer.y };
+          }
         } else {
           delta = { x: 0, y: 0 };
         }
