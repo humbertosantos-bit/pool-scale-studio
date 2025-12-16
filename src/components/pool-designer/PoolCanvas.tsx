@@ -356,11 +356,11 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, scaleInfo, cl
       const target = e.target;
       if (!target) return;
       
-      // Skip if the target is a dimension text or coping itself
-      if ((target as any).isDimensionText || (target as any).isCoping) return;
+      // Skip if the target is a dimension text, coping, or paver label itself
+      if ((target as any).isDimensionText || (target as any).isCoping || (target as any).isPaverDimensionLabel) return;
       
       // Sync pool elements
-      if ((target as any).poolId) {
+      if ((target as any).poolId && !(target as any).paverId) {
         const poolId = (target as any).poolId;
         const objects = canvas.getObjects();
         
@@ -442,6 +442,38 @@ export const PoolCanvas: React.FC<PoolCanvasProps> = ({ imageFile, scaleInfo, cl
             });
             paverText.setCoords();
           }
+        });
+        
+        // Sync paver dimension labels that belong to this pool
+        const paverLabels = objects.filter(obj => 
+          (obj as any).poolId === poolId && (obj as any).isPaverDimensionLabel
+        );
+        
+        paverLabels.forEach(label => {
+          // Get the label's initial offset if stored
+          if (!(label as any).initialOffset) {
+            const poolCenter = target.getCenterPoint();
+            const labelCenter = label.getCenterPoint();
+            (label as any).initialOffset = {
+              x: labelCenter.x - poolCenter.x,
+              y: labelCenter.y - poolCenter.y,
+            };
+          }
+          
+          const offset = (label as any).initialOffset;
+          const angle = (target.angle || 0) * Math.PI / 180;
+          
+          // Rotate the offset around the pool center
+          const rotatedX = offset.x * Math.cos(angle) - offset.y * Math.sin(angle);
+          const rotatedY = offset.x * Math.sin(angle) + offset.y * Math.cos(angle);
+          
+          const centerPoint = target.getCenterPoint();
+          label.set({
+            left: centerPoint.x + rotatedX,
+            top: centerPoint.y + rotatedY,
+            angle: target.angle || 0,
+          });
+          label.setCoords();
         });
       }
       

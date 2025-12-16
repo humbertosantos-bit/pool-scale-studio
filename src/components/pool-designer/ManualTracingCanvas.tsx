@@ -18,7 +18,7 @@ interface ManualTracingCanvasProps {
   onStateChange?: (state: any) => void;
 }
 
-type DrawingMode = 'none' | 'property' | 'house' | 'pool' | 'move-house' | 'move-pool' | 'rotate-pool' | 'measure-draw' | 'paver' | 'scale-ref';
+type DrawingMode = 'none' | 'property' | 'house' | 'pool' | 'move-house' | 'move-pool' | 'rotate-pool' | 'move-paver' | 'measure-draw' | 'paver' | 'scale-ref';
 type UnitType = 'ft' | 'm';
 
 interface MeasurementLine {
@@ -172,6 +172,12 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
   const rotationStartAngleRef = useRef<number>(0);
   const originalPoolRotationRef = useRef<number>(0);
   const poolRotationsRef = useRef<{ [key: string]: number }>({});
+  
+  // Standalone paver movement state
+  const [selectedPaverIndex, setSelectedPaverIndex] = useState<number | null>(null);
+  const [isDraggingPaver, setIsDraggingPaver] = useState(false);
+  const paverDragStartRef = useRef<{ x: number; y: number } | null>(null);
+  const originalPaverPointsRef = useRef<{ x: number; y: number }[] | null>(null);
   
   // Unit toggle
   const [unit, setUnit] = useState<UnitType>('ft');
@@ -2562,9 +2568,11 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       originX: 'center',
       originY: 'center',
       selectable: false,
-      evented: false,
+      evented: true, // Enable events for double-click rename
+      hoverCursor: 'pointer',
     });
     (nameLabel as any).isStandalonePaverLabel = true;
+    (nameLabel as any).isPaverNameLabel = true; // Mark as name label for double-click
     (nameLabel as any).shapeId = shapeId;
     canvas.add(nameLabel);
     
@@ -3178,6 +3186,80 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       }
     };
 
+    // Handle standalone paver movement
+    const handlePaverMouseDown = (e: any) => {
+      if (drawingModeRef.current !== 'move-paver') return;
+      
+      const pointer = fabricCanvas.getScenePoint(e.e);
+      
+      // Check if clicked inside any standalone paver
+      for (let i = 0; i < standalonePaversRef.current.length; i++) {
+        const paver = standalonePaversRef.current[i];
+        if (isPointInsidePolygon({ x: pointer.x, y: pointer.y }, paver.points)) {
+          setSelectedPaverIndex(i);
+          setIsDraggingPaver(true);
+          paverDragStartRef.current = { x: pointer.x, y: pointer.y };
+          originalPaverPointsRef.current = paver.points.map(p => ({ ...p }));
+          return;
+        }
+      }
+    };
+
+    const handlePaverMouseMove = (e: any) => {
+      if (!isDraggingPaver || selectedPaverIndex === null || !paverDragStartRef.current || !originalPaverPointsRef.current) return;
+      
+      const pointer = fabricCanvas.getScenePoint(e.e);
+      const dx = pointer.x - paverDragStartRef.current.x;
+      const dy = pointer.y - paverDragStartRef.current.y;
+      
+      // Calculate new points
+      const newPoints = originalPaverPointsRef.current.map(p => ({
+        x: p.x + dx,
+        y: p.y + dy,
+      }));
+      
+      // Update paver shape
+      updatePaverPosition(selectedPaverIndex, newPoints);
+    };
+
+    const handlePaverMouseUp = () => {
+      if (isDraggingPaver) {
+        setIsDraggingPaver(false);
+        paverDragStartRef.current = null;
+        originalPaverPointsRef.current = null;
+      }
+    };
+
+    // Handle double-click on paver label for renaming
+    const handlePaverDoubleClick = (e: any) => {
+      if (drawingModeRef.current !== 'move-paver') return;
+      
+      const target = e.target;
+      if (target && (target as any).isStandalonePaverLabel && (target as any).isPaverNameLabel) {
+        const shapeId = (target as any).shapeId;
+        const paver = standalonePaversRef.current.find(p => p.id === shapeId);
+        if (paver) {
+          const newName = prompt('Enter new name for paver zone:', paver.name);
+          if (newName !== null && newName.trim() !== '') {
+            renamePaverZone(shapeId, newName.trim());
+          }
+        }
+        return;
+      }
+      
+      // Also check if clicked inside a paver for renaming
+      const pointer = fabricCanvas.getScenePoint(e.e);
+      for (const paver of standalonePaversRef.current) {
+        if (isPointInsidePolygon({ x: pointer.x, y: pointer.y }, paver.points)) {
+          const newName = prompt('Enter new name for paver zone:', paver.name);
+          if (newName !== null && newName.trim() !== '') {
+            renamePaverZone(paver.id, newName.trim());
+          }
+          return;
+        }
+      }
+    };
+
     const handlePanMouseUp = () => {
       if (isPanningRef.current) {
         setIsPanning(false);
@@ -3352,6 +3434,10 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     fabricCanvas.on('mouse:down', handleRotatePoolMouseDown);
     fabricCanvas.on('mouse:move', handleRotatePoolMouseMove);
     fabricCanvas.on('mouse:up', handleRotatePoolMouseUp);
+    fabricCanvas.on('mouse:down', handlePaverMouseDown);
+    fabricCanvas.on('mouse:move', handlePaverMouseMove);
+    fabricCanvas.on('mouse:up', handlePaverMouseUp);
+    fabricCanvas.on('mouse:dblclick', handlePaverDoubleClick);
     fabricCanvas.on('mouse:up', handlePanMouseUp);
     fabricCanvas.on('mouse:down', handleVertexMouseDown);
     fabricCanvas.on('mouse:move', handleVertexMouseMove);
@@ -3395,6 +3481,10 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       fabricCanvas.off('mouse:down', handleRotatePoolMouseDown);
       fabricCanvas.off('mouse:move', handleRotatePoolMouseMove);
       fabricCanvas.off('mouse:up', handleRotatePoolMouseUp);
+      fabricCanvas.off('mouse:down', handlePaverMouseDown);
+      fabricCanvas.off('mouse:move', handlePaverMouseMove);
+      fabricCanvas.off('mouse:up', handlePaverMouseUp);
+      fabricCanvas.off('mouse:dblclick', handlePaverDoubleClick);
       fabricCanvas.off('mouse:up', handlePanMouseUp);
       fabricCanvas.off('mouse:down', handleVertexMouseDown);
       fabricCanvas.off('mouse:move', handleVertexMouseMove);
@@ -3405,7 +3495,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       fabricCanvas.off('object:rotating', handleObjectRotating);
       fabricCanvas.off('mouse:dblclick', handleSelectionClick);
     };
-  }, [fabricCanvas, completeShape, gridSnapping, vertexSnapping, isDraggingHouse, selectedHouseIndex, isDraggingPool, selectedPoolIndex, isRotatingPool, isPanning]);
+  }, [fabricCanvas, completeShape, gridSnapping, vertexSnapping, isDraggingHouse, selectedHouseIndex, isDraggingPool, selectedPoolIndex, isRotatingPool, isPanning, isDraggingPaver, selectedPaverIndex]);
 
   // Check if point is inside a polygon
   const isPointInsidePolygon = (point: { x: number; y: number }, pts: { x: number; y: number }[]): boolean => {
@@ -3702,6 +3792,129 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     bringMeasurementsToFront(fabricCanvas);
   };
 
+  // Update standalone paver position
+  const updatePaverPosition = (index: number, newPoints: { x: number; y: number }[]) => {
+    if (!fabricCanvas) return;
+    
+    const paver = standalonePaversRef.current[index];
+    if (!paver) return;
+    
+    // Remove old polygon and all related objects
+    if (paver.fabricObject) {
+      fabricCanvas.remove(paver.fabricObject);
+    }
+    
+    const objects = fabricCanvas.getObjects();
+    const objectsToRemove = objects.filter(obj => 
+      (obj as any).shapeId === paver.id
+    );
+    objectsToRemove.forEach(obj => fabricCanvas.remove(obj));
+    
+    // Create new polygon
+    const fabricPoints = newPoints.map(p => new Point(p.x, p.y));
+    const polygon = new Polygon(fabricPoints, {
+      fill: '#d4d4d4',
+      stroke: '#000000',
+      strokeWidth: 0.5,
+      selectable: false,
+      evented: false,
+    });
+    (polygon as any).shapeId = paver.id;
+    (polygon as any).isStandalonePaver = true;
+    fabricCanvas.add(polygon);
+    
+    // Add vertex markers
+    newPoints.forEach((p, idx) => {
+      const marker = new Circle({
+        left: p.x,
+        top: p.y,
+        radius: 2,
+        fill: 'transparent',
+        stroke: '#000000',
+        strokeWidth: 0.5,
+        originX: 'center',
+        originY: 'center',
+        selectable: false,
+        evented: true,
+        hasControls: false,
+        hasBorders: false,
+        hoverCursor: 'pointer',
+      });
+      (marker as any).vertexIndex = idx;
+      (marker as any).parentPolygon = polygon;
+      (marker as any).parentPoints = newPoints;
+      (marker as any).shapeType = 'standalone-paver';
+      (marker as any).shapeId = paver.id;
+      (marker as any).isVertexMarker = true;
+      fabricCanvas.add(marker);
+    });
+    
+    // Add edge markers
+    addPaverEdgeMarkers(fabricCanvas, newPoints, paver.id, polygon);
+    
+    // Recalculate area
+    const areaSqFt = calculatePolygonAreaSqFt(newPoints);
+    const areaWithWasteSqFt = areaSqFt * 1.10;
+    
+    // Add label
+    addStandalonePaverLabel(fabricCanvas, newPoints, paver.id, paver.name, areaSqFt);
+    
+    // Update state
+    const updatedPaver = {
+      ...paver,
+      points: newPoints,
+      fabricObject: polygon,
+      areaSqFt: parseFloat(areaSqFt.toFixed(2)),
+      areaWithWasteSqFt: parseFloat(areaWithWasteSqFt.toFixed(2)),
+    };
+    
+    setStandalonePavers(prev => {
+      const newPavers = [...prev];
+      newPavers[index] = updatedPaver;
+      return newPavers;
+    });
+    standalonePaversRef.current[index] = updatedPaver;
+    
+    sendBackgroundToBack(fabricCanvas);
+    fabricCanvas.renderAll();
+  };
+
+  // Rename a standalone paver zone
+  const renamePaverZone = (shapeId: string, newName: string) => {
+    if (!fabricCanvas) return;
+    
+    const paverIndex = standalonePaversRef.current.findIndex(p => p.id === shapeId);
+    if (paverIndex === -1) return;
+    
+    const paver = standalonePaversRef.current[paverIndex];
+    
+    // Remove old labels
+    const objects = fabricCanvas.getObjects();
+    const labelsToRemove = objects.filter(obj => 
+      (obj as any).shapeId === shapeId && (obj as any).isStandalonePaverLabel
+    );
+    labelsToRemove.forEach(obj => fabricCanvas.remove(obj));
+    
+    // Add new label with updated name
+    addStandalonePaverLabel(fabricCanvas, paver.points, paver.id, newName, paver.areaSqFt);
+    
+    // Update state
+    const updatedPaver = {
+      ...paver,
+      name: newName,
+    };
+    
+    setStandalonePavers(prev => {
+      const newPavers = [...prev];
+      newPavers[paverIndex] = updatedPaver;
+      return newPavers;
+    });
+    standalonePaversRef.current[paverIndex] = updatedPaver;
+    
+    fabricCanvas.renderAll();
+    toast.success(`Paver zone renamed to "${newName}"`);
+  };
+
   // Exit any drawing/move mode
   const exitMode = () => {
     if (!fabricCanvas) return;
@@ -3780,7 +3993,29 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     toast.info('Click and drag a pool to rotate it. Hold Shift to snap to 45°. Press Escape to exit.');
   };
 
-  // Add preset pool
+  // Start move paver mode (toggle)
+  const startMovePaverMode = () => {
+    if (!fabricCanvas) return;
+    
+    // Toggle off if already in move-paver mode
+    if (drawingMode === 'move-paver') {
+      exitMode();
+      toast.info('Exited move paver mode');
+      return;
+    }
+    
+    if (standalonePaversRef.current.length === 0) {
+      toast.error('No paver zones to move');
+      return;
+    }
+    
+    setDrawingMode('move-paver');
+    drawingModeRef.current = 'move-paver';
+    fabricCanvas.defaultCursor = 'move';
+    fabricCanvas.hoverCursor = 'move';
+    toast.info('Click and drag a paver zone to move it. Double-click to rename. Press Escape to exit.');
+  };
+
   const addPresetPool = (preset: PresetPool) => {
     if (!fabricCanvas || !propertyShapeRef.current) {
       toast.error('Please draw the property boundary first');
@@ -5507,6 +5742,11 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
                 <Ruler className="h-4 w-4 mr-2" />
                 Enter Measurements (Rectangle)
               </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={startMovePaverMode} disabled={standalonePavers.length === 0}>
+                <Move className="h-4 w-4 mr-2" />
+                Move/Rename Paver Zone
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
           
@@ -5886,7 +6126,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         )}
         {drawingMode !== 'none' && (
           <span className="ml-auto font-medium text-primary">
-            Mode: {drawingMode === 'property' ? 'Drawing Property' : drawingMode === 'house' ? 'Drawing House' : drawingMode === 'pool' ? 'Drawing Pool' : drawingMode === 'paver' ? 'Drawing Paver Zone' : drawingMode === 'move-house' ? 'Moving House' : drawingMode === 'move-pool' ? 'Moving Pool' : drawingMode === 'rotate-pool' ? 'Rotating Pool' : drawingMode === 'measure-draw' ? 'Drawing Measurement' : drawingMode === 'scale-ref' ? 'Setting Scale Reference' : drawingMode}
+            Mode: {drawingMode === 'property' ? 'Drawing Property' : drawingMode === 'house' ? 'Drawing House' : drawingMode === 'pool' ? 'Drawing Pool' : drawingMode === 'paver' ? 'Drawing Paver Zone' : drawingMode === 'move-house' ? 'Moving House' : drawingMode === 'move-pool' ? 'Moving Pool' : drawingMode === 'rotate-pool' ? 'Rotating Pool' : drawingMode === 'move-paver' ? 'Moving Paver' : drawingMode === 'measure-draw' ? 'Drawing Measurement' : drawingMode === 'scale-ref' ? 'Setting Scale Reference' : drawingMode}
             {currentPoints.length > 0 && ` (${currentPoints.length} points)`}
             {drawingMode === 'measure-draw' && measurementStartPoint && ' (click second point)'}
             {drawingMode === 'scale-ref' && !scaleRefPoint1 && ' (click first point)'}
