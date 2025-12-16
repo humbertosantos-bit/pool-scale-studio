@@ -110,17 +110,25 @@ const Design: React.FC = () => {
       <div className="flex flex-col h-[calc(100vh-104px)]">
         <div className="flex flex-1 overflow-hidden">
           {/* Left Sidebar - Always visible */}
-          <div className="w-1/4 min-w-[280px] border-r bg-white overflow-y-auto flex flex-col">
-            <div className="p-4 space-y-4 flex-1">
+          <div className="w-64 min-w-[240px] border-r bg-white overflow-y-auto flex flex-col">
+            <div className="p-3 space-y-3 flex-1">
               {/* Client Name Header */}
               {clientInfo.name && (
-                <div className="bg-primary/10 rounded-lg p-3">
-                  <p className="text-lg font-semibold text-primary">{clientInfo.name}</p>
+                <div className="bg-primary/10 rounded-lg p-2">
+                  <p className="text-sm font-semibold text-primary">{clientInfo.name}</p>
                   {clientInfo.address && (
-                    <p className="text-sm text-muted-foreground">{clientInfo.address}</p>
+                    <p className="text-xs text-muted-foreground">{clientInfo.address}</p>
                   )}
                 </div>
               )}
+              
+              {/* Calculations - Always visible */}
+              <PoolCalculations
+                pools={poolState?.calculatedData?.pools || []}
+                fences={poolState?.calculatedData?.fences || []}
+                pavers={poolState?.calculatedData?.pavers || []}
+                compact
+              />
               
               {/* Tools Section - shown when image is uploaded */}
               {selectedImage && poolState && (
@@ -146,10 +154,10 @@ const Design: React.FC = () => {
               {/* Start Design Options - shown when no image and not manual tracing */}
               {!selectedImage && !isManualTracing && (
                 <div className="border rounded-lg overflow-hidden">
-                  <div className="bg-primary px-4 py-2">
+                  <div className="bg-primary px-3 py-1.5">
                     <h2 className="text-xs font-semibold text-primary-foreground">📁 Import / Draw</h2>
                   </div>
-                  <div className="p-4">
+                  <div className="p-3">
                     <ImageUploadOptions 
                       onFileSelect={handleFileSelect} 
                       onManualTraceSelect={handleManualTraceSelect}
@@ -157,16 +165,6 @@ const Design: React.FC = () => {
                   </div>
                 </div>
               )}
-            </div>
-            
-            {/* Calculations at bottom of sidebar - Always visible */}
-            <div className="border-t p-4">
-              <PoolCalculations
-                pools={poolState?.calculatedData?.pools || []}
-                fences={poolState?.calculatedData?.fences || []}
-                pavers={poolState?.calculatedData?.pavers || []}
-                compact
-              />
             </div>
           </div>
 
