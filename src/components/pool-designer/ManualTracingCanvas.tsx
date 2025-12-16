@@ -1681,13 +1681,14 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       const midX = (points[i].x + points[nextIndex].x) / 2;
       const midY = (points[i].y + points[nextIndex].y) / 2;
       
-      const edgeMarker = new Circle({
-        left: midX,
-        top: midY,
-        radius: 4,
-        fill: 'transparent',
-        stroke: 'transparent',
-        strokeWidth: 0,
+      const edgeMarker = new Rect({
+        left: midX - 3,
+        top: midY - 3,
+        width: 6,
+        height: 6,
+        fill: '#ffffff',
+        stroke: '#000000',
+        strokeWidth: 0.5,
         originX: 'center',
         originY: 'center',
         selectable: false,
