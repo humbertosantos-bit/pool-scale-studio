@@ -158,7 +158,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
   
   // Selected item for deletion
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
-  const [selectedItemType, setSelectedItemType] = useState<'house' | 'pool' | 'measurement' | 'paver' | null>(null);
+  const [selectedItemType, setSelectedItemType] = useState<'house' | 'pool' | 'measurement' | 'paver' | 'property' | 'image' | null>(null);
   
   // Pool movement state
   const [selectedPoolIndex, setSelectedPoolIndex] = useState<number | null>(null);
@@ -4505,6 +4505,35 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       standalonePaversRef.current = newPavers;
       
       toast.success('Paver zone deleted');
+    } else if (selectedItemType === 'property') {
+      // Delete property shape
+      if (propertyShapeRef.current?.fabricObject) {
+        fabricCanvas.remove(propertyShapeRef.current.fabricObject);
+      }
+      
+      // Remove related objects (vertex markers, labels)
+      const objects = fabricCanvas.getObjects();
+      objects.forEach(obj => {
+        if ((obj as any).shapeId === propertyShapeRef.current?.id || 
+            (obj as any).parentPolygon === propertyShapeRef.current?.fabricObject ||
+            (obj as any).isPropertyLabel) {
+          fabricCanvas.remove(obj);
+        }
+      });
+      
+      setPropertyShape(null);
+      propertyShapeRef.current = null;
+      
+      toast.success('Property deleted');
+    } else if (selectedItemType === 'image') {
+      // Delete background image
+      if (backgroundImageRef.current) {
+        fabricCanvas.remove(backgroundImageRef.current);
+        setBackgroundImage(null);
+        backgroundImageRef.current = null;
+      }
+      
+      toast.success('Background image deleted');
     }
     
     // Clear selection
@@ -4563,6 +4592,22 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       }
     }
     
+    // Check property
+    if (propertyShapeRef.current && isPointInsidePolygon({ x: pointer.x, y: pointer.y }, propertyShapeRef.current.points)) {
+      setSelectedItemId(propertyShapeRef.current.id);
+      setSelectedItemType('property');
+      highlightSelectedItem(propertyShapeRef.current.id, 'property');
+      return;
+    }
+    
+    // Check background image
+    if (target && (target as any).isBackgroundImage) {
+      setSelectedItemId('background-image');
+      setSelectedItemType('image');
+      highlightSelectedItem('background-image', 'image');
+      return;
+    }
+    
     // If clicked on nothing, clear selection
     setSelectedItemId(null);
     setSelectedItemType(null);
@@ -4570,7 +4615,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
   };
 
   // Highlight the selected item
-  const highlightSelectedItem = (itemId: string, itemType: 'house' | 'pool' | 'measurement' | 'paver') => {
+  const highlightSelectedItem = (itemId: string, itemType: 'house' | 'pool' | 'measurement' | 'paver' | 'property' | 'image') => {
     if (!fabricCanvas) return;
     
     // First clear any existing highlight
@@ -4579,6 +4624,14 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     // Find and highlight the object
     const objects = fabricCanvas.getObjects();
     objects.forEach(obj => {
+      // Handle background image highlight
+      if (itemType === 'image' && (obj as any).isBackgroundImage) {
+        (obj as any).originalOpacity = obj.opacity;
+        obj.set({ opacity: 0.3 });
+        (obj as any).isHighlighted = true;
+        return;
+      }
+      
       if ((obj as any).shapeId === itemId || (obj as any).measurementId === itemId) {
         if (obj instanceof Polygon || obj instanceof Rect) {
           (obj as any).originalStrokeWidth = obj.strokeWidth;
@@ -4624,6 +4677,10 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
               child.set({ stroke: (child as any).originalStroke });
             }
           });
+        }
+        // Restore background image opacity
+        if ((obj as any).isBackgroundImage && (obj as any).originalOpacity !== undefined) {
+          obj.set({ opacity: (obj as any).originalOpacity });
         }
         (obj as any).isHighlighted = false;
       }
