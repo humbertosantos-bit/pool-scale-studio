@@ -4840,8 +4840,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     setRedoStack([]);
     setPoolCalculations([]);
     
-    // Re-add north indicator
-    addNorthIndicator(fabricCanvas);
+    // North indicator is kept (not removed above), so no need to re-add
     
     fabricCanvas.defaultCursor = 'default';
     fabricCanvas.hoverCursor = 'move';
