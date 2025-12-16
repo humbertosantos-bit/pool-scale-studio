@@ -1889,7 +1889,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
   const startDrawingMode = (mode: DrawingMode) => {
     if (!fabricCanvas) return;
     
-    if ((mode === 'house' || mode === 'pool') && !propertyShapeRef.current) {
+    if (mode === 'house' && !propertyShapeRef.current) {
       toast.error('Please draw the property boundary first');
       return;
     }
@@ -1908,7 +1908,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     } else if (mode === 'house') {
       toast.info('Click to place vertices inside the property boundary.');
     } else if (mode === 'pool') {
-      toast.info('Click to draw a custom pool shape inside the property boundary.');
+      toast.info('Click to draw a custom pool shape.' + (propertyShapeRef.current ? ' Draw inside the property boundary.' : ''));
     } else if (mode === 'paver') {
       toast.info('Click to trace a paver zone. Click near the first point to close the shape.');
     }
@@ -2756,9 +2756,14 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       const pointer = fabricCanvas.getScenePoint(e.e);
       let snappedPoint = applySnapping({ x: pointer.x, y: pointer.y });
 
-      // Check if drawing house or pool and point is outside property
-      if ((drawingModeRef.current === 'house' || drawingModeRef.current === 'pool') && !isPointInsideProperty(snappedPoint)) {
-        toast.error(`${drawingModeRef.current === 'house' ? 'House' : 'Pool'} must be drawn inside the property boundary`);
+      // Check if drawing house and point is outside property (pool can be drawn anywhere)
+      if (drawingModeRef.current === 'house' && !isPointInsideProperty(snappedPoint)) {
+        toast.error('House must be drawn inside the property boundary');
+        return;
+      }
+      // If property exists and drawing pool, still enforce boundary
+      if (drawingModeRef.current === 'pool' && propertyShapeRef.current && !isPointInsideProperty(snappedPoint)) {
+        toast.error('Pool must be drawn inside the property boundary');
         return;
       }
 
@@ -4062,10 +4067,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
   };
 
   const addPresetPool = (preset: PresetPool) => {
-    if (!fabricCanvas || !propertyShapeRef.current) {
-      toast.error('Please draw the property boundary first');
-      return;
-    }
+    if (!fabricCanvas) return;
     
     // Convert feet and inches to total feet, then to meters, then to pixels using dynamic scale
     const widthFeet = preset.widthFeet + preset.widthInches / 12;
@@ -4076,12 +4078,19 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     const widthPixels = widthMeters * currentScale;
     const lengthPixels = lengthMeters * currentScale;
     
-    // Find center of property
-    const propPoints = propertyShapeRef.current.points;
-    const centerX = propPoints.reduce((sum, p) => sum + p.x, 0) / propPoints.length;
-    const centerY = propPoints.reduce((sum, p) => sum + p.y, 0) / propPoints.length;
+    // Find center - use property center if available, otherwise use canvas center
+    let centerX: number, centerY: number;
+    if (propertyShapeRef.current) {
+      const propPoints = propertyShapeRef.current.points;
+      centerX = propPoints.reduce((sum, p) => sum + p.x, 0) / propPoints.length;
+      centerY = propPoints.reduce((sum, p) => sum + p.y, 0) / propPoints.length;
+    } else {
+      // Use canvas center
+      centerX = fabricCanvas.getWidth() / 2;
+      centerY = fabricCanvas.getHeight() / 2;
+    }
     
-    // Create rectangular pool points centered at property center
+    // Create rectangular pool points centered
     const halfWidth = widthPixels / 2;
     const halfLength = lengthPixels / 2;
     const poolPoints = [
@@ -4099,10 +4108,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
 
   // Add custom sized pool
   const addCustomPool = () => {
-    if (!fabricCanvas || !propertyShapeRef.current) {
-      toast.error('Please draw the property boundary first');
-      return;
-    }
+    if (!fabricCanvas) return;
     
     const widthFeet = parseFloat(customPoolWidth) || 12;
     const lengthFeet = parseFloat(customPoolLength) || 24;
@@ -4119,10 +4125,16 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     const widthPixels = widthMeters * currentScale;
     const lengthPixels = lengthMeters * currentScale;
     
-    // Find center of property
-    const propPoints = propertyShapeRef.current.points;
-    const centerX = propPoints.reduce((sum, p) => sum + p.x, 0) / propPoints.length;
-    const centerY = propPoints.reduce((sum, p) => sum + p.y, 0) / propPoints.length;
+    // Find center - use property center if available, otherwise use canvas center
+    let centerX: number, centerY: number;
+    if (propertyShapeRef.current) {
+      const propPoints = propertyShapeRef.current.points;
+      centerX = propPoints.reduce((sum, p) => sum + p.x, 0) / propPoints.length;
+      centerY = propPoints.reduce((sum, p) => sum + p.y, 0) / propPoints.length;
+    } else {
+      centerX = fabricCanvas.getWidth() / 2;
+      centerY = fabricCanvas.getHeight() / 2;
+    }
     
     // Create rectangular pool points
     const halfWidth = widthPixels / 2;
