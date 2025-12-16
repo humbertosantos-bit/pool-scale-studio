@@ -3704,14 +3704,14 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     // Create the main line
     const mainLine = new Line([startPoint.x, startPoint.y, endPoint.x, endPoint.y], {
       stroke: '#dc2626',
-      strokeWidth: 1,
+      strokeWidth: 0.5,
       originX: 'center',
       originY: 'center',
     });
     
-    // Create arrow heads
-    const arrowSize = 8;
-    const arrowAngle = Math.PI / 6;
+    // Smaller, thinner arrow heads for better visibility on short measurements
+    const arrowSize = 4;
+    const arrowAngle = Math.PI / 7; // Narrower angle for thinner arrows
     
     // Start arrow
     const startArrow1 = new Line([
@@ -3719,14 +3719,14 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       startPoint.y,
       startPoint.x + arrowSize * Math.cos(angle - arrowAngle),
       startPoint.y + arrowSize * Math.sin(angle - arrowAngle),
-    ], { stroke: '#dc2626', strokeWidth: 1 });
+    ], { stroke: '#dc2626', strokeWidth: 0.5 });
     
     const startArrow2 = new Line([
       startPoint.x,
       startPoint.y,
       startPoint.x + arrowSize * Math.cos(angle + arrowAngle),
       startPoint.y + arrowSize * Math.sin(angle + arrowAngle),
-    ], { stroke: '#dc2626', strokeWidth: 1 });
+    ], { stroke: '#dc2626', strokeWidth: 0.5 });
     
     // End arrow
     const endArrow1 = new Line([
@@ -3734,23 +3734,29 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       endPoint.y,
       endPoint.x - arrowSize * Math.cos(angle - arrowAngle),
       endPoint.y - arrowSize * Math.sin(angle - arrowAngle),
-    ], { stroke: '#dc2626', strokeWidth: 1 });
+    ], { stroke: '#dc2626', strokeWidth: 0.5 });
     
     const endArrow2 = new Line([
       endPoint.x,
       endPoint.y,
       endPoint.x - arrowSize * Math.cos(angle + arrowAngle),
       endPoint.y - arrowSize * Math.sin(angle + arrowAngle),
-    ], { stroke: '#dc2626', strokeWidth: 1 });
+    ], { stroke: '#dc2626', strokeWidth: 0.5 });
     
-    // Create measurement label (centered on the line)
+    // Create measurement label - position beside the line for short measurements
     const midX = (startPoint.x + endPoint.x) / 2;
     const midY = (startPoint.y + endPoint.y) / 2;
     const labelText = formatMeasurement(length);
     
+    // Offset the label perpendicular to the line so it's beside it, not on top
+    const perpAngle = angle + Math.PI / 2;
+    const labelOffset = 8; // Pixels offset from the line
+    const labelX = midX + labelOffset * Math.cos(perpAngle);
+    const labelY = midY + labelOffset * Math.sin(perpAngle);
+    
     const label = new Text(labelText, {
-      left: midX,
-      top: midY,
+      left: labelX,
+      top: labelY,
       fontSize: 7,
       fill: '#dc2626',
       fontWeight: 'bold',
