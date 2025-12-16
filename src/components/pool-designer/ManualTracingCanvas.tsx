@@ -139,14 +139,14 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
   const [propertyLength, setPropertyLength] = useState<string>('100');
   
   // Coping and paver settings
-  const [copingSize, setCopingSize] = useState<number>(12); // 12 or 16 inches (mandatory)
-  const [paverTopFeet, setPaverTopFeet] = useState<string>('0');
+  const [copingSize, setCopingSize] = useState<number>(16); // 12 or 16 inches (mandatory)
+  const [paverTopFeet, setPaverTopFeet] = useState<string>('4');
   const [paverTopInches, setPaverTopInches] = useState<string>('0');
-  const [paverBottomFeet, setPaverBottomFeet] = useState<string>('0');
+  const [paverBottomFeet, setPaverBottomFeet] = useState<string>('4');
   const [paverBottomInches, setPaverBottomInches] = useState<string>('0');
-  const [paverLeftFeet, setPaverLeftFeet] = useState<string>('0');
+  const [paverLeftFeet, setPaverLeftFeet] = useState<string>('4');
   const [paverLeftInches, setPaverLeftInches] = useState<string>('0');
-  const [paverRightFeet, setPaverRightFeet] = useState<string>('0');
+  const [paverRightFeet, setPaverRightFeet] = useState<string>('4');
   const [paverRightInches, setPaverRightInches] = useState<string>('0');
   const [showPaverSettings, setShowPaverSettings] = useState(false);
   
@@ -192,10 +192,20 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
   const draggingVertexRef = useRef<{
     marker: Circle;
     vertexIndex: number;
-    shapeType: 'property' | 'house';
+    shapeType: 'property' | 'house' | 'paver-zone';
     shapeId: string;
     startPoint: { x: number; y: number };
   } | null>(null);
+  
+  // Pool paver zones state (editable independently from pool)
+  interface PaverZone {
+    id: string;
+    poolId: string;
+    points: { x: number; y: number }[];
+    fabricObject?: Polygon;
+  }
+  const [paverZones, setPaverZones] = useState<PaverZone[]>([]);
+  const paverZonesRef = useRef<PaverZone[]>([]);
   
   // Zoom state
   const [zoomLevel, setZoomLevel] = useState(1);
@@ -1206,7 +1216,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
 
   // Update vertex position in a shape
   const updateVertexPosition = (
-    shapeType: 'property' | 'house',
+    shapeType: 'property' | 'house' | 'paver-zone',
     shapeId: string,
     vertexIndex: number,
     newPoint: { x: number; y: number }
@@ -1365,6 +1375,91 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         newShapes[houseIndex] = updatedHouse;
         return newShapes;
       });
+    } else if (shapeType === 'paver-zone') {
+      const paverIndex = paverZonesRef.current.findIndex(p => p.id === shapeId);
+      if (paverIndex === -1) return;
+      
+      const paver = paverZonesRef.current[paverIndex];
+      const newPoints = [...paver.points];
+      newPoints[vertexIndex] = newPoint;
+      
+      // Remove old polygon and vertex markers
+      if (paver.fabricObject) {
+        fabricCanvas.remove(paver.fabricObject);
+      }
+      const objects = fabricCanvas.getObjects();
+      objects.forEach(obj => {
+        if ((obj as any).shapeId === paver.id && (obj as any).isVertexMarker) {
+          fabricCanvas.remove(obj);
+        }
+      });
+      
+      // Create new polygon
+      const fabricPoints = newPoints.map(p => new Point(p.x, p.y));
+      const polygon = new Polygon(fabricPoints, {
+        fill: '#d8d8d8',
+        stroke: '#000000',
+        strokeWidth: 0.5,
+        selectable: false,
+        evented: false,
+      });
+      (polygon as any).shapeId = paver.id;
+      (polygon as any).poolId = paver.poolId;
+      (polygon as any).isPaverZone = true;
+      fabricCanvas.add(polygon);
+      
+      // Ensure proper z-order
+      sendBackgroundToBack(fabricCanvas);
+      
+      // Add new vertex markers
+      newPoints.forEach((p, index) => {
+        const marker = new Circle({
+          left: p.x,
+          top: p.y,
+          radius: 4,
+          fill: '#d8d8d8',
+          stroke: '#000000',
+          strokeWidth: 1,
+          originX: 'center',
+          originY: 'center',
+          selectable: false,
+          evented: true,
+          hasControls: false,
+          hasBorders: false,
+          hoverCursor: 'pointer',
+        });
+        (marker as any).vertexIndex = index;
+        (marker as any).parentPolygon = polygon;
+        (marker as any).parentPoints = newPoints;
+        (marker as any).shapeType = 'paver-zone';
+        (marker as any).shapeId = paver.id;
+        (marker as any).isVertexMarker = true;
+        fabricCanvas.add(marker);
+      });
+      
+      // Move coping and pool water in front of paver
+      const allObjs = fabricCanvas.getObjects();
+      allObjs.forEach(obj => {
+        if ((obj as any).poolId === paver.poolId || (obj as any).shapeId === paver.poolId) {
+          if ((obj as any).isCoping || (obj as any).isPoolWater) {
+            fabricCanvas.bringObjectToFront(obj);
+          }
+        }
+      });
+      
+      // Update state
+      const updatedPaver = {
+        ...paver,
+        points: newPoints,
+        fabricObject: polygon,
+      };
+      
+      paverZonesRef.current[paverIndex] = updatedPaver;
+      setPaverZones(prev => {
+        const newZones = [...prev];
+        newZones[paverIndex] = updatedPaver;
+        return newZones;
+      });
     }
   };
 
@@ -1521,6 +1616,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       if (hasPavers) {
         const paverOuterPoints = offsetPolygon(points, maxPaverPixels);
         const paverFabricPoints = paverOuterPoints.map(p => new Point(p.x, p.y));
+        const paverId = `paver-zone-${shapeId}`;
         const paverPolygon = new Polygon(paverFabricPoints, {
           fill: '#d8d8d8', // Light gray for pavers
           stroke: '#000000',
@@ -1528,9 +1624,46 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
           selectable: false,
           evented: false,
         });
-        (paverPolygon as any).shapeId = shapeId;
+        (paverPolygon as any).shapeId = paverId;
+        (paverPolygon as any).poolId = shapeId;
         (paverPolygon as any).isPaverZone = true;
         fabricCanvas.add(paverPolygon);
+        
+        // Add vertex markers for paver zone editing
+        paverOuterPoints.forEach((p, index) => {
+          const marker = new Circle({
+            left: p.x,
+            top: p.y,
+            radius: 4,
+            fill: '#d8d8d8',
+            stroke: '#000000',
+            strokeWidth: 1,
+            originX: 'center',
+            originY: 'center',
+            selectable: false,
+            evented: true,
+            hasControls: false,
+            hasBorders: false,
+            hoverCursor: 'pointer',
+          });
+          (marker as any).vertexIndex = index;
+          (marker as any).parentPolygon = paverPolygon;
+          (marker as any).parentPoints = paverOuterPoints;
+          (marker as any).shapeType = 'paver-zone';
+          (marker as any).shapeId = paverId;
+          (marker as any).isVertexMarker = true;
+          fabricCanvas.add(marker);
+        });
+        
+        // Store paver zone in state
+        const newPaverZone = {
+          id: paverId,
+          poolId: shapeId,
+          points: paverOuterPoints,
+          fabricObject: paverPolygon,
+        };
+        paverZonesRef.current = [...paverZonesRef.current, newPaverZone];
+        setPaverZones(prev => [...prev, newPaverZone]);
         
         // Ensure background and grid are at the very back
         sendBackgroundToBack(fabricCanvas);
@@ -3258,6 +3391,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       const maxPaverPixels = (maxPaverFeet / METERS_TO_FEET) * currentScale;
       const paverOuterPoints = offsetPolygon(points, maxPaverPixels);
       const paverFabricPoints = paverOuterPoints.map(p => new Point(p.x, p.y));
+      const paverId = `paver-zone-${shapeId}`;
       const paverPolygon = new Polygon(paverFabricPoints, {
         fill: '#d8d8d8', // Light gray for pavers
         stroke: '#000000',
@@ -3265,9 +3399,46 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         selectable: false,
         evented: false,
       });
-      (paverPolygon as any).shapeId = shapeId;
+      (paverPolygon as any).shapeId = paverId;
+      (paverPolygon as any).poolId = shapeId;
       (paverPolygon as any).isPaverZone = true;
       fabricCanvas.add(paverPolygon);
+      
+      // Add vertex markers for paver zone editing
+      paverOuterPoints.forEach((p, index) => {
+        const marker = new Circle({
+          left: p.x,
+          top: p.y,
+          radius: 4,
+          fill: '#d8d8d8',
+          stroke: '#000000',
+          strokeWidth: 1,
+          originX: 'center',
+          originY: 'center',
+          selectable: false,
+          evented: true,
+          hasControls: false,
+          hasBorders: false,
+          hoverCursor: 'pointer',
+        });
+        (marker as any).vertexIndex = index;
+        (marker as any).parentPolygon = paverPolygon;
+        (marker as any).parentPoints = paverOuterPoints;
+        (marker as any).shapeType = 'paver-zone';
+        (marker as any).shapeId = paverId;
+        (marker as any).isVertexMarker = true;
+        fabricCanvas.add(marker);
+      });
+      
+      // Store paver zone in state
+      const newPaverZone = {
+        id: paverId,
+        poolId: shapeId,
+        points: paverOuterPoints,
+        fabricObject: paverPolygon,
+      };
+      paverZonesRef.current = [...paverZonesRef.current, newPaverZone];
+      setPaverZones(prev => [...prev, newPaverZone]);
       
       // Ensure background and grid are at the very back
       sendBackgroundToBack(fabricCanvas);
@@ -3292,12 +3463,6 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     // Create coping polygon (follows exact pool perimeter) - concrete dot pattern
     // Use polygon offset algorithm to generate coping that hugs the pool shape
     const copingOuterPoints = offsetPolygon(points, copingSizePixels);
-    console.log('=== COPING DEBUG ===');
-    console.log('Pool points:', points);
-    console.log('Coping size (inches):', copingSize);
-    console.log('Coping size (pixels):', copingSizePixels);
-    console.log('Current scale (px/m):', currentScale);
-    console.log('Coping outer points:', copingOuterPoints);
     
     const copingFabricPoints = copingOuterPoints.map(p => new Point(p.x, p.y));
     const copingPolygon = new Polygon(copingFabricPoints, {
@@ -3310,7 +3475,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     (copingPolygon as any).shapeId = shapeId;
     (copingPolygon as any).isCoping = true;
     fabricCanvas.add(copingPolygon);
-    console.log('Coping polygon added to canvas');
+    
     
     // Create pool polygon (0.5px thin perimeter)
     const fabricPoints = points.map(p => new Point(p.x, p.y));
@@ -3325,12 +3490,12 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     (polygon as any).shapeId = shapeId;
     (polygon as any).isPoolWater = true;
     fabricCanvas.add(polygon);
-    console.log('Pool water polygon added to canvas');
+    
     
     // Ensure proper z-order: paver (back) → coping → pool water (front)
     fabricCanvas.bringObjectToFront(copingPolygon);
     fabricCanvas.bringObjectToFront(polygon);
-    console.log('Z-order set: coping in front, then pool water on top');
+    
     
     // No vertex markers for pools (removed corner circles)
     
