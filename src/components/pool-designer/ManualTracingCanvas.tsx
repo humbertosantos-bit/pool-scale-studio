@@ -3303,8 +3303,8 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       const pointer = fabricCanvas.getScenePoint(e.e);
       let newPoint = { x: pointer.x, y: pointer.y };
       
-      // Apply Shift-key angle snapping
-      if (shiftPressedRef.current) {
+      // Apply Shift-key angle snapping (0°, 45°, 90°, etc.) - use event shiftKey for reliability
+      if (e.e.shiftKey || shiftPressedRef.current) {
         const startPoint = draggingVertexRef.current.startPoint;
         newPoint = snapVertexToAngle(newPoint, startPoint);
       }
@@ -3390,15 +3390,36 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         y: pointer.y - draggingEdgeRef.current.lastPoint.y,
       };
       
-      // If shift is pressed, constrain to horizontal or vertical based on total movement
-      if (e.e.shiftKey) {
-        if (Math.abs(totalDelta.x) > Math.abs(totalDelta.y)) {
-          // Horizontal movement - only apply x delta
-          delta.y = 0;
+      // If shift is pressed, constrain to horizontal, vertical, or 45° based on total movement
+      if (e.e.shiftKey || shiftPressedRef.current) {
+        const distance = Math.sqrt(totalDelta.x * totalDelta.x + totalDelta.y * totalDelta.y);
+        if (distance > 5) {
+          const angle = Math.atan2(totalDelta.y, totalDelta.x);
+          // Snap to nearest 45° angle (0°, 45°, 90°, 135°, 180°, etc.)
+          const snapAngle = Math.round(angle / (Math.PI / 4)) * (Math.PI / 4);
+          
+          // Calculate constrained delta based on snapped angle
+          const constrainedX = Math.cos(snapAngle) * distance;
+          const constrainedY = Math.sin(snapAngle) * distance;
+          
+          // Calculate the new target position
+          const targetX = draggingEdgeRef.current.startPoint.x + constrainedX;
+          const targetY = draggingEdgeRef.current.startPoint.y + constrainedY;
+          
+          // Delta is from last point to constrained target
+          delta = {
+            x: targetX - draggingEdgeRef.current.lastPoint.x,
+            y: targetY - draggingEdgeRef.current.lastPoint.y,
+          };
+          
+          // Update last point to constrained position
+          draggingEdgeRef.current.lastPoint = { x: targetX, y: targetY };
         } else {
-          // Vertical movement - only apply y delta
-          delta.x = 0;
+          delta = { x: 0, y: 0 };
         }
+      } else {
+        // Update last point for next incremental delta calculation
+        draggingEdgeRef.current.lastPoint = { x: pointer.x, y: pointer.y };
       }
       
       // Update edge position (moves two vertices)
@@ -3407,9 +3428,6 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         draggingEdgeRef.current.edgeIndex,
         delta
       );
-      
-      // Update last point for next incremental delta calculation
-      draggingEdgeRef.current.lastPoint = { x: pointer.x, y: pointer.y };
       
       fabricCanvas.renderAll();
     };
