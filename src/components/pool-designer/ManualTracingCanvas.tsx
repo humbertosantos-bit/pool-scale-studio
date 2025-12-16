@@ -510,8 +510,8 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       let newZoom = fabricCanvas.getZoom();
       newZoom *= 0.999 ** delta;
       
-      // Clamp zoom between 0.25 and 4
-      newZoom = Math.max(0.25, Math.min(4, newZoom));
+      // Clamp zoom between 0.25 and 6 (600%)
+      newZoom = Math.max(0.25, Math.min(6, newZoom));
       
       // Zoom to mouse pointer position
       const pointer = fabricCanvas.getScenePoint(e);
@@ -3563,7 +3563,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
   // Zoom functions
   const zoomIn = () => {
     if (!fabricCanvas) return;
-    const newZoom = Math.min(zoomLevel + 0.25, 3);
+    const newZoom = Math.min(zoomLevel + 0.25, 6);
     setZoomLevel(newZoom);
     fabricCanvas.setZoom(newZoom);
     scaleMeasurementLabelsForZoom(fabricCanvas, newZoom);
