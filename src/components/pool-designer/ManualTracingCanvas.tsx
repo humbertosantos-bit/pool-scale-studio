@@ -1682,11 +1682,11 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       const midY = (points[i].y + points[nextIndex].y) / 2;
       
       const edgeMarker = new Rect({
-        left: midX - 3,
-        top: midY - 3,
-        width: 6,
-        height: 6,
-        fill: '#ffffff',
+        left: midX - 2,
+        top: midY - 2,
+        width: 4,
+        height: 4,
+        fill: 'transparent',
         stroke: '#000000',
         strokeWidth: 0.5,
         originX: 'center',
@@ -3294,10 +3294,19 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       if (!isDraggingEdgeRef.current || !draggingEdgeRef.current) return;
       
       const pointer = fabricCanvas.getScenePoint(e.e);
-      const delta = {
+      let delta = {
         x: pointer.x - draggingEdgeRef.current.startPoint.x,
         y: pointer.y - draggingEdgeRef.current.startPoint.y,
       };
+      
+      // If shift is pressed, constrain to horizontal or vertical
+      if (e.e.shiftKey) {
+        if (Math.abs(delta.x) > Math.abs(delta.y)) {
+          delta.y = 0;
+        } else {
+          delta.x = 0;
+        }
+      }
       
       // Update edge position (moves two vertices)
       updateEdgePosition(
