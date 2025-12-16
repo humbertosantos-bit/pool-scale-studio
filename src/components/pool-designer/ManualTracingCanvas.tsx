@@ -227,6 +227,11 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
   const [backgroundLocked, setBackgroundLocked] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
+  // Satellite image import state
+  const [showSatelliteInput, setShowSatelliteInput] = useState(false);
+  const [satelliteAddress, setSatelliteAddress] = useState('');
+  const [isSatelliteLoading, setIsSatelliteLoading] = useState(false);
+  
   // Scale reference state (2-point)
   const [scaleReferenceSet, setScaleReferenceSet] = useState(false);
   const [scalePixelsPerMeter, setScalePixelsPerMeter] = useState(20); // Default: 20px = 1m
@@ -896,7 +901,93 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     toast.info('Background image removed');
   };
 
-  // Start scale reference mode (2-point)
+  // Fetch satellite image from Google Maps
+  const fetchSatelliteImage = async () => {
+    if (!satelliteAddress.trim()) {
+      toast.error('Please enter an address');
+      return;
+    }
+    if (!fabricCanvas) return;
+
+    setIsSatelliteLoading(true);
+    try {
+      // Geocode the address to get coordinates
+      const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(satelliteAddress)}&key=AIzaSyAUY7FaBSea9DEfTNO1neyAy-2KmARFlSw`;
+      const geocodeResponse = await fetch(geocodeUrl);
+      const geocodeData = await geocodeResponse.json();
+
+      if (geocodeData.status !== 'OK' || !geocodeData.results[0]) {
+        toast.error('Address not found. Please try a different address.');
+        return;
+      }
+
+      const { lat, lng } = geocodeData.results[0].geometry.location;
+
+      // Use Static Maps API to get satellite image
+      const zoom = 20; // High zoom for detailed view
+      const size = '1280x1280';
+      const mapType = 'satellite';
+      
+      const staticMapUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=${zoom}&size=${size}&maptype=${mapType}&key=AIzaSyAUY7FaBSea9DEfTNO1neyAy-2KmARFlSw`;
+
+      // Calculate scale for Static Maps API at this zoom and latitude
+      const metersPerPixel = (156543.03392 * Math.cos(lat * Math.PI / 180)) / Math.pow(2, zoom);
+      
+      // Remove existing background image if any
+      if (backgroundImageRef.current) {
+        fabricCanvas.remove(backgroundImageRef.current);
+      }
+
+      // Load the image
+      const img = await FabricImage.fromURL(staticMapUrl, { crossOrigin: 'anonymous' });
+      
+      // Scale to fit canvas while maintaining aspect ratio
+      const canvasWidth = fabricCanvas.width || 1200;
+      const canvasHeight = fabricCanvas.height || 800;
+      const scale = Math.min(canvasWidth / img.width!, canvasHeight / img.height!) * 0.9;
+      
+      img.set({
+        scaleX: scale,
+        scaleY: scale,
+        left: (canvasWidth - img.width! * scale) / 2,
+        top: (canvasHeight - img.height! * scale) / 2,
+        selectable: !backgroundLocked,
+        evented: !backgroundLocked,
+        opacity: backgroundOpacity,
+        hasBorders: true,
+        hasControls: true,
+      });
+      
+      (img as any).isBackgroundImage = true;
+      
+      fabricCanvas.add(img);
+      
+      setBackgroundImage(img);
+      backgroundImageRef.current = img;
+      
+      // Set scale based on satellite image resolution
+      // At zoom 20, metersPerPixel gives us the real-world scale
+      // Convert to pixels per meter for our canvas (accounting for image scaling)
+      const pixelsPerMeterOnCanvas = (1 / metersPerPixel) * scale;
+      setScalePixelsPerMeter(pixelsPerMeterOnCanvas);
+      scalePixelsPerMeterRef.current = pixelsPerMeterOnCanvas;
+      setScaleReferenceSet(true);
+      
+      // Ensure background image is at the very back
+      sendBackgroundToBack(fabricCanvas);
+      fabricCanvas.renderAll();
+      
+      setShowSatelliteInput(false);
+      setSatelliteAddress('');
+      toast.success(`Satellite image loaded! Scale auto-set (${metersPerPixel.toFixed(3)} m/px)`);
+    } catch (error) {
+      console.error('Error fetching satellite image:', error);
+      toast.error('Failed to load satellite image. Please try again.');
+    } finally {
+      setIsSatelliteLoading(false);
+    }
+  };
+
   const startScaleReferenceMode = () => {
     if (!fabricCanvas) return;
     
@@ -5375,15 +5466,54 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
             onChange={handleBackgroundImageUpload}
             className="hidden"
           />
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => fileInputRef.current?.click()}
-            title="Import Background Image"
-          >
-            <Image className="h-4 w-4 mr-1" />
-            Import
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" variant="outline" className="gap-1">
+                <Image className="h-4 w-4" />
+                Import
+                <ChevronDown className="h-3 w-3" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-48 bg-white z-50">
+              <DropdownMenuItem onClick={() => fileInputRef.current?.click()}>
+                <Image className="h-4 w-4 mr-2" />
+                Upload Image
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setShowSatelliteInput(true)}>
+                🛰️ Load Satellite Image
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          
+          {/* Satellite Address Input */}
+          {showSatelliteInput && (
+            <div className="flex items-center gap-2 bg-blue-50 p-2 rounded border border-blue-200">
+              <Input
+                type="text"
+                placeholder="Enter address..."
+                value={satelliteAddress}
+                onChange={(e) => setSatelliteAddress(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && fetchSatelliteImage()}
+                className="w-48 h-7 text-xs"
+              />
+              <Button
+                size="sm"
+                onClick={fetchSatelliteImage}
+                disabled={isSatelliteLoading}
+                className="h-7 text-xs"
+              >
+                {isSatelliteLoading ? 'Loading...' : 'Load'}
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => { setShowSatelliteInput(false); setSatelliteAddress(''); }}
+                className="h-7 px-2"
+              >
+                ✕
+              </Button>
+            </div>
+          )}
           
           {backgroundImage && (
             <>
