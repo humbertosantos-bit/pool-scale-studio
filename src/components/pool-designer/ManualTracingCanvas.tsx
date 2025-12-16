@@ -4438,10 +4438,29 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     toast.success('Paver zone deleted');
   };
 
-  // Delete last measurement
-  const deleteLastMeasurement = () => {
+  // Delete measurement - selected one if any, otherwise last one
+  const deleteMeasurement = () => {
     if (!fabricCanvas || measurementLinesRef.current.length === 0) return;
     
+    // If a measurement is selected, delete that one
+    if (selectedItemId && selectedItemType === 'measurement') {
+      const measurement = measurementLinesRef.current.find(m => m.id === selectedItemId);
+      if (measurement) {
+        if (measurement.fabricGroup) {
+          fabricCanvas.remove(measurement.fabricGroup);
+        }
+        const newMeasurements = measurementLinesRef.current.filter(m => m.id !== selectedItemId);
+        setMeasurementLines(newMeasurements);
+        measurementLinesRef.current = newMeasurements;
+        setSelectedItemId(null);
+        setSelectedItemType(null);
+        fabricCanvas.renderAll();
+        toast.success('Selected measurement deleted');
+        return;
+      }
+    }
+    
+    // Otherwise delete the last measurement
     const lastMeasurement = measurementLinesRef.current[measurementLinesRef.current.length - 1];
     
     if (lastMeasurement.fabricGroup) {
@@ -4452,7 +4471,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     measurementLinesRef.current = measurementLinesRef.current.slice(0, -1);
     
     fabricCanvas.renderAll();
-    toast.success('Measurement deleted');
+    toast.success('Last measurement deleted');
   };
 
   // Delete selected item
@@ -5272,9 +5291,9 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
           <Button
             size="sm"
             variant="ghost"
-            onClick={deleteLastMeasurement}
+            onClick={deleteMeasurement}
             disabled={measurementLines.length === 0}
-            title="Delete Last Measurement"
+            title="Delete Selected or Last Measurement"
           >
             <Trash2 className="h-4 w-4" />
           </Button>
