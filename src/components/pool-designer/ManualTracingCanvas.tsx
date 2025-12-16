@@ -3292,6 +3292,13 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     // Create coping polygon (follows exact pool perimeter) - concrete dot pattern
     // Use polygon offset algorithm to generate coping that hugs the pool shape
     const copingOuterPoints = offsetPolygon(points, copingSizePixels);
+    console.log('=== COPING DEBUG ===');
+    console.log('Pool points:', points);
+    console.log('Coping size (inches):', copingSize);
+    console.log('Coping size (pixels):', copingSizePixels);
+    console.log('Current scale (px/m):', currentScale);
+    console.log('Coping outer points:', copingOuterPoints);
+    
     const copingFabricPoints = copingOuterPoints.map(p => new Point(p.x, p.y));
     const copingPolygon = new Polygon(copingFabricPoints, {
       fill: createCopingPattern(), // Concrete dot pattern for coping
@@ -3303,6 +3310,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     (copingPolygon as any).shapeId = shapeId;
     (copingPolygon as any).isCoping = true;
     fabricCanvas.add(copingPolygon);
+    console.log('Coping polygon added to canvas');
     
     // Create pool polygon (0.5px thin perimeter)
     const fabricPoints = points.map(p => new Point(p.x, p.y));
@@ -3317,10 +3325,12 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     (polygon as any).shapeId = shapeId;
     (polygon as any).isPoolWater = true;
     fabricCanvas.add(polygon);
+    console.log('Pool water polygon added to canvas');
     
     // Ensure proper z-order: paver (back) → coping → pool water (front)
     fabricCanvas.bringObjectToFront(copingPolygon);
     fabricCanvas.bringObjectToFront(polygon);
+    console.log('Z-order set: coping in front, then pool water on top');
     
     // No vertex markers for pools (removed corner circles)
     
