@@ -965,16 +965,17 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       const lng = parseFloat(geocodeData[0].lon);
 
       // Use Esri World Imagery for satellite tiles (free, no API key required)
-      const zoom = 19; // High zoom for detailed view (Esri max is usually 19-20)
+      const zoom = 20; // Maximum zoom for best detail
       
       // Calculate tile coordinates from lat/lng
       const n = Math.pow(2, zoom);
       const tileX = Math.floor((lng + 180) / 360 * n);
       const tileY = Math.floor((1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * n);
       
-      // Create a 3x3 grid of tiles for better coverage (each tile is 256x256)
+      // Create a 5x5 grid of tiles for better coverage and quality (each tile is 256x256)
       const tileSize = 256;
-      const gridSize = 3;
+      const gridSize = 5;
+      const gridOffset = Math.floor(gridSize / 2); // 2 for 5x5 grid
       const canvas = document.createElement('canvas');
       canvas.width = tileSize * gridSize;
       canvas.height = tileSize * gridSize;
@@ -986,8 +987,8 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
 
       // Load tiles in a grid around the center tile
       const loadPromises: Promise<void>[] = [];
-      for (let dy = -1; dy <= 1; dy++) {
-        for (let dx = -1; dx <= 1; dx++) {
+      for (let dy = -gridOffset; dy <= gridOffset; dy++) {
+        for (let dx = -gridOffset; dx <= gridOffset; dx++) {
           const tx = tileX + dx;
           const ty = tileY + dy;
           const tileUrl = `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${zoom}/${ty}/${tx}`;
@@ -996,13 +997,13 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
             const tileImg = document.createElement('img');
             tileImg.crossOrigin = 'anonymous';
             tileImg.onload = () => {
-              ctx.drawImage(tileImg, (dx + 1) * tileSize, (dy + 1) * tileSize);
+              ctx.drawImage(tileImg, (dx + gridOffset) * tileSize, (dy + gridOffset) * tileSize);
               resolve();
             };
             tileImg.onerror = () => {
               // Fill with gray if tile fails to load
               ctx.fillStyle = '#666';
-              ctx.fillRect((dx + 1) * tileSize, (dy + 1) * tileSize, tileSize, tileSize);
+              ctx.fillRect((dx + gridOffset) * tileSize, (dy + gridOffset) * tileSize, tileSize, tileSize);
               resolve();
             };
             tileImg.src = tileUrl;
