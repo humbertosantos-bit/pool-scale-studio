@@ -947,26 +947,74 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
 
     setIsSatelliteLoading(true);
     try {
-      // Geocode the address to get coordinates
-      const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(satelliteAddress)}&key=AIzaSyAUY7FaBSea9DEfTNO1neyAy-2KmARFlSw`;
-      const geocodeResponse = await fetch(geocodeUrl);
+      // Use OpenStreetMap Nominatim for geocoding (free, no API key required)
+      const geocodeUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(satelliteAddress)}&limit=1`;
+      const geocodeResponse = await fetch(geocodeUrl, {
+        headers: {
+          'User-Agent': 'PoolDesigner/1.0'
+        }
+      });
       const geocodeData = await geocodeResponse.json();
 
-      if (geocodeData.status !== 'OK' || !geocodeData.results[0]) {
+      if (!geocodeData || geocodeData.length === 0) {
         toast.error('Address not found. Please try a different address.');
         return;
       }
 
-      const { lat, lng } = geocodeData.results[0].geometry.location;
+      const lat = parseFloat(geocodeData[0].lat);
+      const lng = parseFloat(geocodeData[0].lon);
 
-      // Use Static Maps API to get satellite image
-      const zoom = 20; // High zoom for detailed view
-      const size = '1280x1280';
-      const mapType = 'satellite';
+      // Use Esri World Imagery for satellite tiles (free, no API key required)
+      const zoom = 19; // High zoom for detailed view (Esri max is usually 19-20)
       
-      const staticMapUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=${zoom}&size=${size}&maptype=${mapType}&key=AIzaSyAUY7FaBSea9DEfTNO1neyAy-2KmARFlSw`;
+      // Calculate tile coordinates from lat/lng
+      const n = Math.pow(2, zoom);
+      const tileX = Math.floor((lng + 180) / 360 * n);
+      const tileY = Math.floor((1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * n);
+      
+      // Create a 3x3 grid of tiles for better coverage (each tile is 256x256)
+      const tileSize = 256;
+      const gridSize = 3;
+      const canvas = document.createElement('canvas');
+      canvas.width = tileSize * gridSize;
+      canvas.height = tileSize * gridSize;
+      const ctx = canvas.getContext('2d');
+      
+      if (!ctx) {
+        throw new Error('Could not create canvas context');
+      }
 
-      // Calculate scale for Static Maps API at this zoom and latitude
+      // Load tiles in a grid around the center tile
+      const loadPromises: Promise<void>[] = [];
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          const tx = tileX + dx;
+          const ty = tileY + dy;
+          const tileUrl = `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${zoom}/${ty}/${tx}`;
+          
+          const promise = new Promise<void>((resolve) => {
+            const tileImg = document.createElement('img');
+            tileImg.crossOrigin = 'anonymous';
+            tileImg.onload = () => {
+              ctx.drawImage(tileImg, (dx + 1) * tileSize, (dy + 1) * tileSize);
+              resolve();
+            };
+            tileImg.onerror = () => {
+              // Fill with gray if tile fails to load
+              ctx.fillStyle = '#666';
+              ctx.fillRect((dx + 1) * tileSize, (dy + 1) * tileSize, tileSize, tileSize);
+              resolve();
+            };
+            tileImg.src = tileUrl;
+          });
+          loadPromises.push(promise);
+        }
+      }
+
+      await Promise.all(loadPromises);
+
+      // Calculate scale for tiles at this zoom and latitude
+      // Same formula as Google Maps - Web Mercator projection
       const metersPerPixel = (156543.03392 * Math.cos(lat * Math.PI / 180)) / Math.pow(2, zoom);
       
       // Remove existing background image if any
@@ -974,8 +1022,9 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         fabricCanvas.remove(backgroundImageRef.current);
       }
 
-      // Load the image
-      const img = await FabricImage.fromURL(staticMapUrl, { crossOrigin: 'anonymous' });
+      // Convert canvas to data URL and load into Fabric
+      const dataUrl = canvas.toDataURL('image/png');
+      const img = await FabricImage.fromURL(dataUrl);
       
       // Scale to fit canvas while maintaining aspect ratio
       const canvasWidth = fabricCanvas.width || 1200;
@@ -1002,8 +1051,6 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       backgroundImageRef.current = img;
       
       // Set scale based on satellite image resolution
-      // At zoom 20, metersPerPixel gives us the real-world scale
-      // Convert to pixels per meter for our canvas (accounting for image scaling)
       const pixelsPerMeterOnCanvas = (1 / metersPerPixel) * scale;
       setScalePixelsPerMeter(pixelsPerMeterOnCanvas);
       scalePixelsPerMeterRef.current = pixelsPerMeterOnCanvas;
