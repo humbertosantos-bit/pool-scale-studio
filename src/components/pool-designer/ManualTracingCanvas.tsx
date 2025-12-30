@@ -961,59 +961,76 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       const lat = parseFloat(geocodeData[0].lat);
       const lng = parseFloat(geocodeData[0].lon);
 
-      // Use Esri World Imagery for satellite tiles (free, no API key required)
-      const zoom = 20; // Maximum zoom for best detail
+      // Try different zoom levels, starting from highest quality
+      const zoomLevels = [19, 18, 17];
+      let successfulZoom = 0;
+      let finalCanvas: HTMLCanvasElement | null = null;
       
-      // Calculate tile coordinates from lat/lng
-      const n = Math.pow(2, zoom);
-      const tileX = Math.floor((lng + 180) / 360 * n);
-      const tileY = Math.floor((1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * n);
-      
-      // Create a 5x5 grid of tiles for better coverage and quality (each tile is 256x256)
-      const tileSize = 256;
-      const gridSize = 5;
-      const gridOffset = Math.floor(gridSize / 2); // 2 for 5x5 grid
-      const canvas = document.createElement('canvas');
-      canvas.width = tileSize * gridSize;
-      canvas.height = tileSize * gridSize;
-      const ctx = canvas.getContext('2d');
-      
-      if (!ctx) {
-        throw new Error('Could not create canvas context');
-      }
+      for (const zoom of zoomLevels) {
+        // Calculate tile coordinates from lat/lng
+        const n = Math.pow(2, zoom);
+        const tileX = Math.floor((lng + 180) / 360 * n);
+        const tileY = Math.floor((1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * n);
+        
+        // Create a 5x5 grid of tiles for better coverage (each tile is 256x256)
+        const tileSize = 256;
+        const gridSize = 5;
+        const gridOffset = Math.floor(gridSize / 2);
+        const tileCanvas = document.createElement('canvas');
+        tileCanvas.width = tileSize * gridSize;
+        tileCanvas.height = tileSize * gridSize;
+        const ctx = tileCanvas.getContext('2d');
+        
+        if (!ctx) continue;
 
-      // Load tiles in a grid around the center tile
-      const loadPromises: Promise<void>[] = [];
-      for (let dy = -gridOffset; dy <= gridOffset; dy++) {
-        for (let dx = -gridOffset; dx <= gridOffset; dx++) {
-          const tx = tileX + dx;
-          const ty = tileY + dy;
-          const tileUrl = `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${zoom}/${ty}/${tx}`;
-          
-          const promise = new Promise<void>((resolve) => {
-            const tileImg = document.createElement('img');
-            tileImg.crossOrigin = 'anonymous';
-            tileImg.onload = () => {
-              ctx.drawImage(tileImg, (dx + gridOffset) * tileSize, (dy + gridOffset) * tileSize);
-              resolve();
-            };
-            tileImg.onerror = () => {
-              // Fill with gray if tile fails to load
-              ctx.fillStyle = '#666';
-              ctx.fillRect((dx + gridOffset) * tileSize, (dy + gridOffset) * tileSize, tileSize, tileSize);
-              resolve();
-            };
-            tileImg.src = tileUrl;
-          });
-          loadPromises.push(promise);
+        // Load tiles and count successful loads
+        let successCount = 0;
+        const totalTiles = gridSize * gridSize;
+        
+        const loadPromises: Promise<boolean>[] = [];
+        for (let dy = -gridOffset; dy <= gridOffset; dy++) {
+          for (let dx = -gridOffset; dx <= gridOffset; dx++) {
+            const tx = tileX + dx;
+            const ty = tileY + dy;
+            const tileUrl = `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${zoom}/${ty}/${tx}`;
+            
+            const promise = new Promise<boolean>((resolve) => {
+              const tileImg = document.createElement('img');
+              tileImg.crossOrigin = 'anonymous';
+              tileImg.onload = () => {
+                ctx.drawImage(tileImg, (dx + gridOffset) * tileSize, (dy + gridOffset) * tileSize);
+                resolve(true);
+              };
+              tileImg.onerror = () => {
+                // Fill with placeholder if tile fails
+                ctx.fillStyle = '#444';
+                ctx.fillRect((dx + gridOffset) * tileSize, (dy + gridOffset) * tileSize, tileSize, tileSize);
+                resolve(false);
+              };
+              tileImg.src = tileUrl;
+            });
+            loadPromises.push(promise);
+          }
+        }
+
+        const results = await Promise.all(loadPromises);
+        successCount = results.filter(r => r).length;
+        
+        // If at least 60% of tiles loaded successfully, use this zoom level
+        if (successCount >= totalTiles * 0.6) {
+          successfulZoom = zoom;
+          finalCanvas = tileCanvas;
+          break;
         }
       }
-
-      await Promise.all(loadPromises);
+      
+      if (!finalCanvas || successfulZoom === 0) {
+        toast.error('Satellite imagery not available for this location.');
+        return;
+      }
 
       // Calculate scale for tiles at this zoom and latitude
-      // Same formula as Google Maps - Web Mercator projection
-      const metersPerPixel = (156543.03392 * Math.cos(lat * Math.PI / 180)) / Math.pow(2, zoom);
+      const metersPerPixel = (156543.03392 * Math.cos(lat * Math.PI / 180)) / Math.pow(2, successfulZoom);
       
       // Remove existing background image if any
       if (backgroundImageRef.current) {
@@ -1021,7 +1038,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       }
 
       // Convert canvas to data URL and load into Fabric
-      const dataUrl = canvas.toDataURL('image/png');
+      const dataUrl = finalCanvas.toDataURL('image/png');
       const img = await FabricImage.fromURL(dataUrl);
       
       // Scale to fit canvas while maintaining aspect ratio
@@ -1060,7 +1077,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       
       setShowSatelliteInput(false);
       setSatelliteAddress('');
-      toast.success(`Satellite image loaded! Scale auto-set (${metersPerPixel.toFixed(3)} m/px)`);
+      toast.success(`Satellite image loaded at zoom ${successfulZoom}! Scale: ${metersPerPixel.toFixed(3)} m/px`);
     } catch (error) {
       console.error('Error fetching satellite image:', error);
       toast.error('Failed to load satellite image. Please try again.');
