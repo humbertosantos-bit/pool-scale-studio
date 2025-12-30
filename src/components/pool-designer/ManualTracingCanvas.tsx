@@ -948,12 +948,9 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     setIsSatelliteLoading(true);
     try {
       // Use OpenStreetMap Nominatim for geocoding (free, no API key required)
-      const geocodeUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(satelliteAddress)}&limit=1`;
-      const geocodeResponse = await fetch(geocodeUrl, {
-        headers: {
-          'User-Agent': 'PoolDesigner/1.0'
-        }
-      });
+      const geocodeUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(satelliteAddress)}&limit=1&addressdetails=1`;
+      const geocodeResponse = await fetch(geocodeUrl);
+      
       const geocodeData = await geocodeResponse.json();
 
       if (!geocodeData || geocodeData.length === 0) {
