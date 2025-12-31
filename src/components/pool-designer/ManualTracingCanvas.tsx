@@ -239,6 +239,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
   
   // Grid visibility
   const [showGrid, setShowGrid] = useState(true);
+  const showGridRef = useRef(true);
   
   // Background image state
   const [backgroundImage, setBackgroundImage] = useState<FabricImage | null>(null);
@@ -692,8 +693,8 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       // Scale measurement labels for readability
       scaleMeasurementLabelsForZoom(fabricCanvas, newZoom);
       
-      // Redraw grid to cover visible area
-      if (showGrid && containerRef.current) {
+      // Redraw grid to cover visible area (use ref to avoid dependency)
+      if (showGridRef.current && containerRef.current) {
         drawGrid(fabricCanvas, containerRef.current.clientWidth, containerRef.current.clientHeight, true);
       }
     };
@@ -703,7 +704,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     return () => {
       fabricCanvas.off('mouse:wheel', handleWheel);
     };
-  }, [fabricCanvas, scaleMeasurementLabelsForZoom, showGrid]);
+  }, [fabricCanvas, scaleMeasurementLabelsForZoom]);
 
   // Initialize canvas
   // Function to add an independent, rotatable north indicator
@@ -880,6 +881,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     if (!fabricCanvas || !containerRef.current) return;
     const newShowGrid = !showGrid;
     setShowGrid(newShowGrid);
+    showGridRef.current = newShowGrid;
     drawGrid(fabricCanvas, containerRef.current.clientWidth, containerRef.current.clientHeight, newShowGrid);
     fabricCanvas.renderAll();
   };
@@ -3401,7 +3403,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
           fabricCanvas.defaultCursor = 'default';
         }
         // Redraw grid to cover visible area after panning
-        if (showGrid && containerRef.current) {
+        if (showGridRef.current && containerRef.current) {
           drawGrid(fabricCanvas, containerRef.current.clientWidth, containerRef.current.clientHeight, true);
         }
       }
@@ -4766,7 +4768,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     fabricCanvas.setZoom(newZoom);
     scaleMeasurementLabelsForZoom(fabricCanvas, newZoom);
     // Redraw grid to cover visible area
-    if (showGrid && containerRef.current) {
+    if (showGridRef.current && containerRef.current) {
       drawGrid(fabricCanvas, containerRef.current.clientWidth, containerRef.current.clientHeight, true);
     }
   };
@@ -4778,7 +4780,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     fabricCanvas.setZoom(newZoom);
     scaleMeasurementLabelsForZoom(fabricCanvas, newZoom);
     // Redraw grid to cover visible area
-    if (showGrid && containerRef.current) {
+    if (showGridRef.current && containerRef.current) {
       drawGrid(fabricCanvas, containerRef.current.clientWidth, containerRef.current.clientHeight, true);
     }
   };
@@ -4790,7 +4792,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     fabricCanvas.setViewportTransform([1, 0, 0, 1, 0, 0]);
     scaleMeasurementLabelsForZoom(fabricCanvas, 1);
     // Redraw grid to cover visible area
-    if (showGrid && containerRef.current) {
+    if (showGridRef.current && containerRef.current) {
       drawGrid(fabricCanvas, containerRef.current.clientWidth, containerRef.current.clientHeight, true);
     }
   };
@@ -5054,7 +5056,8 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       return;
     }
     
-    const lengthPixels = lengthInMeters * PIXELS_PER_METER;
+    // Use dynamic scale instead of static constant
+    const lengthPixels = lengthInMeters * getPixelsPerMeter();
     
     // Place in center of visible canvas
     const vpt = fabricCanvas.viewportTransform || [1, 0, 0, 1, 0, 0];
