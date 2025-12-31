@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ImageUploadOptions } from '@/components/pool-designer/ImageUploadOptions';
 import { PoolCanvas } from '@/components/pool-designer/PoolCanvas';
 import { PoolControls } from '@/components/pool-designer/PoolControls';
 import { PoolCalculations } from '@/components/pool-designer/PoolCalculations';
 import { ManualTracingCanvas } from '@/components/pool-designer/ManualTracingCanvas';
-import { ClientInfo } from '@/components/pool-designer/ClientInfoForm';
+import { ClientInfo, ClientInfoForm } from '@/components/pool-designer/ClientInfoForm';
 import { representatives } from '@/data/representatives';
 import logo from '@/assets/piscineriviera-logo.png';
 import { Button } from '@/components/ui/button';
+import { Pencil } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,16 +21,24 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface StoredClientInfo extends ClientInfo {
   createdAt?: string;
 }
 
 const Design: React.FC = () => {
+  const navigate = useNavigate();
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [scaleInfo, setScaleInfo] = useState<{ metersPerPixel: number; latitude: number; zoom: number } | null>(null);
   const [poolState, setPoolState] = useState<any>(null);
   const [isManualTracing, setIsManualTracing] = useState(false);
+  const [isEditingClientInfo, setIsEditingClientInfo] = useState(false);
   const [clientInfo, setClientInfo] = useState<StoredClientInfo>({
     name: '',
     phone: '',
@@ -68,6 +78,20 @@ const Design: React.FC = () => {
     setIsManualTracing(false);
   };
 
+  const handleStartNewProject = () => {
+    sessionStorage.removeItem('clientInfo');
+    navigate('/');
+  };
+
+  const handleSaveClientInfo = () => {
+    const dataToStore = {
+      ...clientInfo,
+      createdAt: clientInfo.createdAt || new Date().toISOString(),
+    };
+    sessionStorage.setItem('clientInfo', JSON.stringify(dataToStore));
+    setIsEditingClientInfo(false);
+  };
+
   const representative = representatives.find(r => r.id === clientInfo.representativeId);
   
   const formatDate = (isoString?: string) => {
@@ -90,23 +114,42 @@ const Design: React.FC = () => {
           <h1 className="text-3xl font-bold text-white absolute left-1/2 -translate-x-1/2">
             Piscine Riviera Design Tool
           </h1>
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="destructive" size="sm">Reset</Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This will reset all your work and clear the canvas. This action cannot be undone.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleReset}>Reset</AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+          <div className="flex gap-2">
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" size="sm" className="bg-white/10 text-white border-white/20 hover:bg-white/20">New Project</Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Start New Project?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will clear all current work and return to the client info screen. This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleStartNewProject}>Start New</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" size="sm">Reset</Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will reset all your work and clear the canvas. This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleReset}>Reset</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
         </div>
       </div>
 
@@ -117,7 +160,15 @@ const Design: React.FC = () => {
           <div className="w-64 min-w-[240px] border-r bg-white overflow-y-auto flex flex-col">
             <div className="p-3 space-y-3 flex-1">
               {/* Client Info Header */}
-              <div className="bg-primary/10 rounded-lg p-2 space-y-1">
+              <div className="bg-primary/10 rounded-lg p-2 space-y-1 relative">
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="absolute top-1 right-1 h-6 w-6"
+                  onClick={() => setIsEditingClientInfo(true)}
+                >
+                  <Pencil className="h-3 w-3" />
+                </Button>
                 {clientInfo.createdAt && (
                   <p className="text-[10px] text-muted-foreground">{formatDate(clientInfo.createdAt)}</p>
                 )}
@@ -137,6 +188,23 @@ const Design: React.FC = () => {
                   <p className="text-xs font-medium text-primary/80">Rep: {representative.name}</p>
                 )}
               </div>
+
+              {/* Edit Client Info Dialog */}
+              <Dialog open={isEditingClientInfo} onOpenChange={setIsEditingClientInfo}>
+                <DialogContent className="max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>Edit Client Information</DialogTitle>
+                  </DialogHeader>
+                  <ClientInfoForm 
+                    clientInfo={clientInfo}
+                    onClientInfoChange={setClientInfo}
+                  />
+                  <div className="flex justify-end gap-2 mt-4">
+                    <Button variant="outline" onClick={() => setIsEditingClientInfo(false)}>Cancel</Button>
+                    <Button onClick={handleSaveClientInfo}>Save</Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
               
               {/* Calculations - Always visible */}
               <PoolCalculations
