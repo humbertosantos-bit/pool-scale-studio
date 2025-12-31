@@ -368,6 +368,28 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     standalonePaversRef.current = standalonePavers;
   }, [standalonePavers]);
 
+  // Sync calculation data to parent component via onStateChange
+  useEffect(() => {
+    if (onStateChange) {
+      onStateChange({
+        calculatedData: {
+          pools: poolCalculations.map(calc => ({
+            poolId: calc.poolId,
+            poolName: calc.poolName,
+            copingSqFt: typeof calc.copingSqFt === 'string' ? parseFloat(calc.copingSqFt) || 0 : calc.copingSqFt || 0,
+            paverNetSqFt: typeof calc.paverNetSqFt === 'string' ? parseFloat(calc.paverNetSqFt) || 0 : calc.paverNetSqFt || 0,
+            totalWithWasteSqFt: typeof calc.totalWithWasteSqFt === 'string' ? parseFloat(calc.totalWithWasteSqFt) || 0 : calc.totalWithWasteSqFt || 0,
+          })),
+          fences: [],
+          pavers: standalonePavers.map(paver => ({
+            paverId: paver.id,
+            sqFt: typeof paver.areaSqFt === 'string' ? parseFloat(paver.areaSqFt) || 0 : paver.areaSqFt || 0,
+          })),
+        },
+      });
+    }
+  }, [poolCalculations, standalonePavers, onStateChange]);
+
   // Create water gradient for pools (uses Fabric.js Gradient)
   const createWaterGradient = (points: { x: number; y: number }[]): Gradient<'linear'> => {
     // Calculate bounding box
@@ -6255,70 +6277,8 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         )}
       </div>
       
-      {/* Main content area with calculations on left and canvas on right */}
+      {/* Main content area - Canvas only */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Pool Calculations Panel - Left Side */}
-        {(poolCalculations.length > 0 || standalonePavers.length > 0) && (
-          <div className="w-64 bg-white border-r p-3 overflow-y-auto">
-            <h3 className="font-semibold text-sm text-slate-800 mb-3">Calculations</h3>
-            <div className="flex flex-col gap-3">
-              {/* Pool Calculations */}
-              {poolCalculations.map((calc) => (
-                <div key={calc.poolId} className={`flex flex-col gap-1 p-2 rounded border text-xs ${editingPoolId === calc.poolId ? 'bg-amber-50 border-amber-300' : 'bg-slate-50'}`}>
-                  <div className="flex justify-between items-center">
-                    <span className="font-semibold text-sm text-slate-800">{calc.poolName}</span>
-                    <Button
-                      size="sm"
-                      variant={editingPoolId === calc.poolId ? 'default' : 'ghost'}
-                      className="h-5 text-[10px] px-1.5"
-                      onClick={() => editingPoolId === calc.poolId ? cancelPaverEditing() : startEditingPoolPavers(calc.poolId)}
-                    >
-                      {editingPoolId === calc.poolId ? 'Editing...' : 'Edit Pavers'}
-                    </Button>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-600">Coping:</span>
-                    <span className="font-medium">{calc.copingSqFt} sq ft</span>
-                  </div>
-                  {calc.paverNetSqFt > 0 && (
-                    <>
-                      <div className="flex justify-between">
-                        <span className="text-slate-600">Paver Area (Net):</span>
-                        <span className="font-medium">{calc.paverNetSqFt} sq ft</span>
-                      </div>
-                      <div className="flex justify-between border-t pt-1 mt-1">
-                        <span className="text-amber-700 font-medium">Total:</span>
-                        <span className="font-bold text-amber-700">{calc.totalWithWasteSqFt} sq ft</span>
-                      </div>
-                    </>
-                  )}
-                </div>
-              ))}
-              
-              {/* Standalone Paver Calculations */}
-              {standalonePavers.length > 0 && (
-                <>
-                  {poolCalculations.length > 0 && <div className="border-t pt-2 mt-1" />}
-                  <div className="text-xs font-medium text-stone-600 mb-1">Paver Zones</div>
-                  {standalonePavers.map((paver) => (
-                    <div key={paver.id} className="flex flex-col gap-1 p-2 rounded border text-xs bg-stone-50 border-stone-200">
-                      <span className="font-semibold text-sm text-stone-800">{paver.name}</span>
-                      <div className="flex justify-between">
-                        <span className="text-stone-600">Area (Net):</span>
-                        <span className="font-medium">{paver.areaSqFt} sq ft</span>
-                      </div>
-                      <div className="flex justify-between border-t pt-1 mt-1">
-                        <span className="text-stone-700 font-medium">With 10% Waste:</span>
-                        <span className="font-bold text-stone-700">{paver.areaWithWasteSqFt} sq ft</span>
-                      </div>
-                    </div>
-                  ))}
-                </>
-              )}
-            </div>
-          </div>
-        )}
-
         {/* Canvas */}
         <div ref={containerRef} className="flex-1 overflow-hidden">
           <canvas ref={canvasRef} />
