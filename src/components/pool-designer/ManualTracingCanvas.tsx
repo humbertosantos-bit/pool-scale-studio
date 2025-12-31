@@ -669,7 +669,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
 
   // Mouse wheel zoom
   useEffect(() => {
-    if (!fabricCanvas) return;
+    if (!fabricCanvas || !containerRef.current) return;
 
     const handleWheel = (opt: any) => {
       const e = opt.e as WheelEvent;
@@ -691,6 +691,11 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       
       // Scale measurement labels for readability
       scaleMeasurementLabelsForZoom(fabricCanvas, newZoom);
+      
+      // Redraw grid to cover visible area
+      if (showGrid && containerRef.current) {
+        drawGrid(fabricCanvas, containerRef.current.clientWidth, containerRef.current.clientHeight, true);
+      }
     };
 
     fabricCanvas.on('mouse:wheel', handleWheel);
@@ -698,7 +703,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     return () => {
       fabricCanvas.off('mouse:wheel', handleWheel);
     };
-  }, [fabricCanvas, scaleMeasurementLabelsForZoom]);
+  }, [fabricCanvas, scaleMeasurementLabelsForZoom, showGrid]);
 
   // Initialize canvas
   // Function to add an independent, rotatable north indicator
@@ -827,9 +832,26 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
 
     if (!visible) return;
 
-    // Draw new grid lines
-    for (let x = 0; x <= width; x += GRID_SIZE) {
-      const line = new Line([x, 0, x, height], {
+    // Calculate visible viewport bounds based on zoom and pan
+    const vpt = canvas.viewportTransform || [1, 0, 0, 1, 0, 0];
+    const zoom = canvas.getZoom();
+    
+    // Calculate the visible area in canvas coordinates
+    const visibleLeft = -vpt[4] / zoom;
+    const visibleTop = -vpt[5] / zoom;
+    const visibleRight = (width - vpt[4]) / zoom;
+    const visibleBottom = (height - vpt[5]) / zoom;
+    
+    // Add extra padding to ensure grid covers when panning
+    const padding = 500;
+    const startX = Math.floor((visibleLeft - padding) / GRID_SIZE) * GRID_SIZE;
+    const endX = Math.ceil((visibleRight + padding) / GRID_SIZE) * GRID_SIZE;
+    const startY = Math.floor((visibleTop - padding) / GRID_SIZE) * GRID_SIZE;
+    const endY = Math.ceil((visibleBottom + padding) / GRID_SIZE) * GRID_SIZE;
+
+    // Draw vertical grid lines
+    for (let x = startX; x <= endX; x += GRID_SIZE) {
+      const line = new Line([x, startY, x, endY], {
         stroke: '#e2e8f0',
         strokeWidth: 0.5,
         selectable: false,
@@ -839,8 +861,9 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       canvas.add(line);
       canvas.sendObjectToBack(line);
     }
-    for (let y = 0; y <= height; y += GRID_SIZE) {
-      const line = new Line([0, y, width, y], {
+    // Draw horizontal grid lines
+    for (let y = startY; y <= endY; y += GRID_SIZE) {
+      const line = new Line([startX, y, endX, y], {
         stroke: '#e2e8f0',
         strokeWidth: 0.5,
         selectable: false,
@@ -3377,6 +3400,10 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         } else {
           fabricCanvas.defaultCursor = 'default';
         }
+        // Redraw grid to cover visible area after panning
+        if (showGrid && containerRef.current) {
+          drawGrid(fabricCanvas, containerRef.current.clientWidth, containerRef.current.clientHeight, true);
+        }
       }
     };
 
@@ -4738,6 +4765,10 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     setZoomLevel(newZoom);
     fabricCanvas.setZoom(newZoom);
     scaleMeasurementLabelsForZoom(fabricCanvas, newZoom);
+    // Redraw grid to cover visible area
+    if (showGrid && containerRef.current) {
+      drawGrid(fabricCanvas, containerRef.current.clientWidth, containerRef.current.clientHeight, true);
+    }
   };
 
   const zoomOut = () => {
@@ -4746,6 +4777,10 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     setZoomLevel(newZoom);
     fabricCanvas.setZoom(newZoom);
     scaleMeasurementLabelsForZoom(fabricCanvas, newZoom);
+    // Redraw grid to cover visible area
+    if (showGrid && containerRef.current) {
+      drawGrid(fabricCanvas, containerRef.current.clientWidth, containerRef.current.clientHeight, true);
+    }
   };
 
   const resetView = () => {
@@ -4754,6 +4789,10 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     fabricCanvas.setZoom(1);
     fabricCanvas.setViewportTransform([1, 0, 0, 1, 0, 0]);
     scaleMeasurementLabelsForZoom(fabricCanvas, 1);
+    // Redraw grid to cover visible area
+    if (showGrid && containerRef.current) {
+      drawGrid(fabricCanvas, containerRef.current.clientWidth, containerRef.current.clientHeight, true);
+    }
   };
 
   // Undo last action
