@@ -293,12 +293,13 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
   const poolShapesRef = useRef<DrawnShape[]>([]);
   const unitRef = useRef<UnitType>('ft');
 
-  // Grid settings - each grid square = 1 meter
-  const GRID_SIZE = 20; // 20 pixels = 1 meter
-  const PIXELS_PER_METER = GRID_SIZE;
+  // Grid settings - each grid square = 1 foot
+  const GRID_SIZE = 10; // 10 pixels = 1 foot (smaller squares)
+  const PIXELS_PER_FOOT = GRID_SIZE;
+  const PIXELS_PER_METER = PIXELS_PER_FOOT * 3.28084; // ~32.8 pixels per meter
   const METERS_TO_FEET = 3.28084;
-  const SNAP_DISTANCE = 10;
-  const CLOSE_DISTANCE = 15;
+  const SNAP_DISTANCE = 8;
+  const CLOSE_DISTANCE = 12;
 
   // Create hatch pattern for house/roof with white background
   const createHatchPattern = (): Pattern => {
