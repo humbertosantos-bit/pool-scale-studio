@@ -3375,6 +3375,12 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       // Allow moving pavers in both 'none' and 'move-paver' modes
       if (drawingModeRef.current !== 'move-paver' && drawingModeRef.current !== 'none') return;
       
+      // If clicking on a vertex or edge marker, let those handlers handle it
+      const target = e.target;
+      if (target && ((target as any).isVertexMarker || (target as any).isEdgeMarker)) {
+        return;
+      }
+      
       const pointer = fabricCanvas.getScenePoint(e.e);
       
       // Check if clicked inside any standalone paver
