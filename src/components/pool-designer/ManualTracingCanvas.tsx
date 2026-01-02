@@ -695,11 +695,6 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       
       // Scale measurement labels for readability
       scaleMeasurementLabelsForZoom(fabricCanvas, newZoom);
-      
-      // Redraw grid to cover visible area (use ref to avoid dependency)
-      if (showGridRef.current && containerRef.current) {
-        drawGrid(fabricCanvas, containerRef.current.clientWidth, containerRef.current.clientHeight, true);
-      }
     };
 
     fabricCanvas.on('mouse:wheel', handleWheel);
@@ -824,59 +819,66 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     };
   }, []);
 
-  // Draw subtle grid
-  const drawGrid = (canvas: FabricCanvas, width: number, height: number, visible: boolean = true) => {
-    // Remove old grid lines
-    const objects = canvas.getObjects();
-    objects.forEach(obj => {
-      if ((obj as any).isGrid) {
-        canvas.remove(obj);
-      }
+  // Grid ref for persistent grid rectangle
+  const gridRectRef = useRef<Rect | null>(null);
+
+  // Create grid pattern (called once)
+  const createGridPattern = (): Pattern => {
+    const patternCanvas = document.createElement('canvas');
+    patternCanvas.width = GRID_SIZE;
+    patternCanvas.height = GRID_SIZE;
+    const ctx = patternCanvas.getContext('2d');
+    if (ctx) {
+      // Clear background (transparent)
+      ctx.clearRect(0, 0, GRID_SIZE, GRID_SIZE);
+      // Draw grid lines
+      ctx.strokeStyle = '#e2e8f0';
+      ctx.lineWidth = 0.5;
+      // Right edge (vertical line)
+      ctx.beginPath();
+      ctx.moveTo(GRID_SIZE, 0);
+      ctx.lineTo(GRID_SIZE, GRID_SIZE);
+      ctx.stroke();
+      // Bottom edge (horizontal line)
+      ctx.beginPath();
+      ctx.moveTo(0, GRID_SIZE);
+      ctx.lineTo(GRID_SIZE, GRID_SIZE);
+      ctx.stroke();
+    }
+    return new Pattern({
+      source: patternCanvas,
+      repeat: 'repeat',
     });
+  };
+
+  // Draw grid using a single pattern-filled rectangle (much more performant)
+  const drawGrid = (canvas: FabricCanvas, width: number, height: number, visible: boolean = true) => {
+    // Remove existing grid rect
+    if (gridRectRef.current) {
+      canvas.remove(gridRectRef.current);
+      gridRectRef.current = null;
+    }
 
     if (!visible) return;
 
-    // Calculate visible viewport bounds based on zoom and pan
-    const vpt = canvas.viewportTransform || [1, 0, 0, 1, 0, 0];
-    const zoom = canvas.getZoom();
+    // Create a large rectangle that covers the entire possible canvas area
+    // Using a very large size so it covers all panning/zooming scenarios
+    const gridSize = 20000; // Large enough to cover extreme zoom out/pan
+    const gridRect = new Rect({
+      left: -gridSize / 2,
+      top: -gridSize / 2,
+      width: gridSize,
+      height: gridSize,
+      fill: createGridPattern(),
+      selectable: false,
+      evented: false,
+      excludeFromExport: true,
+    });
+    (gridRect as any).isGrid = true;
+    gridRectRef.current = gridRect;
     
-    // Calculate the visible area in canvas coordinates
-    const visibleLeft = -vpt[4] / zoom;
-    const visibleTop = -vpt[5] / zoom;
-    const visibleRight = (width - vpt[4]) / zoom;
-    const visibleBottom = (height - vpt[5]) / zoom;
-    
-    // Add extra padding to ensure grid covers when panning
-    const padding = 500;
-    const startX = Math.floor((visibleLeft - padding) / GRID_SIZE) * GRID_SIZE;
-    const endX = Math.ceil((visibleRight + padding) / GRID_SIZE) * GRID_SIZE;
-    const startY = Math.floor((visibleTop - padding) / GRID_SIZE) * GRID_SIZE;
-    const endY = Math.ceil((visibleBottom + padding) / GRID_SIZE) * GRID_SIZE;
-
-    // Draw vertical grid lines
-    for (let x = startX; x <= endX; x += GRID_SIZE) {
-      const line = new Line([x, startY, x, endY], {
-        stroke: '#e2e8f0',
-        strokeWidth: 0.5,
-        selectable: false,
-        evented: false,
-      });
-      (line as any).isGrid = true;
-      canvas.add(line);
-      canvas.sendObjectToBack(line);
-    }
-    // Draw horizontal grid lines
-    for (let y = startY; y <= endY; y += GRID_SIZE) {
-      const line = new Line([startX, y, endX, y], {
-        stroke: '#e2e8f0',
-        strokeWidth: 0.5,
-        selectable: false,
-        evented: false,
-      });
-      (line as any).isGrid = true;
-      canvas.add(line);
-      canvas.sendObjectToBack(line);
-    }
+    canvas.add(gridRect);
+    canvas.sendObjectToBack(gridRect);
   };
 
   // Toggle grid visibility
@@ -3405,10 +3407,6 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         } else {
           fabricCanvas.defaultCursor = 'default';
         }
-        // Redraw grid to cover visible area after panning
-        if (showGridRef.current && containerRef.current) {
-          drawGrid(fabricCanvas, containerRef.current.clientWidth, containerRef.current.clientHeight, true);
-        }
       }
     };
 
@@ -4805,10 +4803,6 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     setZoomLevel(newZoom);
     fabricCanvas.setZoom(newZoom);
     scaleMeasurementLabelsForZoom(fabricCanvas, newZoom);
-    // Redraw grid to cover visible area
-    if (showGridRef.current && containerRef.current) {
-      drawGrid(fabricCanvas, containerRef.current.clientWidth, containerRef.current.clientHeight, true);
-    }
   };
 
   const zoomOut = () => {
@@ -4817,10 +4811,6 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     setZoomLevel(newZoom);
     fabricCanvas.setZoom(newZoom);
     scaleMeasurementLabelsForZoom(fabricCanvas, newZoom);
-    // Redraw grid to cover visible area
-    if (showGridRef.current && containerRef.current) {
-      drawGrid(fabricCanvas, containerRef.current.clientWidth, containerRef.current.clientHeight, true);
-    }
   };
 
   const resetView = () => {
@@ -4829,10 +4819,6 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     fabricCanvas.setZoom(1);
     fabricCanvas.setViewportTransform([1, 0, 0, 1, 0, 0]);
     scaleMeasurementLabelsForZoom(fabricCanvas, 1);
-    // Redraw grid to cover visible area
-    if (showGridRef.current && containerRef.current) {
-      drawGrid(fabricCanvas, containerRef.current.clientWidth, containerRef.current.clientHeight, true);
-    }
   };
 
   // Undo last action
