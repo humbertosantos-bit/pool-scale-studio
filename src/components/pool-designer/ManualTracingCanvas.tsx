@@ -3527,6 +3527,41 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       }
     };
 
+    // Highlight vertex markers on hover
+    const handleVertexMouseOver = (e: any) => {
+      const target = e.target;
+      if (!target || !(target as any).isVertexMarker) return;
+      
+      // Store original values for restoration
+      (target as any)._originalRadius = target.radius;
+      (target as any)._originalFill = target.fill;
+      (target as any)._originalStroke = target.stroke;
+      (target as any)._originalStrokeWidth = target.strokeWidth;
+      
+      // Apply highlight effect
+      target.set({
+        radius: 8,
+        fill: '#3b82f6',
+        stroke: '#1d4ed8',
+        strokeWidth: 2,
+      });
+      fabricCanvas.renderAll();
+    };
+
+    const handleVertexMouseOut = (e: any) => {
+      const target = e.target;
+      if (!target || !(target as any).isVertexMarker) return;
+      
+      // Restore original values
+      target.set({
+        radius: (target as any)._originalRadius || 4,
+        fill: (target as any)._originalFill || 'transparent',
+        stroke: (target as any)._originalStroke || '#000000',
+        strokeWidth: (target as any)._originalStrokeWidth || 0.5,
+      });
+      fabricCanvas.renderAll();
+    };
+
     // Edge dragging handlers (for moving two vertices at once)
     const handleEdgeMouseDown = (e: any) => {
       if ((drawingModeRef.current !== 'none' && drawingModeRef.current !== 'move-paver') || spacePressedRef.current) return;
@@ -3659,6 +3694,8 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     fabricCanvas.on('mouse:down', handleVertexMouseDown);
     fabricCanvas.on('mouse:move', handleVertexMouseMove);
     fabricCanvas.on('mouse:up', handleVertexMouseUp);
+    fabricCanvas.on('mouse:over', handleVertexMouseOver);
+    fabricCanvas.on('mouse:out', handleVertexMouseOut);
     fabricCanvas.on('mouse:down', handleEdgeMouseDown);
     fabricCanvas.on('mouse:move', handleEdgeMouseMove);
     fabricCanvas.on('mouse:up', handleEdgeMouseUp);
@@ -3739,6 +3776,8 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       fabricCanvas.off('mouse:down', handleVertexMouseDown);
       fabricCanvas.off('mouse:move', handleVertexMouseMove);
       fabricCanvas.off('mouse:up', handleVertexMouseUp);
+      fabricCanvas.off('mouse:over', handleVertexMouseOver);
+      fabricCanvas.off('mouse:out', handleVertexMouseOut);
       fabricCanvas.off('mouse:down', handleEdgeMouseDown);
       fabricCanvas.off('mouse:move', handleEdgeMouseMove);
       fabricCanvas.off('mouse:up', handleEdgeMouseUp);
