@@ -1795,12 +1795,15 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       // Ensure proper z-order
       sendBackgroundToBack(fabricCanvas);
       
-      // Add small, subtle vertex markers for corner editing
+      // Add edge markers FIRST so they are below vertex markers
+      addPaverEdgeMarkers(fabricCanvas, newPoints, paver.id, polygon);
+      
+      // Add vertex markers AFTER edge markers for correct z-order (on top)
       newPoints.forEach((p, index) => {
         const marker = new Circle({
           left: p.x,
           top: p.y,
-          radius: 2,
+          radius: 4,
           fill: 'transparent',
           stroke: '#000000',
           strokeWidth: 0.5,
@@ -1821,8 +1824,6 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         fabricCanvas.add(marker);
       });
       
-      // Add edge markers for edge dragging
-      addPaverEdgeMarkers(fabricCanvas, newPoints, paver.id, polygon);
       
       // Recalculate area
       const areaSqFt = calculatePolygonAreaSqFt(newPoints);
@@ -2357,12 +2358,15 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       setStandalonePavers(prev => [...prev, standalonePaver]);
       standalonePaversRef.current = [...standalonePaversRef.current, standalonePaver];
       
-      // Add small, subtle vertex markers for corner editing
+      // Add edge markers FIRST so they are below vertex markers
+      addPaverEdgeMarkers(fabricCanvas, points, shapeId, polygon);
+      
+      // Add vertex markers AFTER edge markers for correct z-order (on top)
       points.forEach((p, index) => {
         const marker = new Circle({
           left: p.x,
           top: p.y,
-          radius: 2,
+          radius: 4,
           fill: 'transparent',
           stroke: '#000000',
           strokeWidth: 0.5,
@@ -2382,9 +2386,6 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         (marker as any).isVertexMarker = true;
         fabricCanvas.add(marker);
       });
-      
-      // Add edge markers for edge dragging
-      addPaverEdgeMarkers(fabricCanvas, points, shapeId, polygon);
       
       // Add paver name label with area
       addStandalonePaverLabel(fabricCanvas, points, shapeId, paverName, areaSqFt);
@@ -3371,7 +3372,8 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
 
     // Handle standalone paver movement
     const handlePaverMouseDown = (e: any) => {
-      if (drawingModeRef.current !== 'move-paver') return;
+      // Allow moving pavers in both 'none' and 'move-paver' modes
+      if (drawingModeRef.current !== 'move-paver' && drawingModeRef.current !== 'none') return;
       
       const pointer = fabricCanvas.getScenePoint(e.e);
       
@@ -5225,12 +5227,15 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     (rect as any).isStandalonePaver = true;
     fabricCanvas.add(rect);
     
-    // Add small, subtle vertex markers for corner editing
+    // Add edge markers FIRST so they are below vertex markers
+    addPaverEdgeMarkers(fabricCanvas, points, shapeId, rect);
+    
+    // Add vertex markers AFTER edge markers for correct z-order (on top)
     points.forEach((p, index) => {
       const marker = new Circle({
         left: p.x,
         top: p.y,
-        radius: 2,
+        radius: 4,
         fill: 'transparent',
         stroke: '#000000',
         strokeWidth: 0.5,
@@ -5250,9 +5255,6 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       (marker as any).isVertexMarker = true;
       fabricCanvas.add(marker);
     });
-    
-    // Add edge markers for edge dragging
-    addPaverEdgeMarkers(fabricCanvas, points, shapeId, rect);
     
     // Add label
     addStandalonePaverLabel(fabricCanvas, points, shapeId, paverName, areaSqFt);
