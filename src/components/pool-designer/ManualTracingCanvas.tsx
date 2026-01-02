@@ -3620,7 +3620,16 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         const currentAngle = target.angle || 0;
         // Snap to 45-degree increments
         const snappedAngle = Math.round(currentAngle / 45) * 45;
+        
+        // Store the center point before changing angle to prevent movement
+        const centerPoint = target.getCenterPoint();
+        
         target.set('angle', snappedAngle);
+        
+        // Restore the center point to keep the object in place
+        target.setPositionByOrigin(centerPoint, 'center', 'center');
+        target.setCoords();
+        
         fabricCanvas.requestRenderAll();
       }
     };
