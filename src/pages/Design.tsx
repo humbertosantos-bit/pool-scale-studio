@@ -10,6 +10,8 @@ import { representatives } from '@/data/representatives';
 import logo from '@/assets/piscineriviera-logo.png';
 import { Button } from '@/components/ui/button';
 import { Pencil } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -46,12 +48,18 @@ const Design: React.FC = () => {
     email: '',
     representativeId: '',
   });
+  const [notes, setNotes] = useState<string>('');
 
   useEffect(() => {
     // Load client info from sessionStorage
     const stored = sessionStorage.getItem('clientInfo');
     if (stored) {
       setClientInfo(JSON.parse(stored));
+    }
+    // Load notes from sessionStorage
+    const storedNotes = sessionStorage.getItem('projectNotes');
+    if (storedNotes) {
+      setNotes(storedNotes);
     }
   }, []);
 
@@ -76,11 +84,19 @@ const Design: React.FC = () => {
     setScaleInfo(null);
     setPoolState(null);
     setIsManualTracing(false);
+    setNotes('');
+    sessionStorage.removeItem('projectNotes');
   };
 
   const handleStartNewProject = () => {
     sessionStorage.removeItem('clientInfo');
+    sessionStorage.removeItem('projectNotes');
     navigate('/');
+  };
+
+  const handleNotesChange = (value: string) => {
+    setNotes(value);
+    sessionStorage.setItem('projectNotes', value);
   };
 
   const handleSaveClientInfo = () => {
@@ -189,7 +205,18 @@ const Design: React.FC = () => {
                 )}
               </div>
 
-              {/* Edit Client Info Dialog */}
+              {/* Notes Section */}
+              <div className="space-y-1.5">
+                <Label htmlFor="notes" className="text-xs font-medium">Notes</Label>
+                <Textarea
+                  id="notes"
+                  placeholder="Add notes about this project..."
+                  value={notes}
+                  onChange={(e) => handleNotesChange(e.target.value)}
+                  className="min-h-[80px] text-xs resize-none"
+                />
+              </div>
+
               <Dialog open={isEditingClientInfo} onOpenChange={setIsEditingClientInfo}>
                 <DialogContent className="max-w-md">
                   <DialogHeader>
