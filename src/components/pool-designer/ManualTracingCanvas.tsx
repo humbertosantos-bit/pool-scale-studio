@@ -186,6 +186,9 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
   const [shiftPressed, setShiftPressed] = useState(false);
   const shiftPressedRef = useRef(false);
   
+  // Rotation tracking - store the original center point before rotation starts
+  const rotationOriginalCenterRef = useRef<{ x: number; y: number } | null>(null);
+  
   // House movement state
   const [selectedHouseIndex, setSelectedHouseIndex] = useState<number | null>(null);
   const [isDraggingHouse, setIsDraggingHouse] = useState(false);
@@ -3610,6 +3613,18 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     fabricCanvas.on('mouse:move', handleEdgeMouseMove);
     fabricCanvas.on('mouse:up', handleEdgeMouseUp);
     
+    // Capture center point BEFORE rotation starts (on mouse down on rotation control)
+    const handleRotationMouseDown = (e: any) => {
+      const target = e.target;
+      if (!target || !(target as any).isMeasurementLine) return;
+      
+      // Store the center point at the very start of rotation
+      rotationOriginalCenterRef.current = {
+        x: target.left,
+        y: target.top,
+      };
+    };
+    
     // Handle rotation snapping for measurements (45° when Shift is pressed)
     const handleObjectRotating = (e: any) => {
       if (!e.e) return;
@@ -3621,20 +3636,32 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         // Snap to 45-degree increments
         const snappedAngle = Math.round(currentAngle / 45) * 45;
         
-        // Store the center point before changing angle to prevent movement
-        const centerPoint = target.getCenterPoint();
-        
         target.set('angle', snappedAngle);
         
-        // Restore the center point to keep the object in place
-        target.setPositionByOrigin(centerPoint, 'center', 'center');
+        // Restore to the original center position stored at mouse down
+        if (rotationOriginalCenterRef.current) {
+          target.set({
+            left: rotationOriginalCenterRef.current.x,
+            top: rotationOriginalCenterRef.current.y,
+          });
+        }
         target.setCoords();
         
         fabricCanvas.requestRenderAll();
       }
     };
     
+    // Clear the stored center when rotation ends
+    const handleRotationEnd = (e: any) => {
+      const target = e.target;
+      if (target && (target as any).isMeasurementLine) {
+        rotationOriginalCenterRef.current = null;
+      }
+    };
+    
+    fabricCanvas.on('mouse:down', handleRotationMouseDown);
     fabricCanvas.on('object:rotating', handleObjectRotating);
+    fabricCanvas.on('object:modified', handleRotationEnd);
     
     // Handle selection of items by clicking
     const handleSelectionClick = (e: any) => {
@@ -3665,7 +3692,9 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       fabricCanvas.off('mouse:down', handleEdgeMouseDown);
       fabricCanvas.off('mouse:move', handleEdgeMouseMove);
       fabricCanvas.off('mouse:up', handleEdgeMouseUp);
+      fabricCanvas.off('mouse:down', handleRotationMouseDown);
       fabricCanvas.off('object:rotating', handleObjectRotating);
+      fabricCanvas.off('object:modified', handleRotationEnd);
       fabricCanvas.off('mouse:dblclick', handleSelectionClick);
     };
   }, [fabricCanvas, completeShape, gridSnapping, vertexSnapping, isDraggingHouse, selectedHouseIndex, isDraggingPool, selectedPoolIndex, isRotatingPool, isPanning, isDraggingPaver, selectedPaverIndex]);
@@ -4988,8 +5017,12 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       originY: 'center',
     });
     
-    // Group all elements
+    // Group all elements - use center origin for proper rotation behavior
     const group = new Group([mainLine, startArrow1, startArrow2, endArrow1, endArrow2, label], {
+      left: midX,
+      top: midY,
+      originX: 'center',
+      originY: 'center',
       selectable: true,
       evented: true,
       hasControls: true,
