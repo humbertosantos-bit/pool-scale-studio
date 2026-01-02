@@ -680,6 +680,9 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       e.preventDefault();
       e.stopPropagation();
       
+      // Hide grid during zoom for smooth performance
+      hideGrid();
+      
       const delta = e.deltaY;
       let newZoom = fabricCanvas.getZoom();
       newZoom *= 0.999 ** delta;
@@ -695,6 +698,9 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       
       // Scale measurement labels for readability
       scaleMeasurementLabelsForZoom(fabricCanvas, newZoom);
+      
+      // Show and redraw grid after zoom stops
+      showAndRedrawGrid(fabricCanvas, containerRef.current!.clientWidth, containerRef.current!.clientHeight);
     };
 
     fabricCanvas.on('mouse:wheel', handleWheel);
@@ -819,66 +825,104 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     };
   }, []);
 
-  // Grid ref for persistent grid rectangle
-  const gridRectRef = useRef<Rect | null>(null);
+  // Grid refs for line-based grid
+  const gridLinesRef = useRef<Group | null>(null);
+  const gridRedrawTimeoutRef = useRef<number | null>(null);
 
-  // Create grid pattern (called once)
-  const createGridPattern = (): Pattern => {
-    const patternCanvas = document.createElement('canvas');
-    patternCanvas.width = GRID_SIZE;
-    patternCanvas.height = GRID_SIZE;
-    const ctx = patternCanvas.getContext('2d');
-    if (ctx) {
-      // Clear background (transparent)
-      ctx.clearRect(0, 0, GRID_SIZE, GRID_SIZE);
-      // Draw grid lines
-      ctx.strokeStyle = '#e2e8f0';
-      ctx.lineWidth = 0.5;
-      // Right edge (vertical line)
-      ctx.beginPath();
-      ctx.moveTo(GRID_SIZE, 0);
-      ctx.lineTo(GRID_SIZE, GRID_SIZE);
-      ctx.stroke();
-      // Bottom edge (horizontal line)
-      ctx.beginPath();
-      ctx.moveTo(0, GRID_SIZE);
-      ctx.lineTo(GRID_SIZE, GRID_SIZE);
-      ctx.stroke();
-    }
-    return new Pattern({
-      source: patternCanvas,
-      repeat: 'repeat',
-    });
-  };
-
-  // Draw grid using a single pattern-filled rectangle (much more performant)
+  // Draw grid using individual lines (crisp at all zoom levels)
   const drawGrid = (canvas: FabricCanvas, width: number, height: number, visible: boolean = true) => {
-    // Remove existing grid rect
-    if (gridRectRef.current) {
-      canvas.remove(gridRectRef.current);
-      gridRectRef.current = null;
+    // Remove existing grid
+    if (gridLinesRef.current) {
+      canvas.remove(gridLinesRef.current);
+      gridLinesRef.current = null;
     }
 
     if (!visible) return;
 
-    // Create a large rectangle that covers the entire possible canvas area
-    // Using a very large size so it covers all panning/zooming scenarios
-    const gridSize = 20000; // Large enough to cover extreme zoom out/pan
-    const gridRect = new Rect({
-      left: -gridSize / 2,
-      top: -gridSize / 2,
-      width: gridSize,
-      height: gridSize,
-      fill: createGridPattern(),
+    // Get viewport transform to calculate visible area
+    const vpt = canvas.viewportTransform || [1, 0, 0, 1, 0, 0];
+    const zoom = canvas.getZoom();
+    
+    // Calculate visible canvas area in scene coordinates
+    const visibleLeft = -vpt[4] / zoom;
+    const visibleTop = -vpt[5] / zoom;
+    const visibleRight = visibleLeft + width / zoom;
+    const visibleBottom = visibleTop + height / zoom;
+    
+    // Add padding to cover panning during movement
+    const padding = 500;
+    const startX = Math.floor((visibleLeft - padding) / GRID_SIZE) * GRID_SIZE;
+    const startY = Math.floor((visibleTop - padding) / GRID_SIZE) * GRID_SIZE;
+    const endX = Math.ceil((visibleRight + padding) / GRID_SIZE) * GRID_SIZE;
+    const endY = Math.ceil((visibleBottom + padding) / GRID_SIZE) * GRID_SIZE;
+    
+    // Adaptive grid spacing based on zoom to limit line count
+    let effectiveGridSize = GRID_SIZE;
+    if (zoom < 0.5) effectiveGridSize = GRID_SIZE * 4;
+    else if (zoom < 0.75) effectiveGridSize = GRID_SIZE * 2;
+    
+    const lines: Line[] = [];
+    
+    // Create vertical lines
+    for (let x = startX; x <= endX; x += effectiveGridSize) {
+      lines.push(new Line([x, startY, x, endY], {
+        stroke: '#e2e8f0',
+        strokeWidth: 0.5,
+        selectable: false,
+        evented: false,
+      }));
+    }
+    
+    // Create horizontal lines
+    for (let y = startY; y <= endY; y += effectiveGridSize) {
+      lines.push(new Line([startX, y, endX, y], {
+        stroke: '#e2e8f0',
+        strokeWidth: 0.5,
+        selectable: false,
+        evented: false,
+      }));
+    }
+    
+    // Group all lines for efficient rendering
+    const gridGroup = new Group(lines, {
       selectable: false,
       evented: false,
+      objectCaching: true, // Enable caching for performance
       excludeFromExport: true,
     });
-    (gridRect as any).isGrid = true;
-    gridRectRef.current = gridRect;
+    (gridGroup as any).isGrid = true;
+    gridLinesRef.current = gridGroup;
     
-    canvas.add(gridRect);
-    canvas.sendObjectToBack(gridRect);
+    canvas.add(gridGroup);
+    canvas.sendObjectToBack(gridGroup);
+  };
+
+  // Hide grid temporarily (for performance during pan/zoom)
+  const hideGrid = () => {
+    if (gridLinesRef.current) {
+      gridLinesRef.current.set('opacity', 0);
+    }
+  };
+
+  // Show grid and debounce redraw
+  const showAndRedrawGrid = (canvas: FabricCanvas, width: number, height: number) => {
+    // Clear any pending timeout
+    if (gridRedrawTimeoutRef.current) {
+      clearTimeout(gridRedrawTimeoutRef.current);
+    }
+    
+    // Show existing grid immediately
+    if (gridLinesRef.current) {
+      gridLinesRef.current.set('opacity', 1);
+    }
+    
+    // Debounce the actual redraw
+    gridRedrawTimeoutRef.current = window.setTimeout(() => {
+      if (showGridRef.current) {
+        drawGrid(canvas, width, height, true);
+        canvas.renderAll();
+      }
+    }, 100);
   };
 
   // Toggle grid visibility
@@ -2781,6 +2825,8 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         const pointer = fabricCanvas.getPointer(e.e, true);
         lastPanPoint.current = { x: pointer.x, y: pointer.y };
         fabricCanvas.defaultCursor = 'grabbing';
+        // Hide grid during panning for smooth performance
+        hideGrid();
         return;
       }
       
@@ -3406,6 +3452,10 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
           fabricCanvas.defaultCursor = 'grab';
         } else {
           fabricCanvas.defaultCursor = 'default';
+        }
+        // Show and redraw grid after panning ends
+        if (containerRef.current) {
+          showAndRedrawGrid(fabricCanvas, containerRef.current.clientWidth, containerRef.current.clientHeight);
         }
       }
     };
