@@ -1823,6 +1823,16 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         (marker as any).shapeId = paver.id;
         (marker as any).isVertexMarker = true;
         fabricCanvas.add(marker);
+        
+        // Update dragging reference if this is the currently dragged vertex
+        // This prevents ghost shapes when the old marker reference becomes stale
+        if (
+          draggingVertexRef.current &&
+          draggingVertexRef.current.shapeId === paver.id &&
+          draggingVertexRef.current.vertexIndex === index
+        ) {
+          draggingVertexRef.current.marker = marker;
+        }
       });
       
       
