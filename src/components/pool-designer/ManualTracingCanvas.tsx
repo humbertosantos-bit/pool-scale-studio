@@ -176,6 +176,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
   // Standalone paver movement state
   const [selectedPaverIndex, setSelectedPaverIndex] = useState<number | null>(null);
   const [isDraggingPaver, setIsDraggingPaver] = useState(false);
+  const isDraggingPaverRef = useRef(false);
   const paverDragStartRef = useRef<{ x: number; y: number } | null>(null);
   const originalPaverPointsRef = useRef<{ x: number; y: number }[] | null>(null);
   
@@ -2912,8 +2913,8 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       
       if (drawingModeRef.current === 'none' || drawingModeRef.current === 'move-house' || drawingModeRef.current === 'move-pool' || drawingModeRef.current === 'rotate-pool' || drawingModeRef.current === 'move-paver') return;
       
-      // Don't create shapes if we're dragging a vertex or edge
-      if (isDraggingVertexRef.current || isDraggingEdgeRef.current) return;
+      // Don't create shapes if we're dragging a vertex, edge, or paver
+      if (isDraggingVertexRef.current || isDraggingEdgeRef.current || isDraggingPaverRef.current) return;
       
       const pointer = fabricCanvas.getScenePoint(e.e);
       let snappedPoint = applySnapping({ x: pointer.x, y: pointer.y });
@@ -3389,6 +3390,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         if (isPointInsidePolygon({ x: pointer.x, y: pointer.y }, paver.points)) {
           setSelectedPaverIndex(i);
           setIsDraggingPaver(true);
+          isDraggingPaverRef.current = true;
           paverDragStartRef.current = { x: pointer.x, y: pointer.y };
           originalPaverPointsRef.current = paver.points.map(p => ({ ...p }));
           return;
@@ -3416,6 +3418,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     const handlePaverMouseUp = () => {
       if (isDraggingPaver) {
         setIsDraggingPaver(false);
+        isDraggingPaverRef.current = false;
         paverDragStartRef.current = null;
         originalPaverPointsRef.current = null;
       }
