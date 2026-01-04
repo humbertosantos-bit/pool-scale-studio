@@ -1780,6 +1780,9 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         }
       });
       
+      // Force render after removing old objects to prevent ghosting
+      fabricCanvas.requestRenderAll();
+      
       // Create new polygon with solid black 0.5px stroke
       const fabricPoints = newPoints.map(p => new Point(p.x, p.y));
       const polygon = new Polygon(fabricPoints, {
@@ -3520,11 +3523,8 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       // Apply grid snapping
       newPoint = snapToGrid(newPoint);
       
-      // Update the marker position visually
-      draggingVertexRef.current.marker.set({
-        left: newPoint.x,
-        top: newPoint.y,
-      });
+      // Note: We don't update the old marker position here because updateVertexPosition
+      // will remove it and create a new one. Updating the old marker causes ghosting.
       
       // Update the shape
       updateVertexPosition(
