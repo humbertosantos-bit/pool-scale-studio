@@ -1799,10 +1799,17 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       // Ensure proper z-order
       sendBackgroundToBack(fabricCanvas);
       
-      // Add edge markers FIRST so they are below vertex markers
+      // Recalculate area first so we can add label before vertex markers
+      const areaSqFt = calculatePolygonAreaSqFt(newPoints);
+      const areaWithWasteSqFt = areaSqFt * 1.10;
+      
+      // Add edge markers FIRST so they are below everything
       addPaverEdgeMarkers(fabricCanvas, newPoints, paver.id, polygon);
       
-      // Add vertex markers AFTER edge markers for correct z-order (on top)
+      // Add label BEFORE vertex markers so vertices are on top and clickable
+      addStandalonePaverLabel(fabricCanvas, newPoints, paver.id, paver.name, areaSqFt);
+      
+      // Add vertex markers LAST for correct z-order (on top of everything)
       newPoints.forEach((p, index) => {
         const marker = new Circle({
           left: p.x,
@@ -1838,15 +1845,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         }
       });
       
-      
-      // Recalculate area
-      const areaSqFt = calculatePolygonAreaSqFt(newPoints);
-      const areaWithWasteSqFt = areaSqFt * 1.10;
-      
-      // Add label back
-      addStandalonePaverLabel(fabricCanvas, newPoints, paver.id, paver.name, areaSqFt);
-      
-      // Update state
+      // Update state (area was already calculated above)
       const updatedPaver = {
         ...paver,
         points: newPoints,
@@ -2372,10 +2371,13 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       setStandalonePavers(prev => [...prev, standalonePaver]);
       standalonePaversRef.current = [...standalonePaversRef.current, standalonePaver];
       
-      // Add edge markers FIRST so they are below vertex markers
+      // Add edge markers FIRST so they are below everything
       addPaverEdgeMarkers(fabricCanvas, points, shapeId, polygon);
       
-      // Add vertex markers AFTER edge markers for correct z-order (on top)
+      // Add paver name label BEFORE vertex markers so vertices are on top
+      addStandalonePaverLabel(fabricCanvas, points, shapeId, paverName, areaSqFt);
+      
+      // Add vertex markers LAST for correct z-order (on top of everything including label)
       points.forEach((p, index) => {
         const marker = new Circle({
           left: p.x,
@@ -2400,9 +2402,6 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         (marker as any).isVertexMarker = true;
         fabricCanvas.add(marker);
       });
-      
-      // Add paver name label with area
-      addStandalonePaverLabel(fabricCanvas, points, shapeId, paverName, areaSqFt);
       
       toast.success(`Paver zone added! Area: ${areaSqFt.toFixed(2)} sq ft (${areaWithWasteSqFt.toFixed(2)} sq ft with 10% waste)`);
     }
@@ -5285,10 +5284,13 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     (rect as any).isStandalonePaver = true;
     fabricCanvas.add(rect);
     
-    // Add edge markers FIRST so they are below vertex markers
+    // Add edge markers FIRST so they are below everything
     addPaverEdgeMarkers(fabricCanvas, points, shapeId, rect);
     
-    // Add vertex markers AFTER edge markers for correct z-order (on top)
+    // Add label BEFORE vertex markers so vertices are on top
+    addStandalonePaverLabel(fabricCanvas, points, shapeId, paverName, areaSqFt);
+    
+    // Add vertex markers LAST for correct z-order (on top of everything including label)
     points.forEach((p, index) => {
       const marker = new Circle({
         left: p.x,
@@ -5313,9 +5315,6 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       (marker as any).isVertexMarker = true;
       fabricCanvas.add(marker);
     });
-    
-    // Add label
-    addStandalonePaverLabel(fabricCanvas, points, shapeId, paverName, areaSqFt);
     
     const standalonePaver: StandalonePaver = {
       id: shapeId,
