@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,25 +7,25 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import logo from '@/assets/piscineriviera-logo.png';
 
-const Signup: React.FC = () => {
+const ResetPassword: React.FC = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        navigate('/');
+    // Check if we have a valid session from the reset link
+    supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        // User came from password reset link
       }
     });
-  }, [navigate]);
+  }, []);
 
-  const handleSignup = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (password !== confirmPassword) {
       toast({
         title: 'Passwords do not match',
@@ -46,28 +46,24 @@ const Signup: React.FC = () => {
 
     setIsLoading(true);
 
-    const { error } = await supabase.auth.signUp({
-      email,
+    const { error } = await supabase.auth.updateUser({
       password,
-      options: {
-        emailRedirectTo: window.location.origin,
-      },
     });
 
     setIsLoading(false);
 
     if (error) {
       toast({
-        title: 'Signup failed',
+        title: 'Error',
         description: error.message,
         variant: 'destructive',
       });
     } else {
       toast({
-        title: 'Account created!',
-        description: 'You can now sign in with your credentials.',
+        title: 'Password updated',
+        description: 'Your password has been successfully reset.',
       });
-      navigate('/login');
+      navigate('/');
     }
   };
 
@@ -76,26 +72,14 @@ const Signup: React.FC = () => {
       <div className="w-full max-w-md space-y-8">
         <div className="text-center">
           <img src={logo} alt="Piscine Riviera" className="h-20 w-auto mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-primary">Create Account</h1>
-          <p className="text-muted-foreground mt-2">Sign up for Piscine Riviera Design Tool</p>
+          <h1 className="text-2xl font-bold text-primary">Set New Password</h1>
+          <p className="text-muted-foreground mt-2">Enter your new password below</p>
         </div>
 
-        <div className="bg-white p-8 rounded-lg shadow-lg space-y-6">
-          <form onSubmit={handleSignup} className="space-y-4">
+        <div className="bg-white p-8 rounded-lg shadow-lg">
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="Enter your email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">New Password</Label>
               <Input
                 id="password"
                 type="password"
@@ -108,7 +92,7 @@ const Signup: React.FC = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirm Password</Label>
+              <Label htmlFor="confirmPassword">Confirm New Password</Label>
               <Input
                 id="confirmPassword"
                 type="password"
@@ -121,20 +105,13 @@ const Signup: React.FC = () => {
             </div>
 
             <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? 'Creating account...' : 'Create Account'}
+              {isLoading ? 'Updating...' : 'Update Password'}
             </Button>
           </form>
-
-          <p className="text-center text-sm text-muted-foreground">
-            Already have an account?{' '}
-            <Link to="/login" className="text-primary hover:underline font-medium">
-              Sign in
-            </Link>
-          </p>
         </div>
       </div>
     </div>
   );
 };
 
-export default Signup;
+export default ResetPassword;

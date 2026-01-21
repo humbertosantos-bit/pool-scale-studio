@@ -8,7 +8,18 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Plus, Users } from 'lucide-react';
+import { ArrowLeft, Plus, Users, Trash2 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import logo from '@/assets/piscineriviera-logo.png';
 
 interface UserData {
@@ -29,6 +40,7 @@ const Admin: React.FC = () => {
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<'admin' | 'user'>('user');
   const [creating, setCreating] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!loading && (!user || !isAdmin)) {
@@ -114,6 +126,46 @@ const Admin: React.FC = () => {
       });
     } finally {
       setCreating(false);
+    }
+  };
+
+  const handleDeleteUser = async (userId: string) => {
+    setDeletingId(userId);
+
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-user`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${session.session?.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ userId }),
+        }
+      );
+      
+      const data = await response.json();
+      
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      toast({
+        title: 'User deleted',
+        description: 'User has been successfully deleted.',
+      });
+
+      fetchUsers();
+    } catch (error: any) {
+      toast({
+        title: 'Error deleting user',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -218,6 +270,7 @@ const Admin: React.FC = () => {
                       <TableHead>Email</TableHead>
                       <TableHead>Role</TableHead>
                       <TableHead>Created</TableHead>
+                      <TableHead className="w-[60px]"></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -236,11 +289,44 @@ const Admin: React.FC = () => {
                         <TableCell className="text-muted-foreground">
                           {new Date(u.created_at).toLocaleDateString()}
                         </TableCell>
+                        <TableCell>
+                          {u.id !== user?.id && (
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon"
+                                  className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                  disabled={deletingId === u.id}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Delete User?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Are you sure you want to delete <strong>{u.email}</strong>? This action cannot be undone.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction 
+                                    onClick={() => handleDeleteUser(u.id)}
+                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                  >
+                                    Delete
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          )}
+                        </TableCell>
                       </TableRow>
                     ))}
                     {users.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={3} className="text-center text-muted-foreground">
+                        <TableCell colSpan={4} className="text-center text-muted-foreground">
                           No users found
                         </TableCell>
                       </TableRow>
