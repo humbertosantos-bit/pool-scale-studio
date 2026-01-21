@@ -9,8 +9,8 @@ import logo from '@/assets/piscineriviera-logo.png';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { supabase } from '@/integrations/supabase/client';
-import { LogOut } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+import { LogOut, Settings } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,6 +29,7 @@ interface StoredProjectInfo {
 
 const Design: React.FC = () => {
   const navigate = useNavigate();
+  const { isAdmin, signOut } = useAuth();
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [scaleInfo, setScaleInfo] = useState<{ metersPerPixel: number; latitude: number; zoom: number } | null>(null);
   const [poolState, setPoolState] = useState<any>(null);
@@ -92,7 +93,7 @@ const Design: React.FC = () => {
   };
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    await signOut();
     navigate('/login');
   };
 
@@ -156,6 +157,17 @@ const Design: React.FC = () => {
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
+            {isAdmin && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="bg-white/10 text-white border-white/20 hover:bg-white/20"
+                onClick={() => navigate('/admin')}
+              >
+                <Settings className="h-4 w-4 mr-1" />
+                Admin
+              </Button>
+            )}
             <Button 
               variant="outline" 
               size="sm" 
