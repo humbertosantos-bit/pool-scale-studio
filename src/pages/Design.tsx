@@ -5,13 +5,12 @@ import { PoolCanvas } from '@/components/pool-designer/PoolCanvas';
 import { PoolControls } from '@/components/pool-designer/PoolControls';
 import { PoolCalculations } from '@/components/pool-designer/PoolCalculations';
 import { ManualTracingCanvas } from '@/components/pool-designer/ManualTracingCanvas';
-import { ClientInfo, ClientInfoForm } from '@/components/pool-designer/ClientInfoForm';
-import { representatives } from '@/data/representatives';
 import logo from '@/assets/piscineriviera-logo.png';
 import { Button } from '@/components/ui/button';
-import { Pencil } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { supabase } from '@/integrations/supabase/client';
+import { LogOut } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,14 +22,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 
-interface StoredClientInfo extends ClientInfo {
+interface StoredProjectInfo {
   createdAt?: string;
 }
 
@@ -40,21 +33,21 @@ const Design: React.FC = () => {
   const [scaleInfo, setScaleInfo] = useState<{ metersPerPixel: number; latitude: number; zoom: number } | null>(null);
   const [poolState, setPoolState] = useState<any>(null);
   const [isManualTracing, setIsManualTracing] = useState(false);
-  const [isEditingClientInfo, setIsEditingClientInfo] = useState(false);
-  const [clientInfo, setClientInfo] = useState<StoredClientInfo>({
-    name: '',
-    phone: '',
-    address: '',
-    email: '',
-    representativeId: '',
+  const [projectInfo, setProjectInfo] = useState<StoredProjectInfo>({
+    createdAt: new Date().toISOString(),
   });
   const [notes, setNotes] = useState<string>('');
 
   useEffect(() => {
-    // Load client info from sessionStorage
-    const stored = sessionStorage.getItem('clientInfo');
+    // Load project info from sessionStorage
+    const stored = sessionStorage.getItem('projectInfo');
     if (stored) {
-      setClientInfo(JSON.parse(stored));
+      setProjectInfo(JSON.parse(stored));
+    } else {
+      // Initialize with current date
+      const newProjectInfo = { createdAt: new Date().toISOString() };
+      sessionStorage.setItem('projectInfo', JSON.stringify(newProjectInfo));
+      setProjectInfo(newProjectInfo);
     }
     // Load notes from sessionStorage
     const storedNotes = sessionStorage.getItem('projectNotes');
@@ -89,9 +82,18 @@ const Design: React.FC = () => {
   };
 
   const handleStartNewProject = () => {
-    sessionStorage.removeItem('clientInfo');
+    sessionStorage.removeItem('projectInfo');
     sessionStorage.removeItem('projectNotes');
-    navigate('/');
+    // Reset project info with new date
+    const newProjectInfo = { createdAt: new Date().toISOString() };
+    sessionStorage.setItem('projectInfo', JSON.stringify(newProjectInfo));
+    setProjectInfo(newProjectInfo);
+    handleReset();
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate('/login');
   };
 
   const handleNotesChange = (value: string) => {
@@ -99,17 +101,6 @@ const Design: React.FC = () => {
     sessionStorage.setItem('projectNotes', value);
   };
 
-  const handleSaveClientInfo = () => {
-    const dataToStore = {
-      ...clientInfo,
-      createdAt: clientInfo.createdAt || new Date().toISOString(),
-    };
-    sessionStorage.setItem('clientInfo', JSON.stringify(dataToStore));
-    setIsEditingClientInfo(false);
-  };
-
-  const representative = representatives.find(r => r.id === clientInfo.representativeId);
-  
   const formatDate = (isoString?: string) => {
     if (!isoString) return '';
     return new Date(isoString).toLocaleDateString('fr-CA', {
@@ -139,7 +130,7 @@ const Design: React.FC = () => {
                 <AlertDialogHeader>
                   <AlertDialogTitle>Start New Project?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    This will clear all current work and return to the client info screen. This action cannot be undone.
+                    This will clear all current work and start a new project. This action cannot be undone.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -165,6 +156,15 @@ const Design: React.FC = () => {
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="bg-white/10 text-white border-white/20 hover:bg-white/20"
+              onClick={handleLogout}
+            >
+              <LogOut className="h-4 w-4 mr-1" />
+              Logout
+            </Button>
           </div>
         </div>
       </div>
@@ -175,33 +175,10 @@ const Design: React.FC = () => {
           {/* Left Sidebar - Always visible */}
           <div className="w-64 min-w-[240px] border-r bg-white overflow-y-auto flex flex-col">
             <div className="p-3 space-y-3 flex-1">
-              {/* Client Info Header */}
-              <div className="bg-primary/10 rounded-lg p-2 space-y-1 relative">
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="absolute top-1 right-1 h-6 w-6"
-                  onClick={() => setIsEditingClientInfo(true)}
-                >
-                  <Pencil className="h-3 w-3" />
-                </Button>
-                {clientInfo.createdAt && (
-                  <p className="text-[10px] text-muted-foreground">{formatDate(clientInfo.createdAt)}</p>
-                )}
-                {clientInfo.name && (
-                  <p className="text-sm font-semibold text-primary">{clientInfo.name}</p>
-                )}
-                {clientInfo.address && (
-                  <p className="text-xs text-muted-foreground">{clientInfo.address}</p>
-                )}
-                {clientInfo.phone && (
-                  <p className="text-xs text-muted-foreground">{clientInfo.phone}</p>
-                )}
-                {clientInfo.email && (
-                  <p className="text-xs text-muted-foreground">{clientInfo.email}</p>
-                )}
-                {representative && (
-                  <p className="text-xs font-medium text-primary/80">Rep: {representative.name}</p>
+              {/* Project Date */}
+              <div className="bg-primary/10 rounded-lg p-2 space-y-1">
+                {projectInfo.createdAt && (
+                  <p className="text-sm font-medium text-primary">{formatDate(projectInfo.createdAt)}</p>
                 )}
               </div>
 
@@ -216,22 +193,6 @@ const Design: React.FC = () => {
                   className="min-h-[80px] text-xs resize-none"
                 />
               </div>
-
-              <Dialog open={isEditingClientInfo} onOpenChange={setIsEditingClientInfo}>
-                <DialogContent className="max-w-md">
-                  <DialogHeader>
-                    <DialogTitle>Edit Client Information</DialogTitle>
-                  </DialogHeader>
-                  <ClientInfoForm 
-                    clientInfo={clientInfo}
-                    onClientInfoChange={setClientInfo}
-                  />
-                  <div className="flex justify-end gap-2 mt-4">
-                    <Button variant="outline" onClick={() => setIsEditingClientInfo(false)}>Cancel</Button>
-                    <Button onClick={handleSaveClientInfo}>Save</Button>
-                  </div>
-                </DialogContent>
-              </Dialog>
               
               {/* Calculations - Always visible */}
               <PoolCalculations
