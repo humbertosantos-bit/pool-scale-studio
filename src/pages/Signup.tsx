@@ -8,16 +8,16 @@ import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import logo from '@/assets/piscineriviera-logo.png';
 
-const Login: React.FC = () => {
+const Signup: React.FC = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
   useEffect(() => {
-    // Check if already logged in
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
         navigate('/');
@@ -25,29 +25,55 @@ const Login: React.FC = () => {
     });
   }, [navigate]);
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (password !== confirmPassword) {
+      toast({
+        title: 'Passwords do not match',
+        description: 'Please make sure both passwords are the same.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (password.length < 6) {
+      toast({
+        title: 'Password too short',
+        description: 'Password must be at least 6 characters.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setIsLoading(true);
 
-    const { error } = await supabase.auth.signInWithPassword({
+    const { error } = await supabase.auth.signUp({
       email,
       password,
+      options: {
+        emailRedirectTo: window.location.origin,
+      },
     });
 
     setIsLoading(false);
 
     if (error) {
       toast({
-        title: 'Login failed',
+        title: 'Signup failed',
         description: error.message,
         variant: 'destructive',
       });
     } else {
-      navigate('/');
+      toast({
+        title: 'Account created!',
+        description: 'You can now sign in with your credentials.',
+      });
+      navigate('/login');
     }
   };
 
-  const handleGoogleLogin = async () => {
+  const handleGoogleSignup = async () => {
     setIsGoogleLoading(true);
     
     const { error } = await supabase.auth.signInWithOAuth({
@@ -60,7 +86,7 @@ const Login: React.FC = () => {
     if (error) {
       setIsGoogleLoading(false);
       toast({
-        title: 'Google login failed',
+        title: 'Google signup failed',
         description: error.message,
         variant: 'destructive',
       });
@@ -72,8 +98,8 @@ const Login: React.FC = () => {
       <div className="w-full max-w-md space-y-8">
         <div className="text-center">
           <img src={logo} alt="Piscine Riviera" className="h-20 w-auto mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-primary">Piscine Riviera Design Tool</h1>
-          <p className="text-muted-foreground mt-2">Sign in to continue</p>
+          <h1 className="text-2xl font-bold text-primary">Create Account</h1>
+          <p className="text-muted-foreground mt-2">Sign up for Piscine Riviera Design Tool</p>
         </div>
 
         <div className="bg-white p-8 rounded-lg shadow-lg space-y-6">
@@ -81,7 +107,7 @@ const Login: React.FC = () => {
             type="button" 
             variant="outline" 
             className="w-full flex items-center justify-center gap-2"
-            onClick={handleGoogleLogin}
+            onClick={handleGoogleSignup}
             disabled={isGoogleLoading}
           >
             <svg className="h-5 w-5" viewBox="0 0 24 24">
@@ -102,7 +128,7 @@ const Login: React.FC = () => {
                 fill="#EA4335"
               />
             </svg>
-            {isGoogleLoading ? 'Signing in...' : 'Continue with Google'}
+            {isGoogleLoading ? 'Signing up...' : 'Continue with Google'}
           </Button>
 
           <div className="relative">
@@ -114,7 +140,7 @@ const Login: React.FC = () => {
             </div>
           </div>
 
-          <form onSubmit={handleLogin} className="space-y-4">
+          <form onSubmit={handleSignup} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -132,22 +158,36 @@ const Login: React.FC = () => {
               <Input
                 id="password"
                 type="password"
-                placeholder="Enter your password"
+                placeholder="At least 6 characters"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                minLength={6}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword">Confirm Password</Label>
+              <Input
+                id="confirmPassword"
+                type="password"
+                placeholder="Confirm your password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+                minLength={6}
               />
             </div>
 
             <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? 'Signing in...' : 'Sign In'}
+              {isLoading ? 'Creating account...' : 'Create Account'}
             </Button>
           </form>
 
           <p className="text-center text-sm text-muted-foreground">
-            Don't have an account?{' '}
-            <Link to="/signup" className="text-primary hover:underline font-medium">
-              Sign up
+            Already have an account?{' '}
+            <Link to="/login" className="text-primary hover:underline font-medium">
+              Sign in
             </Link>
           </p>
         </div>
@@ -156,4 +196,4 @@ const Login: React.FC = () => {
   );
 };
 
-export default Login;
+export default Signup;
