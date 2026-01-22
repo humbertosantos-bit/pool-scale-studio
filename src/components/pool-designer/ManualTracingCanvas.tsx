@@ -2836,7 +2836,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       if (spacePressedRef.current) {
         setIsPanning(true);
         isPanningRef.current = true;
-        const pointer = fabricCanvas.getPointer(e.e, true);
+        const pointer = fabricCanvas.getViewportPoint(e.e);
         lastPanPoint.current = { x: pointer.x, y: pointer.y };
         fabricCanvas.defaultCursor = 'grabbing';
         // Hide grid during panning for smooth performance
@@ -3011,7 +3011,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     const handleMouseMove = (e: any) => {
       // Handle panning
       if (isPanningRef.current && lastPanPoint.current) {
-        const pointer = fabricCanvas.getPointer(e.e, true);
+        const pointer = fabricCanvas.getViewportPoint(e.e);
         const vpt = fabricCanvas.viewportTransform;
         if (vpt) {
           vpt[4] += pointer.x - lastPanPoint.current.x;
