@@ -5,6 +5,22 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// UUID validation regex
+const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function validateUserId(userId: unknown): { valid: boolean; error?: string } {
+  if (typeof userId !== 'string') {
+    return { valid: false, error: 'User ID must be a string' };
+  }
+  if (userId.trim().length === 0) {
+    return { valid: false, error: 'User ID is required' };
+  }
+  if (!uuidRegex.test(userId)) {
+    return { valid: false, error: 'Invalid user ID format' };
+  }
+  return { valid: true };
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
@@ -57,13 +73,26 @@ Deno.serve(async (req) => {
       })
     }
 
-    const { userId } = await req.json()
-
-    if (!userId) {
-      return new Response(JSON.stringify({ error: 'User ID is required' }), { 
+    // Parse and validate input
+    let requestBody;
+    try {
+      requestBody = await req.json();
+    } catch {
+      return new Response(JSON.stringify({ error: 'Invalid JSON body' }), { 
         status: 400, 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      })
+      });
+    }
+
+    const { userId } = requestBody;
+
+    // Validate userId
+    const userIdValidation = validateUserId(userId);
+    if (!userIdValidation.valid) {
+      return new Response(JSON.stringify({ error: userIdValidation.error }), { 
+        status: 400, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      });
     }
 
     // Prevent self-deletion
@@ -78,7 +107,8 @@ Deno.serve(async (req) => {
     const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(userId)
 
     if (deleteError) {
-      return new Response(JSON.stringify({ error: deleteError.message }), { 
+      console.error('User deletion failed:', deleteError);
+      return new Response(JSON.stringify({ error: 'Failed to delete user. Please try again.' }), { 
         status: 400, 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       })
@@ -89,7 +119,8 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
     })
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), { 
+    console.error('Unexpected error:', error);
+    return new Response(JSON.stringify({ error: 'An unexpected error occurred' }), { 
       status: 500, 
       headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
     })
