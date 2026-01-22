@@ -1035,8 +1035,8 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     toast.info('Background image removed');
   };
 
-  // Google Maps API key
-  const GOOGLE_MAPS_API_KEY = 'AIzaSyCYlB0UjAHrx8HAkp3fYRPJ-40Q13AOgq4';
+  // Google Maps API key from environment variable
+  const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
 
   // Fetch satellite image from Google Maps
   const fetchSatelliteImage = async () => {
