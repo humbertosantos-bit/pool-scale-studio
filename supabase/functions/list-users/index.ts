@@ -61,7 +61,8 @@ Deno.serve(async (req) => {
     const { data: { users }, error: usersError } = await supabaseAdmin.auth.admin.listUsers()
 
     if (usersError) {
-      return new Response(JSON.stringify({ error: usersError.message }), { 
+      console.error('Failed to fetch users:', usersError);
+      return new Response(JSON.stringify({ error: 'Failed to load users. Please try again.' }), { 
         status: 400, 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       })
@@ -84,7 +85,8 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
     })
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), { 
+    console.error('Unexpected error:', error);
+    return new Response(JSON.stringify({ error: 'An unexpected error occurred.' }), { 
       status: 500, 
       headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
     })
