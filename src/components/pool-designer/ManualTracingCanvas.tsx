@@ -451,10 +451,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       return;
     }
 
-    const img = document.createElement('img');
-    img.crossOrigin = 'anonymous';
-
-    img.onload = () => {
+    const renderTexture = (img: HTMLImageElement) => {
       const minX = Math.min(...points.map(p => p.x));
       const maxX = Math.max(...points.map(p => p.x));
       const minY = Math.min(...points.map(p => p.y));
@@ -508,15 +505,26 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       });
       polygon.set('fill', pattern);
       fabricCanvas?.requestRenderAll();
-      return;
     };
 
+    const cachedImage = poolTextureImageCacheRef.current.get(imageUrl);
+    if (cachedImage && cachedImage.complete && cachedImage.naturalWidth > 0) {
+      renderTexture(cachedImage);
+      return;
+    }
+
+    const img = cachedImage ?? document.createElement('img');
+    img.crossOrigin = 'anonymous';
+    img.onload = () => renderTexture(img);
     img.onerror = () => {
       polygon.set('fill', createWaterGradient(points));
       fabricCanvas?.requestRenderAll();
     };
 
-    img.src = imageUrl;
+    if (!cachedImage) {
+      poolTextureImageCacheRef.current.set(imageUrl, img);
+      img.src = imageUrl;
+    }
   };
 
   // Check if polygon is clockwise (positive area = counterclockwise, negative = clockwise)
