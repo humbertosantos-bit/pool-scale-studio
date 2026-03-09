@@ -4038,6 +4038,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       fabricCanvas.off('object:rotating', handleObjectRotating);
       fabricCanvas.off('object:modified', handleRotationEnd);
       fabricCanvas.off('mouse:dblclick', handleSelectionClick);
+      fabricCanvas.off('mouse:dblclick', handlePoolClickToEdit);
     };
   }, [fabricCanvas, completeShape, gridSnapping, vertexSnapping, isDraggingHouse, selectedHouseIndex, isDraggingPool, selectedPoolIndex, isRotatingPool, isPanning, isDraggingPaver, selectedPaverIndex]);
 
