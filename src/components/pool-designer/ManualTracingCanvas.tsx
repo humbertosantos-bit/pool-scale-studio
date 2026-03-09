@@ -4837,7 +4837,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     // Create pool polygon (0.5px thin perimeter)
     const fabricPoints = points.map(p => new Point(p.x, p.y));
     const polygon = new Polygon(fabricPoints, {
-      fill: imageUrl ? 'transparent' : createWaterGradient(points),
+      fill: createWaterGradient(points),
       stroke: '#000000',
       strokeWidth: 0.5,
       selectable: false,
@@ -4848,60 +4848,48 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     (polygon as any).isPoolWater = true;
     fabricCanvas.add(polygon);
 
-    // If pool has a catalog image, load and overlay it on the pool area
+    // If pool has a catalog image, use it as a Pattern fill on the polygon
     if (imageUrl) {
       const img = document.createElement('img');
       img.crossOrigin = 'anonymous';
       img.onload = () => {
-        // The image is the pool's natural top-down layout (horizontal: width × length).
-        // The pool rectangle on canvas already accounts for dimension swapping from rotation,
-        // so we need to rotate the image to match.
-        const fabricImg = new FabricImage(img, {
-          selectable: false,
-          evented: false,
-        });
+        // Build a pattern that scales and rotates the image to fill the pool bounds.
+        // The pool polygon on canvas already has dimensions swapped for 90/270 rotation,
+        // so the pattern transform must rotate the source image accordingly.
+        const patternCanvas = document.createElement('canvas');
+        const ctx = patternCanvas.getContext('2d');
+        if (!ctx) return;
 
-        if (imageRotation === 90 || imageRotation === 270) {
-          // Image needs to be rotated: scale to fill the rotated bounds
-          // Natural image is wider than tall (length × width), but pool rect is swapped
-          fabricImg.scaleX = poolHeight / img.width;
-          fabricImg.scaleY = poolWidth / img.height;
-          fabricImg.angle = imageRotation;
-          // Adjust position based on rotation angle to keep image centered in pool bounds
-          if (imageRotation === 90) {
-            fabricImg.left = minX + poolWidth;
-            fabricImg.top = minY;
-          } else {
-            // 270
-            fabricImg.left = minX;
-            fabricImg.top = minY + poolHeight;
-          }
+        // Pattern canvas is the size of the pool bounds
+        patternCanvas.width = poolWidth;
+        patternCanvas.height = poolHeight;
+
+        ctx.save();
+        if (imageRotation === 0) {
+          // Draw image scaled to fill pool bounds directly
+          ctx.drawImage(img, 0, 0, poolWidth, poolHeight);
+        } else if (imageRotation === 90) {
+          ctx.translate(poolWidth, 0);
+          ctx.rotate(Math.PI / 2);
+          ctx.drawImage(img, 0, 0, poolHeight, poolWidth);
         } else if (imageRotation === 180) {
-          fabricImg.scaleX = poolWidth / img.width;
-          fabricImg.scaleY = poolHeight / img.height;
-          fabricImg.angle = 180;
-          fabricImg.left = minX + poolWidth;
-          fabricImg.top = minY + poolHeight;
-        } else {
-          // 0 degrees - no rotation
-          fabricImg.left = minX;
-          fabricImg.top = minY;
-          fabricImg.scaleX = poolWidth / img.width;
-          fabricImg.scaleY = poolHeight / img.height;
+          ctx.translate(poolWidth, poolHeight);
+          ctx.rotate(Math.PI);
+          ctx.drawImage(img, 0, 0, poolWidth, poolHeight);
+        } else if (imageRotation === 270) {
+          ctx.translate(0, poolHeight);
+          ctx.rotate(-Math.PI / 2);
+          ctx.drawImage(img, 0, 0, poolHeight, poolWidth);
         }
+        ctx.restore();
 
-        (fabricImg as any).shapeId = shapeId;
-        (fabricImg as any).isPoolImage = true;
-        (fabricImg as any).shapeType = 'pool';
-        fabricCanvas.add(fabricImg);
-        // Bring image above the pool polygon, then ensure proper z-order
-        fabricCanvas.bringObjectToFront(fabricImg);
-        // Ensure labels stay on top
-        fabricCanvas.getObjects().forEach(obj => {
-          if ((obj as any).isEdgeLabel || (obj as any).isPoolLabel) {
-            fabricCanvas.bringObjectToFront(obj);
-          }
+        const pattern = new Pattern({
+          source: patternCanvas,
+          repeat: 'no-repeat',
+          offsetX: -minX,
+          offsetY: -minY,
         });
+        polygon.set('fill', pattern);
         fabricCanvas.requestRenderAll();
       };
       img.src = imageUrl;
