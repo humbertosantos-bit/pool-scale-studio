@@ -460,8 +460,16 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       const minY = Math.min(...points.map(p => p.y));
       const maxY = Math.max(...points.map(p => p.y));
 
-      const poolWidth = Math.max(1, Math.round(maxX - minX));
-      const poolHeight = Math.max(1, Math.round(maxY - minY));
+      const bboxWidth = Math.max(1, Math.ceil(maxX - minX));
+      const bboxHeight = Math.max(1, Math.ceil(maxY - minY));
+
+      // Use actual pool edge lengths (not axis-aligned bbox) so texture scale stays locked to the pool shape
+      const poolWidth = points.length >= 2
+        ? Math.max(1, Math.hypot(points[1].x - points[0].x, points[1].y - points[0].y))
+        : bboxWidth;
+      const poolHeight = points.length >= 4
+        ? Math.max(1, Math.hypot(points[3].x - points[0].x, points[3].y - points[0].y))
+        : bboxHeight;
 
       const patternCanvas = document.createElement('canvas');
       const ctx = patternCanvas.getContext('2d');
@@ -471,27 +479,27 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         return;
       }
 
-      patternCanvas.width = poolWidth;
-      patternCanvas.height = poolHeight;
+      patternCanvas.width = bboxWidth;
+      patternCanvas.height = bboxHeight;
 
       const normalizedRotation = ((imageRotation % 360) + 360) % 360;
-      const rotRad = (normalizedRotation * Math.PI) / 180;
+      const localImageRotationRad = (normalizedRotation * Math.PI) / 180;
+      const poolAngleRad = points.length >= 2
+        ? Math.atan2(points[1].y - points[0].y, points[1].x - points[0].x)
+        : 0;
+      const totalRotationRad = poolAngleRad + localImageRotationRad;
 
-      // Draw the pool catalog image rotated to match the pool orientation
+      // Draw the pool catalog image centered and rotated to match pool geometry
       ctx.save();
-      ctx.translate(poolWidth / 2, poolHeight / 2);
-      ctx.rotate(rotRad);
-      // The original image is drawn centered; swap draw dimensions for ~90°/270° rotations
-      const is90or270 = (normalizedRotation > 45 && normalizedRotation < 135) || (normalizedRotation > 225 && normalizedRotation < 315);
-      const drawW = is90or270 ? poolHeight : poolWidth;
-      const drawH = is90or270 ? poolWidth : poolHeight;
-      ctx.drawImage(img, -drawW / 2, -drawH / 2, drawW, drawH);
+      ctx.translate(bboxWidth / 2, bboxHeight / 2);
+      ctx.rotate(totalRotationRad);
+      ctx.drawImage(img, -poolWidth / 2, -poolHeight / 2, poolWidth, poolHeight);
       ctx.restore();
 
       // Overlay light blue color at 50% opacity
       ctx.globalAlpha = 0.50;
       ctx.fillStyle = '#87CEEB';
-      ctx.fillRect(0, 0, poolWidth, poolHeight);
+      ctx.fillRect(0, 0, bboxWidth, bboxHeight);
       ctx.globalAlpha = 1.0;
 
       const pattern = new Pattern({
