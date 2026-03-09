@@ -635,10 +635,12 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
   // Create per-side paver outer points for rectangular pools
   // Pool points order: TL(0), TR(1), BR(2), BL(3) — before rotation
   // paverDims in pixels: { top, bottom, left, right }
+  // copingSizePixels: when a side is 0, use coping as minimum so adjacent sides connect to coping edge
   const createPerSidePaverPoints = (
     poolPoints: { x: number; y: number }[],
     paverDimsPixels: { top: number; bottom: number; left: number; right: number },
-    rotationAngle: number = 0
+    rotationAngle: number = 0,
+    copingSizePixels: number = 0
   ): { x: number; y: number }[] => {
     if (poolPoints.length !== 4) {
       // Fallback to uniform offset for non-rectangular pools
