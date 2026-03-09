@@ -2565,6 +2565,12 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       fabricCanvas.bringObjectToFront(copingPolygon);
       fabricCanvas.bringObjectToFront(poolWaterPolygon);
       
+      // Add sidewalk width labels
+      if (hasPavers) {
+        const paverOuterPoints = offsetPolygon(points, maxPaverPixels);
+        addSidewalkWidthLabels(fabricCanvas, points, copingOuterPoints, paverOuterPoints, paverDims, shapeId);
+      }
+      
     } else if (mode === 'paver') {
       fill = '#d8d8d8'; // Light gray for standalone pavers
       stroke = '#000000';
