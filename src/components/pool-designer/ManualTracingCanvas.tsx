@@ -2568,7 +2568,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       // Add paver zone if any paver dimensions are set
       const hasPavers = paverDims.top > 0 || paverDims.bottom > 0 || paverDims.left > 0 || paverDims.right > 0;
       if (hasPavers) {
-        const paverOuterPoints = createPerSidePaverPoints(points, paverDimsPixels);
+        const paverOuterPoints = createPerSidePaverPoints(points, paverDimsPixels, 0, copingSizePixels);
         const paverFabricPoints = paverOuterPoints.map(p => new Point(p.x, p.y));
         const paverId = `paver-zone-${shapeId}`;
         const paverPolygon = new Polygon(paverFabricPoints, {
