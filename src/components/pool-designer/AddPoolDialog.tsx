@@ -243,11 +243,12 @@ export const AddPoolDialog: React.FC<AddPoolDialogProps> = ({
                       <img
                         src={selectedPool.image_url}
                         alt={selectedPool.display_name}
-                        className="border-2 border-primary/40 rounded-sm transition-transform duration-300"
+                        className="transition-transform duration-300"
                         style={{
                           width: `${displayW}px`,
                           height: `${displayH}px`,
-                          objectFit: 'contain',
+                          objectFit: 'fill',
+                          display: 'block',
                           transform: `rotate(${rotationAngle}deg)`,
                         }}
                       />
