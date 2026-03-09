@@ -338,6 +338,11 @@ const Admin: React.FC = () => {
             )}
           </div>
         </div>
+
+        {/* Pool Catalog */}
+        <div className="mt-8">
+          <PoolCatalogManager />
+        </div>
       </main>
     </div>
   );
