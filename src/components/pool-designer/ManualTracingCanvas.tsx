@@ -4847,6 +4847,37 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     (polygon as any).shapeId = shapeId;
     (polygon as any).isPoolWater = true;
     fabricCanvas.add(polygon);
+
+    // If pool has a catalog image, load and overlay it on the pool area
+    if (imageUrl) {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        const fabricImg = new FabricImage(img, {
+          left: minX,
+          top: minY,
+          selectable: false,
+          evented: false,
+        });
+        // Scale image to exactly fill the pool bounds
+        fabricImg.scaleX = poolWidth / img.width;
+        fabricImg.scaleY = poolHeight / img.height;
+        (fabricImg as any).shapeId = shapeId;
+        (fabricImg as any).isPoolImage = true;
+        (fabricImg as any).shapeType = 'pool';
+        fabricCanvas.add(fabricImg);
+        // Bring image above the water gradient polygon
+        fabricCanvas.bringObjectToFront(fabricImg);
+        // Ensure labels stay on top
+        fabricCanvas.getObjects().forEach(obj => {
+          if ((obj as any).isEdgeLabel || (obj as any).isPoolLabel) {
+            fabricCanvas.bringObjectToFront(obj);
+          }
+        });
+        fabricCanvas.requestRenderAll();
+      };
+      img.src = imageUrl;
+    }
     
     
     // Ensure proper z-order: paver (back) → coping → pool water (front)
