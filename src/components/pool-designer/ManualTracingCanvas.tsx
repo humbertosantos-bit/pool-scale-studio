@@ -4548,9 +4548,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     (polygon as any).shapeId = pool.id;
     (polygon as any).isPoolWater = true;
     fabricCanvas.add(polygon);
-    // Combine initial catalog rotation with canvas rotation so the image rotates with the pool
-    const totalImageRotation = (pool.imageRotation || 0) + rotationDegrees;
-    applyPoolTextureFill(polygon, newPoints, pool.imageUrl, totalImageRotation);
+    applyPoolTextureFill(polygon, newPoints, pool.imageUrl, pool.imageRotation || 0);
     
     // Ensure proper z-order: paver (back) → coping → pool water (front)
     fabricCanvas.bringObjectToFront(copingPolygon);
