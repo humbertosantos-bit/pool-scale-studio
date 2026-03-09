@@ -669,7 +669,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
           }
         }
       }
-      // Arrow keys for panning
+      // Arrow keys for smooth animated panning
       if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
         const activeElement = document.activeElement;
         const isTyping = activeElement?.tagName === 'INPUT' || 
@@ -677,18 +677,41 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
                          activeElement?.getAttribute('contenteditable') === 'true';
         if (!isTyping && fabricCanvas) {
           e.preventDefault();
-          const panStep = 50;
+          const panDistance = e.shiftKey ? 150 : 50; // Shift = faster pan
+          let dx = 0, dy = 0;
+          if (e.key === 'ArrowUp') dy = panDistance;
+          if (e.key === 'ArrowDown') dy = -panDistance;
+          if (e.key === 'ArrowLeft') dx = panDistance;
+          if (e.key === 'ArrowRight') dx = -panDistance;
+          
+          // Smooth animated pan
+          const duration = 200;
+          const startTime = performance.now();
           const vpt = fabricCanvas.viewportTransform;
-          if (vpt) {
-            if (e.key === 'ArrowUp') vpt[5] += panStep;
-            if (e.key === 'ArrowDown') vpt[5] -= panStep;
-            if (e.key === 'ArrowLeft') vpt[4] += panStep;
-            if (e.key === 'ArrowRight') vpt[4] -= panStep;
+          if (!vpt) return;
+          const startX = vpt[4];
+          const startY = vpt[5];
+          const targetX = startX + dx;
+          const targetY = startY + dy;
+          
+          hideGrid();
+          const animatePan = (now: number) => {
+            const elapsed = now - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            // Ease-out cubic
+            const eased = 1 - Math.pow(1 - progress, 3);
+            vpt[4] = startX + (targetX - startX) * eased;
+            vpt[5] = startY + (targetY - startY) * eased;
             fabricCanvas.setViewportTransform(vpt);
-            if (containerRef.current) {
-              showAndRedrawGrid(fabricCanvas, containerRef.current.clientWidth, containerRef.current.clientHeight);
+            if (progress < 1) {
+              requestAnimationFrame(animatePan);
+            } else {
+              if (containerRef.current) {
+                showAndRedrawGrid(fabricCanvas, containerRef.current.clientWidth, containerRef.current.clientHeight);
+              }
             }
-          }
+          };
+          requestAnimationFrame(animatePan);
         }
       }
       // Escape key to exit any mode
