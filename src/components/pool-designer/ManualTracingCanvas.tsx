@@ -2859,48 +2859,36 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     }
   };
 
-  // Add pool name label inside with 5% padding and auto-sizing text, aligned with the pool's length axis
+  // Add pool name label inside pool, aligned along the length (horizontal axis on canvas)
   const addPoolNameLabel = (canvas: FabricCanvas, points: { x: number; y: number }[], shapeId: string, name: string, rotationAngle: number = 0, poolWidthFeet?: number, poolLengthFeet?: number) => {
     const minX = Math.min(...points.map(p => p.x));
     const maxX = Math.max(...points.map(p => p.x));
     const minY = Math.min(...points.map(p => p.y));
     const maxY = Math.max(...points.map(p => p.y));
     
-    const width = maxX - minX;
-    const height = maxY - minY;
+    const width = maxX - minX;  // horizontal = length on canvas
+    const height = maxY - minY; // vertical = width on canvas
     
-    // Determine if we need to add 90 degrees to align with length
-    // If pool length > width, the text should be along the length (longer axis)
-    // The pool is initially oriented with width horizontal and length vertical
-    // So if length > width, we need to add 90 degrees to align text with the length
-    let extraRotation = 0;
-    if (poolLengthFeet && poolWidthFeet && poolLengthFeet > poolWidthFeet) {
-      extraRotation = 90;
-    }
-    
-    // Calculate available space - use the longer dimension for text
-    const longerDim = Math.max(width, height);
-    const shorterDim = Math.min(width, height);
-    const availableWidth = longerDim * 0.9;
-    const availableHeight = shorterDim * 0.9;
+    // Text always runs along the length (horizontal).
+    // After a drag-rotation, add the accumulated rotation.
+    const availableLength = width * 0.9;
+    const availableHeight = height * 0.9;
     
     // Start with a base font size and scale down to fit
-    let fontSize = Math.min(availableHeight * 0.25, 9); // Max 9px or 25% of height
+    let fontSize = Math.min(availableHeight * 0.25, 9);
     
-    // Estimate text width (approximate: each character ~0.55 * fontSize for bold)
     const estimatedTextWidth = name.length * fontSize * 0.55;
-    if (estimatedTextWidth > availableWidth) {
-      fontSize = (availableWidth / name.length) / 0.55;
+    if (estimatedTextWidth > availableLength) {
+      fontSize = (availableLength / name.length) / 0.55;
     }
     
-    // Ensure minimum readable size but cap at available space
-    fontSize = Math.max(Math.min(fontSize, availableWidth / (name.length * 0.4)), 5);
+    fontSize = Math.max(Math.min(fontSize, availableLength / (name.length * 0.4)), 5);
     
-    // Calculate center of pool polygon
     const centerX = points.reduce((sum, p) => sum + p.x, 0) / points.length;
     const centerY = points.reduce((sum, p) => sum + p.y, 0) / points.length;
     
-    const rotationDegrees = (rotationAngle * 180) / Math.PI + extraRotation;
+    // Only apply drag-rotation angle (no extra 90° — length is already horizontal)
+    const rotationDegrees = (rotationAngle * 180) / Math.PI;
     
     const nameLabel = new Text(name, {
       left: centerX,
