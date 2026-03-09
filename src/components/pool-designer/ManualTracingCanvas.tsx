@@ -4510,7 +4510,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         left: (paverDims.left / METERS_TO_FEET) * currentScale,
         right: (paverDims.right / METERS_TO_FEET) * currentScale,
       };
-      const paverOuterPoints = createPerSidePaverPoints(newPoints, paverDimsPixels, rotationAngle);
+      const paverOuterPoints = createPerSidePaverPoints(newPoints, paverDimsPixels, rotationAngle, copingSizePixels);
       const paverFabricPoints = paverOuterPoints.map(p => new Point(p.x, p.y));
       const paverPolygon = new Polygon(paverFabricPoints, {
         fill: '#d4d4d4',
