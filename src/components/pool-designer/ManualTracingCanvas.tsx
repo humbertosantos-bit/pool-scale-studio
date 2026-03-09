@@ -5025,13 +5025,16 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     const poolCenterX = (minX + maxX) / 2;
     const poolCenterY = (minY + maxY) / 2;
     
-    // Create paver zone polygon (outermost) - light gray
-    // Use uniform offset with max paver dimension for consistent perimeter following
-    const maxPaverFeet = Math.max(paverDims.top, paverDims.bottom, paverDims.left, paverDims.right);
-    const hasPavers = maxPaverFeet > 0;
+    // Create paver zone polygon (outermost) - per-side offsets
+    const paverDimsPixels = {
+      top: (paverDims.top / METERS_TO_FEET) * currentScale,
+      bottom: (paverDims.bottom / METERS_TO_FEET) * currentScale,
+      left: (paverDims.left / METERS_TO_FEET) * currentScale,
+      right: (paverDims.right / METERS_TO_FEET) * currentScale,
+    };
+    const hasPavers = paverDims.top > 0 || paverDims.bottom > 0 || paverDims.left > 0 || paverDims.right > 0;
     if (hasPavers) {
-      const maxPaverPixels = (maxPaverFeet / METERS_TO_FEET) * currentScale;
-      const paverOuterPoints = offsetPolygon(points, maxPaverPixels);
+      const paverOuterPoints = createPerSidePaverPoints(points, paverDimsPixels);
       const paverFabricPoints = paverOuterPoints.map(p => new Point(p.x, p.y));
       const paverId = `paver-zone-${shapeId}`;
       const paverPolygon = new Polygon(paverFabricPoints, {
