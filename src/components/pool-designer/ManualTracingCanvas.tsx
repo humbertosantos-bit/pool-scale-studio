@@ -2657,7 +2657,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       
       // Add sidewalk width labels
       if (hasPavers) {
-        const paverOuterPts = createPerSidePaverPoints(points, paverDimsPixels);
+        const paverOuterPts = createPerSidePaverPoints(points, paverDimsPixels, 0, copingSizePixels);
         addSidewalkWidthLabels(fabricCanvas, points, copingOuterPoints, paverOuterPts, paverDims, shapeId);
       }
       
