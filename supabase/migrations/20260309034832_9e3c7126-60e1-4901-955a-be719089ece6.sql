@@ -1,0 +1,2 @@
+DROP POLICY IF EXISTS "Authenticated users can view pool models" ON public.pool_models;
+CREATE POLICY "Anyone can view pool models" ON public.pool_models FOR SELECT TO anon, authenticated USING (true);
