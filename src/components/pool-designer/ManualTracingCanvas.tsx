@@ -2251,6 +2251,8 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     const mode = drawingModeRef.current;
     const shapeId = `${mode}-${Date.now()}`;
 
+    clearExactMeasurementPreview();
+
     // Remove preview elements using refs for fresh data
     drawnLinesRef.current.forEach(line => fabricCanvas.remove(line));
     vertexMarkersRef.current.forEach(marker => fabricCanvas.remove(marker));
