@@ -438,6 +438,80 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     });
   };
 
+  // Apply catalog image as pool texture (pattern fill). Falls back to water gradient on error.
+  const applyPoolTextureFill = (
+    polygon: Polygon,
+    points: { x: number; y: number }[],
+    imageUrl?: string | null,
+    imageRotation: number = 0
+  ) => {
+    if (!imageUrl) {
+      polygon.set('fill', createWaterGradient(points));
+      return;
+    }
+
+    const img = document.createElement('img');
+    img.crossOrigin = 'anonymous';
+
+    img.onload = () => {
+      const minX = Math.min(...points.map(p => p.x));
+      const maxX = Math.max(...points.map(p => p.x));
+      const minY = Math.min(...points.map(p => p.y));
+      const maxY = Math.max(...points.map(p => p.y));
+
+      const poolWidth = Math.max(1, Math.round(maxX - minX));
+      const poolHeight = Math.max(1, Math.round(maxY - minY));
+
+      const patternCanvas = document.createElement('canvas');
+      const ctx = patternCanvas.getContext('2d');
+      if (!ctx) {
+        polygon.set('fill', createWaterGradient(points));
+        fabricCanvas?.requestRenderAll();
+        return;
+      }
+
+      patternCanvas.width = poolWidth;
+      patternCanvas.height = poolHeight;
+
+      const normalizedRotation = ((imageRotation % 360) + 360) % 360;
+
+      ctx.save();
+      if (normalizedRotation === 0) {
+        ctx.drawImage(img, 0, 0, poolWidth, poolHeight);
+      } else if (normalizedRotation === 90) {
+        ctx.translate(poolWidth, 0);
+        ctx.rotate(Math.PI / 2);
+        ctx.drawImage(img, 0, 0, poolHeight, poolWidth);
+      } else if (normalizedRotation === 180) {
+        ctx.translate(poolWidth, poolHeight);
+        ctx.rotate(Math.PI);
+        ctx.drawImage(img, 0, 0, poolWidth, poolHeight);
+      } else if (normalizedRotation === 270) {
+        ctx.translate(0, poolHeight);
+        ctx.rotate(-Math.PI / 2);
+        ctx.drawImage(img, 0, 0, poolHeight, poolWidth);
+      } else {
+        ctx.drawImage(img, 0, 0, poolWidth, poolHeight);
+      }
+      ctx.restore();
+
+      const pattern = new Pattern({
+        source: patternCanvas,
+        repeat: 'no-repeat',
+      });
+
+      polygon.set('fill', pattern);
+      fabricCanvas?.requestRenderAll();
+    };
+
+    img.onerror = () => {
+      polygon.set('fill', createWaterGradient(points));
+      fabricCanvas?.requestRenderAll();
+    };
+
+    img.src = imageUrl;
+  };
+
   // Check if polygon is clockwise (positive area = counterclockwise, negative = clockwise)
   const isPolygonClockwise = (points: { x: number; y: number }[]): boolean => {
     let sum = 0;
