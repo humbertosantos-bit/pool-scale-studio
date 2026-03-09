@@ -439,8 +439,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     });
   };
 
-  // Apply catalog image as pool texture (pattern fill) with 25% water gradient overlay.
-  // Falls back to water gradient on error.
+  // Apply catalog image as pool texture with 30% transparent water overlay (no filters).
   const applyPoolTextureFill = (
     polygon: Polygon,
     points: { x: number; y: number }[],
@@ -477,7 +476,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
 
       const normalizedRotation = ((imageRotation % 360) + 360) % 360;
 
-      // Draw the pool catalog image
+      // Draw the pool catalog image at full opacity
       ctx.save();
       if (normalizedRotation === 0) {
         ctx.drawImage(img, 0, 0, poolWidth, poolHeight);
@@ -498,10 +497,10 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       }
       ctx.restore();
 
-      // Overlay 40% opacity water caustics texture
+      // Overlay the water texture image at 30% opacity — no filters, just the image
       const waterImg = document.createElement('img');
       waterImg.onload = () => {
-        ctx.globalAlpha = 0.40;
+        ctx.globalAlpha = 0.30;
         ctx.drawImage(waterImg, 0, 0, poolWidth, poolHeight);
         ctx.globalAlpha = 1.0;
 
@@ -513,7 +512,6 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         fabricCanvas?.requestRenderAll();
       };
       waterImg.onerror = () => {
-        // Still apply the pool image without water overlay
         const pattern = new Pattern({
           source: patternCanvas,
           repeat: 'no-repeat',
@@ -522,7 +520,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         fabricCanvas?.requestRenderAll();
       };
       waterImg.src = waterTextureImg;
-      return; // pattern is applied inside waterImg.onload
+      return;
     };
 
     img.onerror = () => {
