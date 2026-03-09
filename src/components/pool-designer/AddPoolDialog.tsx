@@ -29,7 +29,7 @@ export interface PoolDialogResult {
   customWidthFeet?: number;
   customLengthFeet?: number;
   copingSize: number;
-  rotated: boolean;
+  rotationAngle: number;
   imageUrl?: string | null;
   paverTop: { feet: string; inches: string };
   paverBottom: { feet: string; inches: string };
