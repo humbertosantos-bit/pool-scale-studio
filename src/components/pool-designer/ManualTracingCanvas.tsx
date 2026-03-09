@@ -3185,7 +3185,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       const text = new Text(label, {
         left: side.x,
         top: side.y,
-        fontSize: 4,
+        fontSize: 6,
         fill: '#555555',
         fontFamily: 'Poppins, sans-serif',
         originX: 'center',
