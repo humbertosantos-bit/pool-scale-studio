@@ -1,0 +1,1 @@
+CREATE POLICY "Allow authenticated users to read pool_models" ON public.pool_models FOR SELECT TO authenticated USING (true);
