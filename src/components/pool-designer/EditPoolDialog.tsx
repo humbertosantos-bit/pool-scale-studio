@@ -12,6 +12,8 @@ import { Label } from '@/components/ui/label';
 
 export interface EditPoolResult {
   copingSize: number;
+  widthFeet: number;
+  lengthFeet: number;
   paverTop: { feet: string; inches: string };
   paverBottom: { feet: string; inches: string };
   paverLeft: { feet: string; inches: string };
@@ -22,6 +24,8 @@ interface EditPoolDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   poolName: string;
+  currentWidthFeet: number;
+  currentLengthFeet: number;
   currentCopingSize: number;
   currentPaverDimensions: {
     top: number;
@@ -29,6 +33,7 @@ interface EditPoolDialogProps {
     left: number;
     right: number;
   };
+  isPreset?: boolean;
   onConfirm: (result: EditPoolResult) => void;
 }
 
@@ -36,11 +41,16 @@ export const EditPoolDialog: React.FC<EditPoolDialogProps> = ({
   open,
   onOpenChange,
   poolName,
+  currentWidthFeet,
+  currentLengthFeet,
   currentCopingSize,
   currentPaverDimensions,
+  isPreset,
   onConfirm,
 }) => {
   const [copingSize, setCopingSize] = useState(currentCopingSize);
+  const [widthFeet, setWidthFeet] = useState(String(currentWidthFeet));
+  const [lengthFeet, setLengthFeet] = useState(String(currentLengthFeet));
   const [paverTopFt, setPaverTopFt] = useState('0');
   const [paverTopIn, setPaverTopIn] = useState('0');
   const [paverBottomFt, setPaverBottomFt] = useState('0');
@@ -50,10 +60,11 @@ export const EditPoolDialog: React.FC<EditPoolDialogProps> = ({
   const [paverRightFt, setPaverRightFt] = useState('0');
   const [paverRightIn, setPaverRightIn] = useState('0');
 
-  // Sync form when dialog opens or props change
   useEffect(() => {
     if (open) {
       setCopingSize(currentCopingSize);
+      setWidthFeet(String(currentWidthFeet));
+      setLengthFeet(String(currentLengthFeet));
       setPaverTopFt(String(Math.floor(currentPaverDimensions.top)));
       setPaverTopIn(String(Math.round((currentPaverDimensions.top % 1) * 12)));
       setPaverBottomFt(String(Math.floor(currentPaverDimensions.bottom)));
@@ -63,11 +74,13 @@ export const EditPoolDialog: React.FC<EditPoolDialogProps> = ({
       setPaverRightFt(String(Math.floor(currentPaverDimensions.right)));
       setPaverRightIn(String(Math.round((currentPaverDimensions.right % 1) * 12)));
     }
-  }, [open, currentCopingSize, currentPaverDimensions]);
+  }, [open, currentCopingSize, currentWidthFeet, currentLengthFeet, currentPaverDimensions]);
 
   const handleConfirm = () => {
     onConfirm({
       copingSize,
+      widthFeet: parseFloat(widthFeet) || currentWidthFeet,
+      lengthFeet: parseFloat(lengthFeet) || currentLengthFeet,
       paverTop: { feet: paverTopFt, inches: paverTopIn },
       paverBottom: { feet: paverBottomFt, inches: paverBottomIn },
       paverLeft: { feet: paverLeftFt, inches: paverLeftIn },
@@ -84,6 +97,38 @@ export const EditPoolDialog: React.FC<EditPoolDialogProps> = ({
         </DialogHeader>
 
         <div className="space-y-4">
+          {/* Pool Dimensions */}
+          <div className="space-y-2">
+            <Label className="text-sm font-semibold">Pool Dimensions</Label>
+            <div className="flex items-center gap-3 p-3 bg-muted/20 rounded-md border">
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-muted-foreground">Width:</span>
+                <Input
+                  type="number"
+                  value={widthFeet}
+                  onChange={(e) => setWidthFeet(e.target.value)}
+                  className="w-16 h-7 text-xs text-center p-0"
+                  min="1"
+                  step="0.5"
+                />
+                <span className="text-[10px]">ft</span>
+              </div>
+              <span className="text-muted-foreground">×</span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-muted-foreground">Length:</span>
+                <Input
+                  type="number"
+                  value={lengthFeet}
+                  onChange={(e) => setLengthFeet(e.target.value)}
+                  className="w-16 h-7 text-xs text-center p-0"
+                  min="1"
+                  step="0.5"
+                />
+                <span className="text-[10px]">ft</span>
+              </div>
+            </div>
+          </div>
+
           {/* Coping Width */}
           <div className="space-y-2">
             <Label className="text-sm font-semibold">Coping Width</Label>
