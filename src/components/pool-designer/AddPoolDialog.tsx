@@ -96,12 +96,14 @@ export const AddPoolDialog: React.FC<AddPoolDialogProps> = ({
     if (selectedPool) {
       const w = selectedPool.width_feet + selectedPool.width_inches / 12;
       const l = selectedPool.length_feet + selectedPool.length_inches / 12;
-      return rotated ? { width: l, length: w } : { width: w, length: l };
+      const isSwapped = rotationAngle === 90 || rotationAngle === 270;
+      return isSwapped ? { width: l, length: w } : { width: w, length: l };
     }
     if (isCustom) {
       const w = parseFloat(customWidth) || 12;
       const l = parseFloat(customLength) || 24;
-      return rotated ? { width: l, length: w } : { width: w, length: l };
+      const isSwapped = rotationAngle === 90 || rotationAngle === 270;
+      return isSwapped ? { width: l, length: w } : { width: w, length: l };
     }
     return null;
   };
