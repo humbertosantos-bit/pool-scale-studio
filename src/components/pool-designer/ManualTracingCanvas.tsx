@@ -181,6 +181,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
   const rotationStartAngleRef = useRef<number>(0);
   const originalPoolRotationRef = useRef<number>(0);
   const poolRotationsRef = useRef<{ [key: string]: number }>({});
+  const poolTextureImageCacheRef = useRef<Map<string, HTMLImageElement>>(new Map());
   
   // Standalone paver movement state
   const [selectedPaverIndex, setSelectedPaverIndex] = useState<number | null>(null);
