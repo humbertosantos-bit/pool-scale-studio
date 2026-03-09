@@ -4447,7 +4447,6 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     
     // Get the stored rotation angle for this pool
     const rotationAngle = poolRotationsRef.current[pool.id] || 0;
-    const rotationDegrees = (rotationAngle * 180) / Math.PI;
     
     // Calculate pool center from points
     const poolCenterX = newPoints.reduce((sum, p) => sum + p.x, 0) / newPoints.length;
