@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Canvas as FabricCanvas, Line, Circle, Polygon, Text, Group, Point, Pattern, Rect, Gradient, FabricImage } from 'fabric';
+import waterTextureImg from '@/assets/water-texture.png';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
