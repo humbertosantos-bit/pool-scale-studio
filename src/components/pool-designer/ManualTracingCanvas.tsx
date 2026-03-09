@@ -5350,7 +5350,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
             right: (paverDims.right / METERS_TO_FEET) * currentScale,
           };
           const rotAngle = poolRotationsRef.current[pool.id] || 0;
-          const paverOuterPoints = createPerSidePaverPoints(pool.points, paverDimsPixels, rotAngle);
+          const paverOuterPoints = createPerSidePaverPoints(pool.points, paverDimsPixels, rotAngle, copingSizePixels);
           const paverOuterArea = calculatePolygonAreaSqFt(paverOuterPoints);
           paverNetSqFt = paverOuterArea - copingOuterArea;
         } else {
