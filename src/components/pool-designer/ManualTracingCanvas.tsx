@@ -4858,7 +4858,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         selectable: false,
         evented: false,
       });
-      (paverPolygon as any).shapeId = paverId;
+      (paverPolygon as any).shapeId = shapeId;
       (paverPolygon as any).poolId = shapeId;
       (paverPolygon as any).isPaverZone = true;
       fabricCanvas.add(paverPolygon);
@@ -4925,51 +4925,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     (polygon as any).shapeId = shapeId;
     (polygon as any).isPoolWater = true;
     fabricCanvas.add(polygon);
-
-    // If pool has a catalog image, use it as a Pattern fill on the polygon
-    if (imageUrl) {
-      const img = document.createElement('img');
-      img.crossOrigin = 'anonymous';
-      img.onload = () => {
-        // Build a pattern that scales and rotates the image to fill the pool bounds.
-        // The pool polygon on canvas already has dimensions swapped for 90/270 rotation,
-        // so the pattern transform must rotate the source image accordingly.
-        const patternCanvas = document.createElement('canvas');
-        const ctx = patternCanvas.getContext('2d');
-        if (!ctx) return;
-
-        // Pattern canvas is the size of the pool bounds
-        patternCanvas.width = poolWidth;
-        patternCanvas.height = poolHeight;
-
-        ctx.save();
-        if (imageRotation === 0) {
-          // Draw image scaled to fill pool bounds directly
-          ctx.drawImage(img, 0, 0, poolWidth, poolHeight);
-        } else if (imageRotation === 90) {
-          ctx.translate(poolWidth, 0);
-          ctx.rotate(Math.PI / 2);
-          ctx.drawImage(img, 0, 0, poolHeight, poolWidth);
-        } else if (imageRotation === 180) {
-          ctx.translate(poolWidth, poolHeight);
-          ctx.rotate(Math.PI);
-          ctx.drawImage(img, 0, 0, poolWidth, poolHeight);
-        } else if (imageRotation === 270) {
-          ctx.translate(0, poolHeight);
-          ctx.rotate(-Math.PI / 2);
-          ctx.drawImage(img, 0, 0, poolHeight, poolWidth);
-        }
-        ctx.restore();
-
-        const pattern = new Pattern({
-          source: patternCanvas,
-          repeat: 'no-repeat',
-        });
-        polygon.set('fill', pattern);
-        fabricCanvas.requestRenderAll();
-      };
-      img.src = imageUrl;
-    }
+    applyPoolTextureFill(polygon, points, imageUrl, imageRotation);
     
     
     // Ensure proper z-order: paver (back) → coping → pool water (front)
