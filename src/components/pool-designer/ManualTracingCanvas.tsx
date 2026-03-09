@@ -3184,23 +3184,6 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     shapeId: string,
     rotationAngle: number = 0
   ) => {
-    // Calculate pool center and bounds
-    const minX = Math.min(...poolPoints.map(p => p.x));
-    const maxX = Math.max(...poolPoints.map(p => p.x));
-    const minY = Math.min(...poolPoints.map(p => p.y));
-    const maxY = Math.max(...poolPoints.map(p => p.y));
-    const centerX = (minX + maxX) / 2;
-    const centerY = (minY + maxY) / 2;
-
-    const copingMinX = Math.min(...copingOuterPoints.map(p => p.x));
-    const copingMaxX = Math.max(...copingOuterPoints.map(p => p.x));
-    const copingMinY = Math.min(...copingOuterPoints.map(p => p.y));
-    const copingMaxY = Math.max(...copingOuterPoints.map(p => p.y));
-    const paverMinX = Math.min(...paverOuterPoints.map(p => p.x));
-    const paverMaxX = Math.max(...paverOuterPoints.map(p => p.x));
-    const paverMinY = Math.min(...paverOuterPoints.map(p => p.y));
-    const paverMaxY = Math.max(...paverOuterPoints.map(p => p.y));
-
     const formatDim = (feet: number) => {
       const wholeFeet = Math.floor(feet);
       const inches = Math.round((feet - wholeFeet) * 12);
@@ -3209,24 +3192,35 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       return `${wholeFeet}'${inches}"`;
     };
 
-    // Place labels at midpoints between coping and paver edges on each side
-    const sides: { dim: number; x: number; y: number; angle: number }[] = [
-      // Top
-      { dim: paverDims.top, x: centerX, y: (copingMinY + paverMinY) / 2, angle: 0 },
-      // Bottom
-      { dim: paverDims.bottom, x: centerX, y: (copingMaxY + paverMaxY) / 2, angle: 0 },
-      // Left
-      { dim: paverDims.left, x: (copingMinX + paverMinX) / 2, y: centerY, angle: -90 },
-      // Right
-      { dim: paverDims.right, x: (copingMaxX + paverMaxX) / 2, y: centerY, angle: -90 },
+    const midpoint = (a: { x: number; y: number }, b: { x: number; y: number }) => ({
+      x: (a.x + b.x) / 2,
+      y: (a.y + b.y) / 2,
+    });
+
+    // Use real polygon edges so labels stay glued to each sidewalk side during any rotation/scale
+    const sideDefs = [
+      { dim: paverDims.top, innerA: 0, innerB: 1, outerA: 0, outerB: 1 },
+      { dim: paverDims.right, innerA: 1, innerB: 2, outerA: 1, outerB: 2 },
+      { dim: paverDims.bottom, innerA: 2, innerB: 3, outerA: 2, outerB: 3 },
+      { dim: paverDims.left, innerA: 3, innerB: 0, outerA: 3, outerB: 0 },
     ];
 
-    sides.forEach(side => {
+    sideDefs.forEach(side => {
       if (side.dim <= 0) return;
+
+      const innerMid = midpoint(copingOuterPoints[side.innerA], copingOuterPoints[side.innerB]);
+      const outerMid = midpoint(paverOuterPoints[side.outerA], paverOuterPoints[side.outerB]);
+      const labelPos = midpoint(innerMid, outerMid);
+
+      const edgeStart = paverOuterPoints[side.outerA];
+      const edgeEnd = paverOuterPoints[side.outerB];
+      const edgeAngleDeg = (Math.atan2(edgeEnd.y - edgeStart.y, edgeEnd.x - edgeStart.x) * 180) / Math.PI;
+      const normalizedAngle = edgeAngleDeg > 90 ? edgeAngleDeg - 180 : edgeAngleDeg < -90 ? edgeAngleDeg + 180 : edgeAngleDeg;
+
       const label = formatDim(side.dim);
       const text = new Text(label, {
-        left: side.x,
-        top: side.y,
+        left: labelPos.x,
+        top: labelPos.y,
         fontSize: 6,
         fill: '#555555',
         fontFamily: 'Poppins, sans-serif',
@@ -3234,7 +3228,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         originY: 'center',
         selectable: false,
         evented: false,
-        angle: side.angle + (rotationAngle * 180 / Math.PI),
+        angle: normalizedAngle,
       });
       (text as any).isSidewalkWidthLabel = true;
       (text as any).shapeId = shapeId;
