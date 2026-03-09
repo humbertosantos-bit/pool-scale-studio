@@ -4887,8 +4887,6 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         const pattern = new Pattern({
           source: patternCanvas,
           repeat: 'no-repeat',
-          offsetX: -minX,
-          offsetY: -minY,
         });
         polygon.set('fill', pattern);
         fabricCanvas.requestRenderAll();
