@@ -438,7 +438,8 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     });
   };
 
-  // Apply catalog image as pool texture (pattern fill). Falls back to water gradient on error.
+  // Apply catalog image as pool texture (pattern fill) with 25% water gradient overlay.
+  // Falls back to water gradient on error.
   const applyPoolTextureFill = (
     polygon: Polygon,
     points: { x: number; y: number }[],
@@ -475,6 +476,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
 
       const normalizedRotation = ((imageRotation % 360) + 360) % 360;
 
+      // Draw the pool catalog image
       ctx.save();
       if (normalizedRotation === 0) {
         ctx.drawImage(img, 0, 0, poolWidth, poolHeight);
@@ -494,6 +496,26 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         ctx.drawImage(img, 0, 0, poolWidth, poolHeight);
       }
       ctx.restore();
+
+      // Overlay 25% opacity water gradient
+      const gradCanvas = document.createElement('canvas');
+      gradCanvas.width = poolWidth;
+      gradCanvas.height = poolHeight;
+      const gCtx = gradCanvas.getContext('2d');
+      if (gCtx) {
+        const grad = gCtx.createLinearGradient(0, 0, poolWidth, poolHeight);
+        grad.addColorStop(0, '#0EA5E9');
+        grad.addColorStop(0.3, '#38BDF8');
+        grad.addColorStop(0.6, '#7DD3FC');
+        grad.addColorStop(0.85, '#BAE6FD');
+        grad.addColorStop(1, '#FFFFFF');
+        gCtx.fillStyle = grad;
+        gCtx.fillRect(0, 0, poolWidth, poolHeight);
+
+        ctx.globalAlpha = 0.25;
+        ctx.drawImage(gradCanvas, 0, 0);
+        ctx.globalAlpha = 1.0;
+      }
 
       const pattern = new Pattern({
         source: patternCanvas,
