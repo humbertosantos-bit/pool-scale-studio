@@ -669,6 +669,28 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
           }
         }
       }
+      // Arrow keys for panning
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+        const activeElement = document.activeElement;
+        const isTyping = activeElement?.tagName === 'INPUT' || 
+                         activeElement?.tagName === 'TEXTAREA' ||
+                         activeElement?.getAttribute('contenteditable') === 'true';
+        if (!isTyping && fabricCanvas) {
+          e.preventDefault();
+          const panStep = 50;
+          const vpt = fabricCanvas.viewportTransform;
+          if (vpt) {
+            if (e.key === 'ArrowUp') vpt[5] += panStep;
+            if (e.key === 'ArrowDown') vpt[5] -= panStep;
+            if (e.key === 'ArrowLeft') vpt[4] += panStep;
+            if (e.key === 'ArrowRight') vpt[4] -= panStep;
+            fabricCanvas.setViewportTransform(vpt);
+            if (containerRef.current) {
+              showAndRedrawGrid(fabricCanvas, containerRef.current.clientWidth, containerRef.current.clientHeight);
+            }
+          }
+        }
+      }
       // Escape key to exit any mode
       if (e.key === 'Escape') {
         setDrawingMode('none');
