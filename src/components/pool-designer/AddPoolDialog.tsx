@@ -81,45 +81,33 @@ export const AddPoolDialog: React.FC<AddPoolDialogProps> = ({
   const fetchCatalog = async () => {
     setLoadingCatalog(true);
 
+    // Hard stop so spinner can never run forever
+    const hardStopId = window.setTimeout(() => {
+      setLoadingCatalog(false);
+    }, 12000);
+
     try {
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-      if (sessionError) throw sessionError;
+      const queryPromise = supabase
+        .from('pool_models')
+        .select('*')
+        .order('display_name');
 
-      const token = sessionData.session?.access_token;
-      if (!token) {
-        setCatalogPools([]);
-        return;
-      }
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        window.setTimeout(() => reject(new Error('Pool catalog request timed out')), 8000);
+      });
 
-      const controller = new AbortController();
-      const timeoutId = window.setTimeout(() => controller.abort(), 8000);
+      const { data, error } = (await Promise.race([
+        queryPromise,
+        timeoutPromise,
+      ])) as Awaited<typeof queryPromise>;
 
-      try {
-        const response = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/pool_models?select=*&order=display_name.asc`,
-          {
-            method: 'GET',
-            headers: {
-              apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-              Authorization: `Bearer ${token}`,
-            },
-            signal: controller.signal,
-          }
-        );
-
-        if (!response.ok) {
-          throw new Error(`Catalog request failed: ${response.status}`);
-        }
-
-        const rows = (await response.json()) as CatalogPool[];
-        setCatalogPools(Array.isArray(rows) ? rows : []);
-      } finally {
-        window.clearTimeout(timeoutId);
-      }
+      if (error) throw error;
+      setCatalogPools((data as unknown as CatalogPool[]) || []);
     } catch (err) {
       console.error('[AddPoolDialog] Failed to load pool catalog:', err);
       setCatalogPools([]);
     } finally {
+      window.clearTimeout(hardStopId);
       setLoadingCatalog(false);
     }
   };
