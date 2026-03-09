@@ -475,26 +475,17 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       patternCanvas.height = poolHeight;
 
       const normalizedRotation = ((imageRotation % 360) + 360) % 360;
+      const rotRad = (normalizedRotation * Math.PI) / 180;
 
-      // Draw the pool catalog image at full opacity
+      // Draw the pool catalog image rotated to match the pool orientation
       ctx.save();
-      if (normalizedRotation === 0) {
-        ctx.drawImage(img, 0, 0, poolWidth, poolHeight);
-      } else if (normalizedRotation === 90) {
-        ctx.translate(poolWidth, 0);
-        ctx.rotate(Math.PI / 2);
-        ctx.drawImage(img, 0, 0, poolHeight, poolWidth);
-      } else if (normalizedRotation === 180) {
-        ctx.translate(poolWidth, poolHeight);
-        ctx.rotate(Math.PI);
-        ctx.drawImage(img, 0, 0, poolWidth, poolHeight);
-      } else if (normalizedRotation === 270) {
-        ctx.translate(0, poolHeight);
-        ctx.rotate(-Math.PI / 2);
-        ctx.drawImage(img, 0, 0, poolHeight, poolWidth);
-      } else {
-        ctx.drawImage(img, 0, 0, poolWidth, poolHeight);
-      }
+      ctx.translate(poolWidth / 2, poolHeight / 2);
+      ctx.rotate(rotRad);
+      // The original image is drawn centered; swap draw dimensions for ~90°/270° rotations
+      const is90or270 = (normalizedRotation > 45 && normalizedRotation < 135) || (normalizedRotation > 225 && normalizedRotation < 315);
+      const drawW = is90or270 ? poolHeight : poolWidth;
+      const drawH = is90or270 ? poolWidth : poolHeight;
+      ctx.drawImage(img, -drawW / 2, -drawH / 2, drawW, drawH);
       ctx.restore();
 
       // Overlay light blue color at 50% opacity
@@ -4556,7 +4547,9 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     (polygon as any).shapeId = pool.id;
     (polygon as any).isPoolWater = true;
     fabricCanvas.add(polygon);
-    applyPoolTextureFill(polygon, newPoints, pool.imageUrl, pool.imageRotation || 0);
+    // Combine initial catalog rotation with canvas rotation so the image rotates with the pool
+    const totalImageRotation = (pool.imageRotation || 0) + rotationDegrees;
+    applyPoolTextureFill(polygon, newPoints, pool.imageUrl, totalImageRotation);
     
     // Ensure proper z-order: paver (back) → coping → pool water (front)
     fabricCanvas.bringObjectToFront(copingPolygon);
