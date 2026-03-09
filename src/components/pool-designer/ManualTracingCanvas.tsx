@@ -5893,8 +5893,12 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
 
   // Handle exact measurement confirmation - place point at given distance and angle from last point
   const handleExactMeasurementConfirm = (lengthPixels: number, angleDeg: number) => {
-    if (!fabricCanvas || currentPointsRef.current.length < 1) return;
-    
+    if (!fabricCanvas || currentPointsRef.current.length < 1) {
+      clearExactMeasurementPreview();
+      return;
+    }
+
+    clearExactMeasurementPreview();
     const lastPoint = currentPointsRef.current[currentPointsRef.current.length - 1];
     const angleRad = (angleDeg * Math.PI) / 180;
     const newPoint = {
