@@ -265,10 +265,7 @@ export const AddPoolDialog: React.FC<AddPoolDialogProps> = ({
                     return poolElement;
                   })()}
                   <div className="mt-6 text-[10px] text-muted-foreground whitespace-nowrap">
-                    {rotated 
-                      ? `${dims.length.toFixed(1)}' × ${dims.width.toFixed(1)}'`
-                      : `${dims.width.toFixed(1)}' × ${dims.length.toFixed(1)}'`
-                    }
+                    {dims.width.toFixed(1)}' × {dims.length.toFixed(1)}'
                   </div>
                 </div>
               </div>
