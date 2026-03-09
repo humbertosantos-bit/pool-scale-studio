@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -16,6 +16,7 @@ interface ExactMeasurementDialogProps {
   currentAngleDeg: number;
   unit: 'ft' | 'm';
   onConfirm: (lengthPixels: number, angleDeg: number) => void;
+  onPreviewChange?: (lengthPixels: number, angleDeg: number) => void;
   pixelsPerMeter: number;
 }
 
@@ -25,6 +26,7 @@ export const ExactMeasurementDialog: React.FC<ExactMeasurementDialogProps> = ({
   currentAngleDeg,
   unit,
   onConfirm,
+  onPreviewChange,
   pixelsPerMeter,
 }) => {
   const [feet, setFeet] = useState('0');
@@ -34,6 +36,15 @@ export const ExactMeasurementDialog: React.FC<ExactMeasurementDialogProps> = ({
   const lengthInputRef = useRef<HTMLInputElement>(null);
 
   const METERS_TO_FEET = 3.28084;
+
+  const calculateLengthMeters = useCallback(() => {
+    if (unit === 'ft') {
+      const totalFeet = (parseFloat(feet) || 0) + (parseFloat(inches) || 0) / 12;
+      return totalFeet / METERS_TO_FEET;
+    }
+
+    return parseFloat(meters) || 0;
+  }, [unit, feet, inches, meters]);
 
   useEffect(() => {
     if (open) {
@@ -49,14 +60,16 @@ export const ExactMeasurementDialog: React.FC<ExactMeasurementDialogProps> = ({
     }
   }, [open, currentAngleDeg]);
 
+  useEffect(() => {
+    if (!open || !onPreviewChange) return;
+
+    const lengthMeters = calculateLengthMeters();
+    const angle = parseFloat(angleDeg) || 0;
+    onPreviewChange(lengthMeters > 0 ? lengthMeters * pixelsPerMeter : 0, angle);
+  }, [open, onPreviewChange, calculateLengthMeters, angleDeg, pixelsPerMeter]);
+
   const handleConfirm = () => {
-    let lengthMeters: number;
-    if (unit === 'ft') {
-      const totalFeet = (parseFloat(feet) || 0) + (parseFloat(inches) || 0) / 12;
-      lengthMeters = totalFeet / METERS_TO_FEET;
-    } else {
-      lengthMeters = parseFloat(meters) || 0;
-    }
+    const lengthMeters = calculateLengthMeters();
 
     if (lengthMeters <= 0) return;
 
