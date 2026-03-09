@@ -3951,6 +3951,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     fabricCanvas.on('mouse:down', handleEdgeMouseDown);
     fabricCanvas.on('mouse:move', handleEdgeMouseMove);
     fabricCanvas.on('mouse:up', handleEdgeMouseUp);
+    fabricCanvas.on('mouse:dblclick', handlePoolClickToEdit);
     
     // Capture center point BEFORE rotation starts (on mouse down on rotation control)
     const handleRotationMouseDown = (e: any) => {
