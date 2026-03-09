@@ -79,17 +79,51 @@ export const AddPoolDialog: React.FC<AddPoolDialogProps> = ({
   const fetchCatalog = async () => {
     setLoadingCatalog(true);
     try {
-      console.log('[AddPoolDialog] Fetching pool_models...');
-      const { data, error } = await supabase
+      const queryPromise = supabase
         .from('pool_models')
         .select('*')
         .order('display_name');
-      console.log('[AddPoolDialog] Result:', { data, error });
+
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('Pool catalog request timed out')), 10000);
+      });
+
+      const { data, error } = (await Promise.race([
+        queryPromise,
+        timeoutPromise,
+      ])) as Awaited<typeof queryPromise>;
+
       if (error) throw error;
       setCatalogPools((data as unknown as CatalogPool[]) || []);
     } catch (err) {
-      console.error('[AddPoolDialog] Fetch error:', err);
-      setCatalogPools([]);
+      console.error('[AddPoolDialog] Catalog fetch failed, trying fallback:', err);
+
+      try {
+        const { data: authData } = await supabase.auth.getSession();
+        const token = authData.session?.access_token;
+
+        if (!token) throw new Error('No active session');
+
+        const response = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/pool_models?select=*&order=display_name.asc`,
+          {
+            headers: {
+              apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(`Fallback request failed: ${response.status}`);
+        }
+
+        const rows = (await response.json()) as CatalogPool[];
+        setCatalogPools(rows || []);
+      } catch (fallbackErr) {
+        console.error('[AddPoolDialog] Fallback fetch failed:', fallbackErr);
+        setCatalogPools([]);
+      }
     } finally {
       setLoadingCatalog(false);
     }
