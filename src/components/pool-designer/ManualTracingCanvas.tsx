@@ -181,6 +181,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
   const rotationStartAngleRef = useRef<number>(0);
   const originalPoolRotationRef = useRef<number>(0);
   const poolRotationsRef = useRef<{ [key: string]: number }>({});
+  const poolTextureImageCacheRef = useRef<Map<string, HTMLImageElement>>(new Map());
   
   // Standalone paver movement state
   const [selectedPaverIndex, setSelectedPaverIndex] = useState<number | null>(null);
@@ -451,17 +452,22 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       return;
     }
 
-    const img = document.createElement('img');
-    img.crossOrigin = 'anonymous';
-
-    img.onload = () => {
+    const renderTexture = (img: HTMLImageElement) => {
       const minX = Math.min(...points.map(p => p.x));
       const maxX = Math.max(...points.map(p => p.x));
       const minY = Math.min(...points.map(p => p.y));
       const maxY = Math.max(...points.map(p => p.y));
 
-      const poolWidth = Math.max(1, Math.round(maxX - minX));
-      const poolHeight = Math.max(1, Math.round(maxY - minY));
+      const bboxWidth = Math.max(1, Math.ceil(maxX - minX));
+      const bboxHeight = Math.max(1, Math.ceil(maxY - minY));
+
+      // Use actual pool edge lengths (not axis-aligned bbox) so texture scale stays locked to the pool shape
+      const poolWidth = points.length >= 2
+        ? Math.max(1, Math.hypot(points[1].x - points[0].x, points[1].y - points[0].y))
+        : bboxWidth;
+      const poolHeight = points.length >= 4
+        ? Math.max(1, Math.hypot(points[3].x - points[0].x, points[3].y - points[0].y))
+        : bboxHeight;
 
       const patternCanvas = document.createElement('canvas');
       const ctx = patternCanvas.getContext('2d');
@@ -471,27 +477,27 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         return;
       }
 
-      patternCanvas.width = poolWidth;
-      patternCanvas.height = poolHeight;
+      patternCanvas.width = bboxWidth;
+      patternCanvas.height = bboxHeight;
 
       const normalizedRotation = ((imageRotation % 360) + 360) % 360;
-      const rotRad = (normalizedRotation * Math.PI) / 180;
+      const localImageRotationRad = (normalizedRotation * Math.PI) / 180;
+      const poolAngleRad = points.length >= 2
+        ? Math.atan2(points[1].y - points[0].y, points[1].x - points[0].x)
+        : 0;
+      const totalRotationRad = poolAngleRad + localImageRotationRad;
 
-      // Draw the pool catalog image rotated to match the pool orientation
+      // Draw the pool catalog image centered and rotated to match pool geometry
       ctx.save();
-      ctx.translate(poolWidth / 2, poolHeight / 2);
-      ctx.rotate(rotRad);
-      // The original image is drawn centered; swap draw dimensions for ~90°/270° rotations
-      const is90or270 = (normalizedRotation > 45 && normalizedRotation < 135) || (normalizedRotation > 225 && normalizedRotation < 315);
-      const drawW = is90or270 ? poolHeight : poolWidth;
-      const drawH = is90or270 ? poolWidth : poolHeight;
-      ctx.drawImage(img, -drawW / 2, -drawH / 2, drawW, drawH);
+      ctx.translate(bboxWidth / 2, bboxHeight / 2);
+      ctx.rotate(totalRotationRad);
+      ctx.drawImage(img, -poolWidth / 2, -poolHeight / 2, poolWidth, poolHeight);
       ctx.restore();
 
       // Overlay light blue color at 50% opacity
       ctx.globalAlpha = 0.50;
       ctx.fillStyle = '#87CEEB';
-      ctx.fillRect(0, 0, poolWidth, poolHeight);
+      ctx.fillRect(0, 0, bboxWidth, bboxHeight);
       ctx.globalAlpha = 1.0;
 
       const pattern = new Pattern({
@@ -500,15 +506,26 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       });
       polygon.set('fill', pattern);
       fabricCanvas?.requestRenderAll();
-      return;
     };
 
+    const cachedImage = poolTextureImageCacheRef.current.get(imageUrl);
+    if (cachedImage && cachedImage.complete && cachedImage.naturalWidth > 0) {
+      renderTexture(cachedImage);
+      return;
+    }
+
+    const img = cachedImage ?? document.createElement('img');
+    img.crossOrigin = 'anonymous';
+    img.onload = () => renderTexture(img);
     img.onerror = () => {
       polygon.set('fill', createWaterGradient(points));
       fabricCanvas?.requestRenderAll();
     };
 
-    img.src = imageUrl;
+    if (!cachedImage) {
+      poolTextureImageCacheRef.current.set(imageUrl, img);
+      img.src = imageUrl;
+    }
   };
 
   // Check if polygon is clockwise (positive area = counterclockwise, negative = clockwise)
@@ -3177,30 +3194,13 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
   // Add sidewalk width labels on each side of the paver zone (between coping and paver outer edge)
   const addSidewalkWidthLabels = (
     canvas: FabricCanvas,
-    poolPoints: { x: number; y: number }[],
+    _poolPoints: { x: number; y: number }[],
     copingOuterPoints: { x: number; y: number }[],
     paverOuterPoints: { x: number; y: number }[],
     paverDims: { top: number; bottom: number; left: number; right: number },
     shapeId: string,
-    rotationAngle: number = 0
+    _rotationAngle: number = 0
   ) => {
-    // Calculate pool center and bounds
-    const minX = Math.min(...poolPoints.map(p => p.x));
-    const maxX = Math.max(...poolPoints.map(p => p.x));
-    const minY = Math.min(...poolPoints.map(p => p.y));
-    const maxY = Math.max(...poolPoints.map(p => p.y));
-    const centerX = (minX + maxX) / 2;
-    const centerY = (minY + maxY) / 2;
-
-    const copingMinX = Math.min(...copingOuterPoints.map(p => p.x));
-    const copingMaxX = Math.max(...copingOuterPoints.map(p => p.x));
-    const copingMinY = Math.min(...copingOuterPoints.map(p => p.y));
-    const copingMaxY = Math.max(...copingOuterPoints.map(p => p.y));
-    const paverMinX = Math.min(...paverOuterPoints.map(p => p.x));
-    const paverMaxX = Math.max(...paverOuterPoints.map(p => p.x));
-    const paverMinY = Math.min(...paverOuterPoints.map(p => p.y));
-    const paverMaxY = Math.max(...paverOuterPoints.map(p => p.y));
-
     const formatDim = (feet: number) => {
       const wholeFeet = Math.floor(feet);
       const inches = Math.round((feet - wholeFeet) * 12);
@@ -3209,24 +3209,35 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       return `${wholeFeet}'${inches}"`;
     };
 
-    // Place labels at midpoints between coping and paver edges on each side
-    const sides: { dim: number; x: number; y: number; angle: number }[] = [
-      // Top
-      { dim: paverDims.top, x: centerX, y: (copingMinY + paverMinY) / 2, angle: 0 },
-      // Bottom
-      { dim: paverDims.bottom, x: centerX, y: (copingMaxY + paverMaxY) / 2, angle: 0 },
-      // Left
-      { dim: paverDims.left, x: (copingMinX + paverMinX) / 2, y: centerY, angle: -90 },
-      // Right
-      { dim: paverDims.right, x: (copingMaxX + paverMaxX) / 2, y: centerY, angle: -90 },
+    const midpoint = (a: { x: number; y: number }, b: { x: number; y: number }) => ({
+      x: (a.x + b.x) / 2,
+      y: (a.y + b.y) / 2,
+    });
+
+    // Use real polygon edges so labels stay glued to each sidewalk side during any rotation/scale
+    const sideDefs = [
+      { dim: paverDims.top, innerA: 0, innerB: 1, outerA: 0, outerB: 1 },
+      { dim: paverDims.right, innerA: 1, innerB: 2, outerA: 1, outerB: 2 },
+      { dim: paverDims.bottom, innerA: 2, innerB: 3, outerA: 2, outerB: 3 },
+      { dim: paverDims.left, innerA: 3, innerB: 0, outerA: 3, outerB: 0 },
     ];
 
-    sides.forEach(side => {
+    sideDefs.forEach(side => {
       if (side.dim <= 0) return;
+
+      const innerMid = midpoint(copingOuterPoints[side.innerA], copingOuterPoints[side.innerB]);
+      const outerMid = midpoint(paverOuterPoints[side.outerA], paverOuterPoints[side.outerB]);
+      const labelPos = midpoint(innerMid, outerMid);
+
+      const edgeStart = paverOuterPoints[side.outerA];
+      const edgeEnd = paverOuterPoints[side.outerB];
+      const edgeAngleDeg = (Math.atan2(edgeEnd.y - edgeStart.y, edgeEnd.x - edgeStart.x) * 180) / Math.PI;
+      const normalizedAngle = edgeAngleDeg > 90 ? edgeAngleDeg - 180 : edgeAngleDeg < -90 ? edgeAngleDeg + 180 : edgeAngleDeg;
+
       const label = formatDim(side.dim);
       const text = new Text(label, {
-        left: side.x,
-        top: side.y,
+        left: labelPos.x,
+        top: labelPos.y,
         fontSize: 6,
         fill: '#555555',
         fontFamily: 'Poppins, sans-serif',
@@ -3234,7 +3245,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         originY: 'center',
         selectable: false,
         evented: false,
-        angle: side.angle + (rotationAngle * 180 / Math.PI),
+        angle: normalizedAngle,
       });
       (text as any).isSidewalkWidthLabel = true;
       (text as any).shapeId = shapeId;
@@ -4445,7 +4456,6 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     
     // Get the stored rotation angle for this pool
     const rotationAngle = poolRotationsRef.current[pool.id] || 0;
-    const rotationDegrees = (rotationAngle * 180) / Math.PI;
     
     // Calculate pool center from points
     const poolCenterX = newPoints.reduce((sum, p) => sum + p.x, 0) / newPoints.length;
@@ -4547,9 +4557,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     (polygon as any).shapeId = pool.id;
     (polygon as any).isPoolWater = true;
     fabricCanvas.add(polygon);
-    // Combine initial catalog rotation with canvas rotation so the image rotates with the pool
-    const totalImageRotation = (pool.imageRotation || 0) + rotationDegrees;
-    applyPoolTextureFill(polygon, newPoints, pool.imageUrl, totalImageRotation);
+    applyPoolTextureFill(polygon, newPoints, pool.imageUrl, pool.imageRotation || 0);
     
     // Ensure proper z-order: paver (back) → coping → pool water (front)
     fabricCanvas.bringObjectToFront(copingPolygon);
