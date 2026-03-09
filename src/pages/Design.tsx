@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ImageUploadOptions } from '@/components/pool-designer/ImageUploadOptions';
 import { PoolCanvas } from '@/components/pool-designer/PoolCanvas';
@@ -69,9 +69,9 @@ const Design: React.FC = () => {
     setScaleInfo(null);
   };
 
-  const handleStateChange = (state: any) => {
+  const handleStateChange = useCallback((state: any) => {
     setPoolState(state);
-  };
+  }, []);
 
   const handleReset = () => {
     setSelectedImage(null);
