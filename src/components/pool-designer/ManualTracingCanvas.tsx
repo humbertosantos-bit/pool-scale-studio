@@ -5325,11 +5325,17 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         const copingOuterArea = calculatePolygonAreaSqFt(copingOuterPoints);
         copingSqFt = copingOuterArea - poolArea;
         
-        // For custom pools, use uniform paver offset (max of all paver dimensions)
-        const maxPaverFeet = Math.max(paverDims.top, paverDims.bottom, paverDims.left, paverDims.right);
-        if (maxPaverFeet > 0) {
-          const maxPaverPixels = (maxPaverFeet / METERS_TO_FEET) * currentScale;
-          const paverOuterPoints = offsetPolygon(pool.points, maxPaverPixels);
+        // For custom pools, use per-side paver offset
+        const hasPaverDims = paverDims.top > 0 || paverDims.bottom > 0 || paverDims.left > 0 || paverDims.right > 0;
+        if (hasPaverDims) {
+          const paverDimsPixels = {
+            top: (paverDims.top / METERS_TO_FEET) * currentScale,
+            bottom: (paverDims.bottom / METERS_TO_FEET) * currentScale,
+            left: (paverDims.left / METERS_TO_FEET) * currentScale,
+            right: (paverDims.right / METERS_TO_FEET) * currentScale,
+          };
+          const rotAngle = poolRotationsRef.current[pool.id] || 0;
+          const paverOuterPoints = createPerSidePaverPoints(pool.points, paverDimsPixels, rotAngle);
           const paverOuterArea = calculatePolygonAreaSqFt(paverOuterPoints);
           paverNetSqFt = paverOuterArea - copingOuterArea;
         } else {
