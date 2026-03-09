@@ -3909,6 +3909,24 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       }
     };
 
+    // Handle clicking on a pool to edit it (only in 'none' mode)
+    const handlePoolClickToEdit = (e: any) => {
+      if (drawingModeRef.current !== 'none') return;
+      if (spacePressedRef.current) return;
+      if (isDraggingVertexRef.current || isDraggingEdgeRef.current || isDraggingPaverRef.current) return;
+      
+      const pointer = fabricCanvas.getScenePoint(e.e);
+      
+      for (let i = poolShapesRef.current.length - 1; i >= 0; i--) {
+        const pool = poolShapesRef.current[i];
+        if (isPointInsidePolygon({ x: pointer.x, y: pointer.y }, pool.points)) {
+          setEditingPoolForDialog(pool);
+          setShowEditPoolDialog(true);
+          return;
+        }
+      }
+    };
+
     fabricCanvas.on('mouse:down', handleMouseDown);
     fabricCanvas.on('mouse:move', handleMouseMove);
     fabricCanvas.on('mouse:down', handleHouseMouseDown);
