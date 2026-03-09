@@ -50,6 +50,8 @@ interface DrawnShape {
   copingSize?: number; // inches (12 or 16)
   paverDimensions?: PaverDimensions;
   isPreset?: boolean; // true for predefined pools, false for custom
+  imageUrl?: string | null;
+  imageRotation?: number;
 }
 
 interface StandalonePaver {
@@ -434,6 +436,80 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         { offset: 1, color: '#FFFFFF' },    // White
       ],
     });
+  };
+
+  // Apply catalog image as pool texture (pattern fill). Falls back to water gradient on error.
+  const applyPoolTextureFill = (
+    polygon: Polygon,
+    points: { x: number; y: number }[],
+    imageUrl?: string | null,
+    imageRotation: number = 0
+  ) => {
+    if (!imageUrl) {
+      polygon.set('fill', createWaterGradient(points));
+      return;
+    }
+
+    const img = document.createElement('img');
+    img.crossOrigin = 'anonymous';
+
+    img.onload = () => {
+      const minX = Math.min(...points.map(p => p.x));
+      const maxX = Math.max(...points.map(p => p.x));
+      const minY = Math.min(...points.map(p => p.y));
+      const maxY = Math.max(...points.map(p => p.y));
+
+      const poolWidth = Math.max(1, Math.round(maxX - minX));
+      const poolHeight = Math.max(1, Math.round(maxY - minY));
+
+      const patternCanvas = document.createElement('canvas');
+      const ctx = patternCanvas.getContext('2d');
+      if (!ctx) {
+        polygon.set('fill', createWaterGradient(points));
+        fabricCanvas?.requestRenderAll();
+        return;
+      }
+
+      patternCanvas.width = poolWidth;
+      patternCanvas.height = poolHeight;
+
+      const normalizedRotation = ((imageRotation % 360) + 360) % 360;
+
+      ctx.save();
+      if (normalizedRotation === 0) {
+        ctx.drawImage(img, 0, 0, poolWidth, poolHeight);
+      } else if (normalizedRotation === 90) {
+        ctx.translate(poolWidth, 0);
+        ctx.rotate(Math.PI / 2);
+        ctx.drawImage(img, 0, 0, poolHeight, poolWidth);
+      } else if (normalizedRotation === 180) {
+        ctx.translate(poolWidth, poolHeight);
+        ctx.rotate(Math.PI);
+        ctx.drawImage(img, 0, 0, poolWidth, poolHeight);
+      } else if (normalizedRotation === 270) {
+        ctx.translate(0, poolHeight);
+        ctx.rotate(-Math.PI / 2);
+        ctx.drawImage(img, 0, 0, poolHeight, poolWidth);
+      } else {
+        ctx.drawImage(img, 0, 0, poolWidth, poolHeight);
+      }
+      ctx.restore();
+
+      const pattern = new Pattern({
+        source: patternCanvas,
+        repeat: 'no-repeat',
+      });
+
+      polygon.set('fill', pattern);
+      fabricCanvas?.requestRenderAll();
+    };
+
+    img.onerror = () => {
+      polygon.set('fill', createWaterGradient(points));
+      fabricCanvas?.requestRenderAll();
+    };
+
+    img.src = imageUrl;
   };
 
   // Check if polygon is clockwise (positive area = counterclockwise, negative = clockwise)
@@ -4187,7 +4263,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     // Remove all related objects (coping, pavers, labels, markers)
     const objects = fabricCanvas.getObjects();
     objects.forEach(obj => {
-      if ((obj as any).shapeId === pool.id) {
+      if ((obj as any).shapeId === pool.id || (obj as any).poolId === pool.id) {
         fabricCanvas.remove(obj);
       }
       if ((obj as any).parentPolygon === pool.fabricObject) {
@@ -4287,7 +4363,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     (copingPolygon as any).isCoping = true;
     fabricCanvas.add(copingPolygon);
     
-    // Create new polygon with water gradient and black stroke (0.5px thin)
+    // Create new pool polygon and re-apply catalog texture (if any)
     const fabricPoints = newPoints.map(p => new Point(p.x, p.y));
     const polygon = new Polygon(fabricPoints, {
       fill: createWaterGradient(newPoints),
@@ -4300,6 +4376,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     (polygon as any).shapeId = pool.id;
     (polygon as any).isPoolWater = true;
     fabricCanvas.add(polygon);
+    applyPoolTextureFill(polygon, newPoints, pool.imageUrl, pool.imageRotation || 0);
     
     // Ensure proper z-order: paver (back) → coping → pool water (front)
     fabricCanvas.bringObjectToFront(copingPolygon);
@@ -4781,7 +4858,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         selectable: false,
         evented: false,
       });
-      (paverPolygon as any).shapeId = paverId;
+      (paverPolygon as any).shapeId = shapeId;
       (paverPolygon as any).poolId = shapeId;
       (paverPolygon as any).isPaverZone = true;
       fabricCanvas.add(paverPolygon);
@@ -4848,51 +4925,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     (polygon as any).shapeId = shapeId;
     (polygon as any).isPoolWater = true;
     fabricCanvas.add(polygon);
-
-    // If pool has a catalog image, use it as a Pattern fill on the polygon
-    if (imageUrl) {
-      const img = document.createElement('img');
-      img.crossOrigin = 'anonymous';
-      img.onload = () => {
-        // Build a pattern that scales and rotates the image to fill the pool bounds.
-        // The pool polygon on canvas already has dimensions swapped for 90/270 rotation,
-        // so the pattern transform must rotate the source image accordingly.
-        const patternCanvas = document.createElement('canvas');
-        const ctx = patternCanvas.getContext('2d');
-        if (!ctx) return;
-
-        // Pattern canvas is the size of the pool bounds
-        patternCanvas.width = poolWidth;
-        patternCanvas.height = poolHeight;
-
-        ctx.save();
-        if (imageRotation === 0) {
-          // Draw image scaled to fill pool bounds directly
-          ctx.drawImage(img, 0, 0, poolWidth, poolHeight);
-        } else if (imageRotation === 90) {
-          ctx.translate(poolWidth, 0);
-          ctx.rotate(Math.PI / 2);
-          ctx.drawImage(img, 0, 0, poolHeight, poolWidth);
-        } else if (imageRotation === 180) {
-          ctx.translate(poolWidth, poolHeight);
-          ctx.rotate(Math.PI);
-          ctx.drawImage(img, 0, 0, poolWidth, poolHeight);
-        } else if (imageRotation === 270) {
-          ctx.translate(0, poolHeight);
-          ctx.rotate(-Math.PI / 2);
-          ctx.drawImage(img, 0, 0, poolHeight, poolWidth);
-        }
-        ctx.restore();
-
-        const pattern = new Pattern({
-          source: patternCanvas,
-          repeat: 'no-repeat',
-        });
-        polygon.set('fill', pattern);
-        fabricCanvas.requestRenderAll();
-      };
-      img.src = imageUrl;
-    }
+    applyPoolTextureFill(polygon, points, imageUrl, imageRotation);
     
     
     // Ensure proper z-order: paver (back) → coping → pool water (front)
@@ -4943,6 +4976,8 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       copingSize,
       paverDimensions: paverDims,
       isPreset,
+      imageUrl,
+      imageRotation,
     };
     
     setPoolShapes(prev => [...prev, shape]);
