@@ -2565,6 +2565,12 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       fabricCanvas.bringObjectToFront(copingPolygon);
       fabricCanvas.bringObjectToFront(poolWaterPolygon);
       
+      // Add sidewalk width labels
+      if (hasPavers) {
+        const paverOuterPoints = offsetPolygon(points, maxPaverPixels);
+        addSidewalkWidthLabels(fabricCanvas, points, copingOuterPoints, paverOuterPoints, paverDims, shapeId);
+      }
+      
     } else if (mode === 'paver') {
       fill = '#d8d8d8'; // Light gray for standalone pavers
       stroke = '#000000';
@@ -3103,7 +3109,74 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     }
   };
 
-  // Refresh all edge labels when unit changes
+  // Add sidewalk width labels on each side of the paver zone (between coping and paver outer edge)
+  const addSidewalkWidthLabels = (
+    canvas: FabricCanvas,
+    poolPoints: { x: number; y: number }[],
+    copingOuterPoints: { x: number; y: number }[],
+    paverOuterPoints: { x: number; y: number }[],
+    paverDims: { top: number; bottom: number; left: number; right: number },
+    shapeId: string,
+    rotationAngle: number = 0
+  ) => {
+    // Calculate pool center and bounds
+    const minX = Math.min(...poolPoints.map(p => p.x));
+    const maxX = Math.max(...poolPoints.map(p => p.x));
+    const minY = Math.min(...poolPoints.map(p => p.y));
+    const maxY = Math.max(...poolPoints.map(p => p.y));
+    const centerX = (minX + maxX) / 2;
+    const centerY = (minY + maxY) / 2;
+
+    const copingMinX = Math.min(...copingOuterPoints.map(p => p.x));
+    const copingMaxX = Math.max(...copingOuterPoints.map(p => p.x));
+    const copingMinY = Math.min(...copingOuterPoints.map(p => p.y));
+    const copingMaxY = Math.max(...copingOuterPoints.map(p => p.y));
+    const paverMinX = Math.min(...paverOuterPoints.map(p => p.x));
+    const paverMaxX = Math.max(...paverOuterPoints.map(p => p.x));
+    const paverMinY = Math.min(...paverOuterPoints.map(p => p.y));
+    const paverMaxY = Math.max(...paverOuterPoints.map(p => p.y));
+
+    const formatDim = (feet: number) => {
+      const wholeFeet = Math.floor(feet);
+      const inches = Math.round((feet - wholeFeet) * 12);
+      if (inches === 0) return `${wholeFeet}'`;
+      if (wholeFeet === 0) return `${inches}"`;
+      return `${wholeFeet}'${inches}"`;
+    };
+
+    // Place labels at midpoints between coping and paver edges on each side
+    const sides: { dim: number; x: number; y: number; angle: number }[] = [
+      // Top
+      { dim: paverDims.top, x: centerX, y: (copingMinY + paverMinY) / 2, angle: 0 },
+      // Bottom
+      { dim: paverDims.bottom, x: centerX, y: (copingMaxY + paverMaxY) / 2, angle: 0 },
+      // Left
+      { dim: paverDims.left, x: (copingMinX + paverMinX) / 2, y: centerY, angle: -90 },
+      // Right
+      { dim: paverDims.right, x: (copingMaxX + paverMaxX) / 2, y: centerY, angle: -90 },
+    ];
+
+    sides.forEach(side => {
+      if (side.dim <= 0) return;
+      const label = formatDim(side.dim);
+      const text = new Text(label, {
+        left: side.x,
+        top: side.y,
+        fontSize: 4,
+        fill: '#555555',
+        fontFamily: 'Poppins, sans-serif',
+        originX: 'center',
+        originY: 'center',
+        selectable: false,
+        evented: false,
+        angle: side.angle + (rotationAngle * 180 / Math.PI),
+      });
+      (text as any).isSidewalkWidthLabel = true;
+      (text as any).shapeId = shapeId;
+      canvas.add(text);
+    });
+  };
+
   const refreshEdgeLabels = useCallback(() => {
     if (!fabricCanvas) return;
     
@@ -4414,8 +4487,11 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     
     // No vertex markers for pools (removed corner circles)
     
-    // Note: Paver dimension labels are not added for polygon-based pools
-    // as they use uniform offset. The pool calculation shows the actual areas.
+    // Add sidewalk width labels
+    if (hasPavers) {
+      const paverOuterPoints = offsetPolygon(newPoints, (Math.max(paverDims.top, paverDims.bottom, paverDims.left, paverDims.right) / METERS_TO_FEET) * currentScale);
+      addSidewalkWidthLabels(fabricCanvas, newPoints, copingOuterPoints, paverOuterPoints, paverDims, pool.id, rotationAngle);
+    }
     
     // Add pool name label with rotation and edge measurements (only for custom pools)
     addPoolNameLabel(fabricCanvas, newPoints, pool.id, pool.name || 'Custom Pool', rotationAngle, pool.widthFeet, pool.lengthFeet);
@@ -4965,8 +5041,11 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     
     // No vertex markers for pools (removed corner circles)
     
-    // Note: Paver dimension labels are not added for polygon-based pools
-    // as they use uniform offset. The pool calculation shows the actual areas.
+    // Add sidewalk width labels
+    if (hasPavers) {
+      const paverOuterPoints = offsetPolygon(points, (maxPaverFeet / METERS_TO_FEET) * currentScale);
+      addSidewalkWidthLabels(fabricCanvas, points, copingOuterPoints, paverOuterPoints, paverDims, shapeId);
+    }
     
     // Add pool name label
     addPoolNameLabel(fabricCanvas, points, shapeId, name, 0, widthFeet, lengthFeet);
