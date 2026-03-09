@@ -5170,6 +5170,21 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     setPaverRightInches('0');
   };
 
+  // Handle edit pool dialog confirm (double-click edit)
+  const handleEditPoolConfirm = (result: EditPoolResult) => {
+    if (!editingPoolForDialog) return;
+    
+    const newPaverDims = {
+      top: (parseFloat(result.paverTop.feet) || 0) + (parseFloat(result.paverTop.inches) || 0) / 12,
+      bottom: (parseFloat(result.paverBottom.feet) || 0) + (parseFloat(result.paverBottom.inches) || 0) / 12,
+      left: (parseFloat(result.paverLeft.feet) || 0) + (parseFloat(result.paverLeft.inches) || 0) / 12,
+      right: (parseFloat(result.paverRight.feet) || 0) + (parseFloat(result.paverRight.inches) || 0) / 12,
+    };
+    
+    updatePoolPavers(editingPoolForDialog.id, result.copingSize, newPaverDims);
+    setEditingPoolForDialog(null);
+  };
+
   // Delete last pool
   const deleteLastPool = () => {
     if (!fabricCanvas || poolShapesRef.current.length === 0) return;
