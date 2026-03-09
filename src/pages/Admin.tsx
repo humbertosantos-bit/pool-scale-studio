@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
+import { PoolCatalogManager } from '@/components/admin/PoolCatalogManager';
 import { ArrowLeft, Plus, Users, Trash2 } from 'lucide-react';
 import {
   AlertDialog,
@@ -336,6 +337,11 @@ const Admin: React.FC = () => {
               </div>
             )}
           </div>
+        </div>
+
+        {/* Pool Catalog */}
+        <div className="mt-8">
+          <PoolCatalogManager />
         </div>
       </main>
     </div>

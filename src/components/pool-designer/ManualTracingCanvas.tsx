@@ -4655,10 +4655,10 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     
     let widthFeet: number, lengthFeet: number, name: string, isPreset: boolean;
     
-    if (result.type === 'preset' && result.preset) {
-      widthFeet = result.preset.widthFeet + result.preset.widthInches / 12;
-      lengthFeet = result.preset.lengthFeet + result.preset.lengthInches / 12;
-      name = result.preset.displayName;
+    if (result.type === 'preset' && result.pool) {
+      widthFeet = result.pool.width_feet + result.pool.width_inches / 12;
+      lengthFeet = result.pool.length_feet + result.pool.length_inches / 12;
+      name = result.pool.display_name;
       isPreset = true;
     } else {
       widthFeet = result.customWidthFeet || 12;
@@ -6796,7 +6796,6 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       <AddPoolDialog
         open={showAddPoolDialog}
         onOpenChange={setShowAddPoolDialog}
-        presetPools={PRESET_POOLS}
         onConfirm={handlePoolDialogConfirm}
         onDrawCustom={() => startDrawingMode('pool')}
       />

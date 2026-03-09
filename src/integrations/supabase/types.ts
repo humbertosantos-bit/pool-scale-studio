@@ -14,6 +14,48 @@ export type Database = {
   }
   public: {
     Tables: {
+      pool_models: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          display_name: string
+          id: string
+          image_url: string | null
+          length_feet: number
+          length_inches: number
+          name: string
+          updated_at: string
+          width_feet: number
+          width_inches: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          display_name: string
+          id?: string
+          image_url?: string | null
+          length_feet?: number
+          length_inches?: number
+          name: string
+          updated_at?: string
+          width_feet?: number
+          width_inches?: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          display_name?: string
+          id?: string
+          image_url?: string | null
+          length_feet?: number
+          length_inches?: number
+          name?: string
+          updated_at?: string
+          width_feet?: number
+          width_inches?: number
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
