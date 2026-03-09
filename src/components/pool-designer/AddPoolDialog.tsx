@@ -29,7 +29,7 @@ export interface PoolDialogResult {
   customWidthFeet?: number;
   customLengthFeet?: number;
   copingSize: number;
-  rotated: boolean;
+  rotationAngle: number;
   imageUrl?: string | null;
   paverTop: { feet: string; inches: string };
   paverBottom: { feet: string; inches: string };
@@ -57,7 +57,7 @@ export const AddPoolDialog: React.FC<AddPoolDialogProps> = ({
   const [customWidth, setCustomWidth] = useState('12');
   const [customLength, setCustomLength] = useState('24');
   const [copingSize, setCopingSize] = useState(16);
-  const [rotated, setRotated] = useState(false);
+  const [rotationAngle, setRotationAngle] = useState(0);
 
   // Sidewalk dimensions per side
   const [paverTopFt, setPaverTopFt] = useState('4');
@@ -96,12 +96,14 @@ export const AddPoolDialog: React.FC<AddPoolDialogProps> = ({
     if (selectedPool) {
       const w = selectedPool.width_feet + selectedPool.width_inches / 12;
       const l = selectedPool.length_feet + selectedPool.length_inches / 12;
-      return rotated ? { width: l, length: w } : { width: w, length: l };
+      const isSwapped = rotationAngle === 90 || rotationAngle === 270;
+      return isSwapped ? { width: l, length: w } : { width: w, length: l };
     }
     if (isCustom) {
       const w = parseFloat(customWidth) || 12;
       const l = parseFloat(customLength) || 24;
-      return rotated ? { width: l, length: w } : { width: w, length: l };
+      const isSwapped = rotationAngle === 90 || rotationAngle === 270;
+      return isSwapped ? { width: l, length: w } : { width: w, length: l };
     }
     return null;
   };
@@ -115,7 +117,7 @@ export const AddPoolDialog: React.FC<AddPoolDialogProps> = ({
       customWidthFeet: isCustom ? parseFloat(customWidth) || 12 : undefined,
       customLengthFeet: isCustom ? parseFloat(customLength) || 24 : undefined,
       copingSize,
-      rotated,
+      rotationAngle,
       imageUrl: selectedPool?.image_url || null,
       paverTop: { feet: paverTopFt, inches: paverTopIn },
       paverBottom: { feet: paverBottomFt, inches: paverBottomIn },
@@ -135,7 +137,7 @@ export const AddPoolDialog: React.FC<AddPoolDialogProps> = ({
   const resetState = () => {
     setSelectedPool(null);
     setIsCustom(false);
-    setRotated(false);
+    setRotationAngle(0);
   };
 
   const formatDim = (feet: number, inches: number) => {
@@ -224,9 +226,9 @@ export const AddPoolDialog: React.FC<AddPoolDialogProps> = ({
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label className="text-sm font-semibold">Preview</Label>
-                <Button size="sm" variant="outline" className="gap-1 h-7 text-xs" onClick={() => setRotated(!rotated)}>
+                <Button size="sm" variant="outline" className="gap-1 h-7 text-xs" onClick={() => setRotationAngle((prev) => (prev + 90) % 360)}>
                   <RotateCcw className="h-3 w-3" />
-                  Rotate 90°
+                  Rotate 90° ({rotationAngle}°)
                 </Button>
               </div>
               <div className="flex items-center justify-center p-4 bg-muted/20 rounded-md border min-h-[160px]">
@@ -245,8 +247,8 @@ export const AddPoolDialog: React.FC<AddPoolDialogProps> = ({
                         style={{
                           width: `${displayW}px`,
                           height: `${displayH}px`,
-                          objectFit: 'fill',
-                          transform: rotated ? 'rotate(90deg)' : 'none',
+                          objectFit: 'contain',
+                          transform: `rotate(${rotationAngle}deg)`,
                         }}
                       />
                     ) : (
@@ -256,17 +258,14 @@ export const AddPoolDialog: React.FC<AddPoolDialogProps> = ({
                           width: `${displayW}px`,
                           height: `${displayH}px`,
                           background: 'linear-gradient(135deg, #0EA5E9, #38BDF8, #7DD3FC, #BAE6FD)',
-                          transform: rotated ? 'rotate(90deg)' : 'none',
+                          transform: `rotate(${rotationAngle}deg)`,
                         }}
                       />
                     );
                     return poolElement;
                   })()}
                   <div className="mt-6 text-[10px] text-muted-foreground whitespace-nowrap">
-                    {rotated 
-                      ? `${dims.length.toFixed(1)}' × ${dims.width.toFixed(1)}'`
-                      : `${dims.width.toFixed(1)}' × ${dims.length.toFixed(1)}'`
-                    }
+                    {dims.width.toFixed(1)}' × {dims.length.toFixed(1)}'
                   </div>
                 </div>
               </div>

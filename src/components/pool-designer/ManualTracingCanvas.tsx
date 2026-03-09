@@ -4690,8 +4690,8 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       isPreset = false;
     }
     
-    // Apply rotation
-    if (result.rotated) {
+    // Apply rotation (90° or 270° means width/length swap)
+    if (result.rotationAngle === 90 || result.rotationAngle === 270) {
       const temp = widthFeet;
       widthFeet = lengthFeet;
       lengthFeet = temp;
