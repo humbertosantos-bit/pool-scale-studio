@@ -229,39 +229,44 @@ export const AddPoolDialog: React.FC<AddPoolDialogProps> = ({
                   Rotate 90°
                 </Button>
               </div>
-              <div className="flex items-center justify-center p-4 bg-muted/20 rounded-md border min-h-[120px]">
-                <div className="relative">
-                  {/* Pool images are imported horizontally (length is the long side).
-                      Default: show horizontal (length as display width, width as display height).
-                      Rotated: swap so it becomes vertical. */}
+              <div className="flex items-center justify-center p-4 bg-muted/20 rounded-md border min-h-[160px]">
+                <div className="relative flex flex-col items-center">
+                  {/* Pool images are horizontal (width × length). 
+                       When rotated, we apply CSS rotate(90deg) so the image turns but isn't distorted. */}
                   {(() => {
-                    // Display dimensions: default horizontal, rotated vertical
-                    const displayW = rotated ? Math.min(200, dims.width * 8) : Math.min(200, dims.length * 8);
-                    const displayH = rotated ? Math.min(200, dims.length * 8) : Math.min(200, dims.width * 8);
-                    return selectedPool?.image_url ? (
+                    // Always display the image at its natural horizontal proportions
+                    const displayW = Math.min(180, dims.length * 8);
+                    const displayH = Math.min(120, dims.width * 8);
+                    const poolElement = selectedPool?.image_url ? (
                       <img
                         src={selectedPool.image_url}
                         alt={selectedPool.display_name}
-                        className="border-2 border-primary/40 rounded-sm"
+                        className="border-2 border-primary/40 rounded-sm transition-transform duration-300"
                         style={{
                           width: `${displayW}px`,
                           height: `${displayH}px`,
                           objectFit: 'fill',
+                          transform: rotated ? 'rotate(90deg)' : 'none',
                         }}
                       />
                     ) : (
                       <div
-                        className="rounded-sm border-2 border-primary/40"
+                        className="rounded-sm border-2 border-primary/40 transition-transform duration-300"
                         style={{
                           width: `${displayW}px`,
                           height: `${displayH}px`,
                           background: 'linear-gradient(135deg, #0EA5E9, #38BDF8, #7DD3FC, #BAE6FD)',
+                          transform: rotated ? 'rotate(90deg)' : 'none',
                         }}
                       />
                     );
+                    return poolElement;
                   })()}
-                  <div className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-[10px] text-muted-foreground whitespace-nowrap">
-                    {dims.width.toFixed(1)}' × {dims.length.toFixed(1)}'
+                  <div className="mt-6 text-[10px] text-muted-foreground whitespace-nowrap">
+                    {rotated 
+                      ? `${dims.length.toFixed(1)}' × ${dims.width.toFixed(1)}'`
+                      : `${dims.width.toFixed(1)}' × ${dims.length.toFixed(1)}'`
+                    }
                   </div>
                 </div>
               </div>
