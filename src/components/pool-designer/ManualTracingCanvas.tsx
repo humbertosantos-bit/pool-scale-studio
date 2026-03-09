@@ -5448,7 +5448,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       right: (parseFloat(result.paverRight.feet) || 0) + (parseFloat(result.paverRight.inches) || 0) / 12,
     };
     
-    updatePoolPavers(editingPoolForDialog.id, result.copingSize, newPaverDims);
+    updatePoolPavers(editingPoolForDialog.id, result.copingSize, newPaverDims, result.widthFeet, result.lengthFeet);
     setEditingPoolForDialog(null);
   };
 
