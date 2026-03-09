@@ -79,13 +79,16 @@ export const AddPoolDialog: React.FC<AddPoolDialogProps> = ({
   const fetchCatalog = async () => {
     setLoadingCatalog(true);
     try {
+      console.log('[AddPoolDialog] Fetching pool_models...');
       const { data, error } = await supabase
         .from('pool_models')
         .select('*')
         .order('display_name');
+      console.log('[AddPoolDialog] Result:', { data, error });
       if (error) throw error;
       setCatalogPools((data as unknown as CatalogPool[]) || []);
-    } catch {
+    } catch (err) {
+      console.error('[AddPoolDialog] Fetch error:', err);
       setCatalogPools([]);
     } finally {
       setLoadingCatalog(false);
