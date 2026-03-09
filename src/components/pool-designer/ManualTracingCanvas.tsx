@@ -7074,7 +7074,10 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
             if (!open) setEditingPoolForDialog(null);
           }}
           poolName={editingPoolForDialog.name || 'Pool'}
+          currentWidthFeet={editingPoolForDialog.widthFeet || 12}
+          currentLengthFeet={editingPoolForDialog.lengthFeet || 24}
           currentCopingSize={editingPoolForDialog.copingSize || 16}
+          isPreset={editingPoolForDialog.isPreset}
           currentPaverDimensions={editingPoolForDialog.paverDimensions || { top: 0, bottom: 0, left: 0, right: 0 }}
           onConfirm={handleEditPoolConfirm}
         />
