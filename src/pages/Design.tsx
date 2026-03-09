@@ -69,9 +69,9 @@ const Design: React.FC = () => {
     setScaleInfo(null);
   };
 
-  const handleStateChange = (state: any) => {
+  const handleStateChange = useCallback((state: any) => {
     setPoolState(state);
-  };
+  }, []);
 
   const handleReset = () => {
     setSelectedImage(null);
