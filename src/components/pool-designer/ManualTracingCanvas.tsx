@@ -4837,7 +4837,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     // Create pool polygon (0.5px thin perimeter)
     const fabricPoints = points.map(p => new Point(p.x, p.y));
     const polygon = new Polygon(fabricPoints, {
-      fill: createWaterGradient(points),
+      fill: imageUrl ? 'transparent' : createWaterGradient(points),
       stroke: '#000000',
       strokeWidth: 0.5,
       selectable: false,
@@ -4853,20 +4853,48 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       const img = document.createElement('img');
       img.crossOrigin = 'anonymous';
       img.onload = () => {
+        // The image is the pool's natural top-down layout (horizontal: width × length).
+        // The pool rectangle on canvas already accounts for dimension swapping from rotation,
+        // so we need to rotate the image to match.
         const fabricImg = new FabricImage(img, {
-          left: minX,
-          top: minY,
           selectable: false,
           evented: false,
         });
-        // Scale image to exactly fill the pool bounds
-        fabricImg.scaleX = poolWidth / img.width;
-        fabricImg.scaleY = poolHeight / img.height;
+
+        if (imageRotation === 90 || imageRotation === 270) {
+          // Image needs to be rotated: scale to fill the rotated bounds
+          // Natural image is wider than tall (length × width), but pool rect is swapped
+          fabricImg.scaleX = poolHeight / img.width;
+          fabricImg.scaleY = poolWidth / img.height;
+          fabricImg.angle = imageRotation;
+          // Adjust position based on rotation angle to keep image centered in pool bounds
+          if (imageRotation === 90) {
+            fabricImg.left = minX + poolWidth;
+            fabricImg.top = minY;
+          } else {
+            // 270
+            fabricImg.left = minX;
+            fabricImg.top = minY + poolHeight;
+          }
+        } else if (imageRotation === 180) {
+          fabricImg.scaleX = poolWidth / img.width;
+          fabricImg.scaleY = poolHeight / img.height;
+          fabricImg.angle = 180;
+          fabricImg.left = minX + poolWidth;
+          fabricImg.top = minY + poolHeight;
+        } else {
+          // 0 degrees - no rotation
+          fabricImg.left = minX;
+          fabricImg.top = minY;
+          fabricImg.scaleX = poolWidth / img.width;
+          fabricImg.scaleY = poolHeight / img.height;
+        }
+
         (fabricImg as any).shapeId = shapeId;
         (fabricImg as any).isPoolImage = true;
         (fabricImg as any).shapeType = 'pool';
         fabricCanvas.add(fabricImg);
-        // Bring image above the water gradient polygon
+        // Bring image above the pool polygon, then ensure proper z-order
         fabricCanvas.bringObjectToFront(fabricImg);
         // Ensure labels stay on top
         fabricCanvas.getObjects().forEach(obj => {
