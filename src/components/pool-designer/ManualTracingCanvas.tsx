@@ -4729,7 +4729,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     // We need to temporarily set the state values so createPoolShape picks them up
     // Since createPoolShape reads from state variables directly, we use a setTimeout
     setTimeout(() => {
-      createPoolShape(poolPoints, name, widthFeet, lengthFeet, isPreset);
+      createPoolShape(poolPoints, name, widthFeet, lengthFeet, isPreset, result.imageUrl || null, result.rotationAngle);
     }, 0);
     
     setShowAddPoolDialog(false);
