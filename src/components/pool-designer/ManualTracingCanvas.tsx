@@ -5297,7 +5297,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
   };
 
   // Update pool pavers (for editing existing pools)
-  const updatePoolPavers = (poolId: string, newCopingSize: number, newPaverDims: PaverDimensions) => {
+  const updatePoolPavers = (poolId: string, newCopingSize: number, newPaverDims: PaverDimensions, newWidthFeet?: number, newLengthFeet?: number) => {
     if (!fabricCanvas) return;
     
     const poolIndex = poolShapesRef.current.findIndex(p => p.id === poolId);
@@ -5305,12 +5305,66 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     
     const pool = poolShapesRef.current[poolIndex];
     
-    // Update the pool's coping and paver dimensions
+    // Check if pool dimensions changed
+    const widthChanged = newWidthFeet !== undefined && newWidthFeet !== pool.widthFeet;
+    const lengthChanged = newLengthFeet !== undefined && newLengthFeet !== pool.lengthFeet;
+    const dimensionsChanged = widthChanged || lengthChanged;
+    
+    // Update the pool's properties
     const updatedPool: DrawnShape = {
       ...pool,
       copingSize: newCopingSize,
       paverDimensions: newPaverDims,
+      widthFeet: newWidthFeet ?? pool.widthFeet,
+      lengthFeet: newLengthFeet ?? pool.lengthFeet,
     };
+    
+    // If dimensions changed, recalculate pool points
+    let newPoints = pool.points;
+    if (dimensionsChanged) {
+      const currentScale = scalePixelsPerMeterRef.current;
+      const wFeet = newWidthFeet ?? pool.widthFeet ?? 12;
+      const lFeet = newLengthFeet ?? pool.lengthFeet ?? 24;
+      const widthPixels = (wFeet / METERS_TO_FEET) * currentScale;
+      const lengthPixels = (lFeet / METERS_TO_FEET) * currentScale;
+      
+      // Calculate current center
+      const centerX = pool.points.reduce((sum, p) => sum + p.x, 0) / pool.points.length;
+      const centerY = pool.points.reduce((sum, p) => sum + p.y, 0) / pool.points.length;
+      
+      // On canvas: length = horizontal (X), width = vertical (Y)
+      const halfHoriz = lengthPixels / 2;
+      const halfVert = widthPixels / 2;
+      
+      // Check if pool has rotation
+      const rotationAngle = poolRotationsRef.current[pool.id] || 0;
+      if (rotationAngle !== 0) {
+        const cos = Math.cos(rotationAngle);
+        const sin = Math.sin(rotationAngle);
+        const corners = [
+          { x: -halfHoriz, y: -halfVert },
+          { x: halfHoriz, y: -halfVert },
+          { x: halfHoriz, y: halfVert },
+          { x: -halfHoriz, y: halfVert },
+        ];
+        newPoints = corners.map(c => ({
+          x: centerX + c.x * cos - c.y * sin,
+          y: centerY + c.x * sin + c.y * cos,
+        }));
+      } else {
+        newPoints = [
+          { x: centerX - halfHoriz, y: centerY - halfVert },
+          { x: centerX + halfHoriz, y: centerY - halfVert },
+          { x: centerX + halfHoriz, y: centerY + halfVert },
+          { x: centerX - halfHoriz, y: centerY + halfVert },
+        ];
+      }
+      
+      updatedPool.points = newPoints;
+      if (dimensionsChanged && !pool.isPreset) {
+        updatedPool.name = `Custom ${wFeet}'x${lFeet}'`;
+      }
+    }
     
     // Use updatePoolPosition to redraw with new dimensions
     poolShapesRef.current[poolIndex] = updatedPool;
@@ -5321,12 +5375,12 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     });
     
     // Redraw the pool with new pavers
-    updatePoolPosition(poolIndex, pool.points);
+    updatePoolPosition(poolIndex, newPoints);
     
     // Update calculations
     updatePoolCalculations(poolShapesRef.current);
     
-    toast.success('Pool pavers updated');
+    toast.success('Pool updated');
   };
 
   // Start editing a pool's pavers
