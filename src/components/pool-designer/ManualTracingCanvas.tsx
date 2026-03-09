@@ -4363,7 +4363,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     (copingPolygon as any).isCoping = true;
     fabricCanvas.add(copingPolygon);
     
-    // Create new polygon with water gradient and black stroke (0.5px thin)
+    // Create new pool polygon and re-apply catalog texture (if any)
     const fabricPoints = newPoints.map(p => new Point(p.x, p.y));
     const polygon = new Polygon(fabricPoints, {
       fill: createWaterGradient(newPoints),
@@ -4376,6 +4376,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     (polygon as any).shapeId = pool.id;
     (polygon as any).isPoolWater = true;
     fabricCanvas.add(polygon);
+    applyPoolTextureFill(polygon, newPoints, pool.imageUrl, pool.imageRotation || 0);
     
     // Ensure proper z-order: paver (back) → coping → pool water (front)
     fabricCanvas.bringObjectToFront(copingPolygon);
