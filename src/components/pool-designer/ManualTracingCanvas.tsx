@@ -665,12 +665,18 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     const minY = Math.min(...unrotated.map(p => p.y));
     const maxY = Math.max(...unrotated.map(p => p.y));
 
+    // When a side has 0 sidewalk, use coping size as minimum so adjacent sides connect to coping edge
+    const effectiveTop = paverDimsPixels.top > 0 ? paverDimsPixels.top : copingSizePixels;
+    const effectiveBottom = paverDimsPixels.bottom > 0 ? paverDimsPixels.bottom : copingSizePixels;
+    const effectiveLeft = paverDimsPixels.left > 0 ? paverDimsPixels.left : copingSizePixels;
+    const effectiveRight = paverDimsPixels.right > 0 ? paverDimsPixels.right : copingSizePixels;
+
     // Create outer rectangle with per-side offsets
     const outerUnrotated = [
-      { x: minX - paverDimsPixels.left, y: minY - paverDimsPixels.top },     // TL
-      { x: maxX + paverDimsPixels.right, y: minY - paverDimsPixels.top },    // TR
-      { x: maxX + paverDimsPixels.right, y: maxY + paverDimsPixels.bottom }, // BR
-      { x: minX - paverDimsPixels.left, y: maxY + paverDimsPixels.bottom },  // BL
+      { x: minX - effectiveLeft, y: minY - effectiveTop },     // TL
+      { x: maxX + effectiveRight, y: minY - effectiveTop },    // TR
+      { x: maxX + effectiveRight, y: maxY + effectiveBottom }, // BR
+      { x: minX - effectiveLeft, y: maxY + effectiveBottom },  // BL
     ];
 
     // Rotate back
