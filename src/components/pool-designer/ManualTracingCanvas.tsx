@@ -4729,14 +4729,14 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     // We need to temporarily set the state values so createPoolShape picks them up
     // Since createPoolShape reads from state variables directly, we use a setTimeout
     setTimeout(() => {
-      createPoolShape(poolPoints, name, widthFeet, lengthFeet, isPreset);
+      createPoolShape(poolPoints, name, widthFeet, lengthFeet, isPreset, result.imageUrl || null, result.rotationAngle);
     }, 0);
     
     setShowAddPoolDialog(false);
   };
 
   // Create pool shape helper with coping and pavers
-  const createPoolShape = (points: { x: number; y: number }[], name: string, widthFeet: number, lengthFeet: number, isPreset: boolean = false) => {
+  const createPoolShape = (points: { x: number; y: number }[], name: string, widthFeet: number, lengthFeet: number, isPreset: boolean = false, imageUrl: string | null = null, imageRotation: number = 0) => {
     if (!fabricCanvas) return;
     
     const shapeId = `pool-${Date.now()}`;
@@ -4847,6 +4847,37 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     (polygon as any).shapeId = shapeId;
     (polygon as any).isPoolWater = true;
     fabricCanvas.add(polygon);
+
+    // If pool has a catalog image, load and overlay it on the pool area
+    if (imageUrl) {
+      const img = document.createElement('img');
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        const fabricImg = new FabricImage(img, {
+          left: minX,
+          top: minY,
+          selectable: false,
+          evented: false,
+        });
+        // Scale image to exactly fill the pool bounds
+        fabricImg.scaleX = poolWidth / img.width;
+        fabricImg.scaleY = poolHeight / img.height;
+        (fabricImg as any).shapeId = shapeId;
+        (fabricImg as any).isPoolImage = true;
+        (fabricImg as any).shapeType = 'pool';
+        fabricCanvas.add(fabricImg);
+        // Bring image above the water gradient polygon
+        fabricCanvas.bringObjectToFront(fabricImg);
+        // Ensure labels stay on top
+        fabricCanvas.getObjects().forEach(obj => {
+          if ((obj as any).isEdgeLabel || (obj as any).isPoolLabel) {
+            fabricCanvas.bringObjectToFront(obj);
+          }
+        });
+        fabricCanvas.requestRenderAll();
+      };
+      img.src = imageUrl;
+    }
     
     
     // Ensure proper z-order: paver (back) → coping → pool water (front)
