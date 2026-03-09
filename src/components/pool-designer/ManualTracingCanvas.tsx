@@ -4736,7 +4736,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
   };
 
   // Create pool shape helper with coping and pavers
-  const createPoolShape = (points: { x: number; y: number }[], name: string, widthFeet: number, lengthFeet: number, isPreset: boolean = false) => {
+  const createPoolShape = (points: { x: number; y: number }[], name: string, widthFeet: number, lengthFeet: number, isPreset: boolean = false, imageUrl: string | null = null, imageRotation: number = 0) => {
     if (!fabricCanvas) return;
     
     const shapeId = `pool-${Date.now()}`;
