@@ -4976,6 +4976,8 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       copingSize,
       paverDimensions: paverDims,
       isPreset,
+      imageUrl,
+      imageRotation,
     };
     
     setPoolShapes(prev => [...prev, shape]);
