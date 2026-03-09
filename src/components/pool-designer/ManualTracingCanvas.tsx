@@ -6796,7 +6796,6 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       <AddPoolDialog
         open={showAddPoolDialog}
         onOpenChange={setShowAddPoolDialog}
-        presetPools={PRESET_POOLS}
         onConfirm={handlePoolDialogConfirm}
         onDrawCustom={() => startDrawingMode('pool')}
       />
