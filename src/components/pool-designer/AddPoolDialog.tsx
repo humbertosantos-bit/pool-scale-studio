@@ -117,7 +117,7 @@ export const AddPoolDialog: React.FC<AddPoolDialogProps> = ({
       customWidthFeet: isCustom ? parseFloat(customWidth) || 12 : undefined,
       customLengthFeet: isCustom ? parseFloat(customLength) || 24 : undefined,
       copingSize,
-      rotated,
+      rotationAngle,
       imageUrl: selectedPool?.image_url || null,
       paverTop: { feet: paverTopFt, inches: paverTopIn },
       paverBottom: { feet: paverBottomFt, inches: paverBottomIn },
