@@ -2624,8 +2624,8 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       });
     }
     
-    // Add edge length labels only for property
-    if (mode === 'property') {
+    // Add edge length labels for property and house
+    if (mode === 'property' || mode === 'house') {
       addEdgeLengthLabels(fabricCanvas, points, shapeId);
     }
     
