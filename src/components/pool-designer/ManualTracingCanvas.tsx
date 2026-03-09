@@ -5757,6 +5757,74 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     toast.success('Canvas reset');
   };
 
+  // Handle exact measurement confirmation - place point at given distance and angle from last point
+  const handleExactMeasurementConfirm = (lengthPixels: number, angleDeg: number) => {
+    if (!fabricCanvas || currentPointsRef.current.length < 1) return;
+    
+    const lastPoint = currentPointsRef.current[currentPointsRef.current.length - 1];
+    const angleRad = (angleDeg * Math.PI) / 180;
+    const newPoint = {
+      x: lastPoint.x + Math.cos(angleRad) * lengthPixels,
+      y: lastPoint.y + Math.sin(angleRad) * lengthPixels,
+    };
+
+    // Add the new point (same logic as handleMouseDown for shape drawing)
+    const newPoints = [...currentPointsRef.current, newPoint];
+    currentPointsRef.current = newPoints;
+    setCurrentPoints(newPoints);
+
+    // Add vertex marker
+    const markerColor = drawingModeRef.current === 'property' ? '#22c55e' : drawingModeRef.current === 'pool' ? '#0EA5E9' : '#3b82f6';
+    const marker = new Circle({
+      left: newPoint.x,
+      top: newPoint.y,
+      radius: 1,
+      fill: markerColor,
+      stroke: '#ffffff',
+      strokeWidth: 0.25,
+      originX: 'center',
+      originY: 'center',
+      selectable: false,
+      evented: false,
+    });
+    fabricCanvas.add(marker);
+    vertexMarkersRef.current = [...vertexMarkersRef.current, marker];
+    setVertexMarkers(prev => [...prev, marker]);
+
+    // Add line from previous point
+    const lineColor = drawingModeRef.current === 'property' ? '#22c55e' : drawingModeRef.current === 'pool' ? '#0EA5E9' : '#3b82f6';
+    const line = new Line([lastPoint.x, lastPoint.y, newPoint.x, newPoint.y], {
+      stroke: lineColor,
+      strokeWidth: 1,
+      strokeDashArray: drawingModeRef.current === 'property' ? [8, 4] : undefined,
+      selectable: false,
+      evented: false,
+    });
+    fabricCanvas.add(line);
+    drawnLinesRef.current = [...drawnLinesRef.current, line];
+    setDrawnLines(prev => [...prev, line]);
+
+    // Remove preview line and measurement label
+    if (previewLineRef.current) {
+      fabricCanvas.remove(previewLineRef.current);
+      previewLineRef.current = null;
+      setPreviewLine(null);
+    }
+    if (measurementLabelRef.current) {
+      fabricCanvas.remove(measurementLabelRef.current);
+      measurementLabelRef.current = null;
+      setMeasurementLabel(null);
+    }
+
+    fabricCanvas.renderAll();
+
+    // Push to undo stack
+    setUndoStack(prev => [...prev, { type: 'add_point', data: newPoint }]);
+    setRedoStack([]);
+
+    toast.success(`Point placed: ${formatMeasurement(lengthPixels)} at ${angleDeg.toFixed(1)}°`);
+  };
+
   return (
     <div className="h-full flex flex-col">
       {/* Toolbar */}
