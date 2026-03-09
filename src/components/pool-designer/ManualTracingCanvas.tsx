@@ -589,6 +589,62 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
           fabricCanvas.hoverCursor = 'move';
         }
       }
+      // Backspace key to undo last point during tracing
+      if (e.key === 'Backspace') {
+        const activeElement = document.activeElement;
+        const isTyping = activeElement?.tagName === 'INPUT' || 
+                         activeElement?.tagName === 'TEXTAREA' ||
+                         activeElement?.getAttribute('contenteditable') === 'true';
+        if (isTyping) return;
+
+        const mode = drawingModeRef.current;
+        if ((mode === 'property' || mode === 'house' || mode === 'paver') && currentPointsRef.current.length > 0) {
+          e.preventDefault();
+          
+          // Remove last point
+          const newPoints = currentPointsRef.current.slice(0, -1);
+          currentPointsRef.current = newPoints;
+          setCurrentPoints([...newPoints]);
+          
+          // Remove last vertex marker
+          const markers = vertexMarkersRef.current;
+          if (markers.length > 0) {
+            const lastMarker = markers[markers.length - 1];
+            if (fabricCanvas && lastMarker) {
+              fabricCanvas.remove(lastMarker);
+            }
+            const newMarkers = markers.slice(0, -1);
+            vertexMarkersRef.current = newMarkers;
+            setVertexMarkers([...newMarkers]);
+          }
+          
+          // Remove last drawn line
+          const lines = drawnLinesRef.current;
+          if (lines.length > 0) {
+            const lastLine = lines[lines.length - 1];
+            if (fabricCanvas && lastLine) {
+              fabricCanvas.remove(lastLine);
+            }
+            const newLines = lines.slice(0, -1);
+            drawnLinesRef.current = newLines;
+            setDrawnLines([...newLines]);
+          }
+          
+          // Remove preview line and measurement label
+          if (previewLineRef.current && fabricCanvas) {
+            fabricCanvas.remove(previewLineRef.current);
+            previewLineRef.current = null;
+            setPreviewLine(null);
+          }
+          if (measurementLabelRef.current && fabricCanvas) {
+            fabricCanvas.remove(measurementLabelRef.current);
+            measurementLabelRef.current = null;
+            setMeasurementLabel(null);
+          }
+          
+          fabricCanvas?.renderAll();
+        }
+      }
       // Enter key to open exact measurement dialog during tracing
       if (e.key === 'Enter') {
         const mode = drawingModeRef.current;
