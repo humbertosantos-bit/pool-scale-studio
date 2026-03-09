@@ -3107,18 +3107,23 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
   const refreshEdgeLabels = useCallback(() => {
     if (!fabricCanvas) return;
     
-    // Remove all existing edge labels and pool labels
+    // Remove all existing edge labels, pool labels, and standalone paver labels
     const objects = fabricCanvas.getObjects();
     objects.forEach(obj => {
-      if ((obj as any).isEdgeLabel || (obj as any).isPoolLabel || (obj as any).isPoolEdgeLabel) {
+      if ((obj as any).isEdgeLabel || (obj as any).isPoolLabel || (obj as any).isPoolEdgeLabel || (obj as any).isStandalonePaverLabel) {
         fabricCanvas.remove(obj);
       }
     });
     
-    // Re-add labels for property only
+    // Re-add labels for property
     if (propertyShapeRef.current) {
       addEdgeLengthLabels(fabricCanvas, propertyShapeRef.current.points, propertyShapeRef.current.id);
     }
+    
+    // Re-add labels for houses
+    houseShapesRef.current.forEach(house => {
+      addEdgeLengthLabels(fabricCanvas, house.points, house.id);
+    });
     
     // Re-add pool name labels and edge labels (only for custom pools)
     poolShapesRef.current.forEach(pool => {
@@ -3127,6 +3132,11 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       if (!pool.isPreset) {
         addPoolEdgeLabels(fabricCanvas, pool.points, pool.id);
       }
+    });
+    
+    // Re-add standalone paver labels
+    standalonePaversRef.current.forEach(paver => {
+      addStandalonePaverLabel(fabricCanvas, paver.points, paver.id, paver.name, paver.areaSqFt);
     });
     
     fabricCanvas.renderAll();
