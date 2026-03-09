@@ -226,9 +226,9 @@ export const AddPoolDialog: React.FC<AddPoolDialogProps> = ({
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label className="text-sm font-semibold">Preview</Label>
-                <Button size="sm" variant="outline" className="gap-1 h-7 text-xs" onClick={() => setRotated(!rotated)}>
+                <Button size="sm" variant="outline" className="gap-1 h-7 text-xs" onClick={() => setRotationAngle((prev) => (prev + 90) % 360)}>
                   <RotateCcw className="h-3 w-3" />
-                  Rotate 90°
+                  Rotate 90° ({rotationAngle}°)
                 </Button>
               </div>
               <div className="flex items-center justify-center p-4 bg-muted/20 rounded-md border min-h-[160px]">
