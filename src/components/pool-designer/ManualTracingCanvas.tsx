@@ -587,6 +587,25 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
           fabricCanvas.hoverCursor = 'move';
         }
       }
+      // Enter key to open exact measurement dialog during tracing
+      if (e.key === 'Enter') {
+        const mode = drawingModeRef.current;
+        if ((mode === 'property' || mode === 'house' || mode === 'paver') && currentPointsRef.current.length >= 1) {
+          e.preventDefault();
+          // Calculate current angle from last point to mouse position (use preview line if available)
+          let angleDeg = 0;
+          if (previewLineRef.current) {
+            const x1 = previewLineRef.current.x1!;
+            const y1 = previewLineRef.current.y1!;
+            const x2 = previewLineRef.current.x2!;
+            const y2 = previewLineRef.current.y2!;
+            angleDeg = Math.atan2(y2 - y1, x2 - x1) * (180 / Math.PI);
+            angleDeg = ((angleDeg % 360) + 360) % 360;
+          }
+          setExactMeasurementAngle(angleDeg);
+          setShowExactMeasurement(true);
+        }
+      }
     };
     const handleKeyUp = (e: KeyboardEvent) => {
       if (e.key === 'Shift') {
