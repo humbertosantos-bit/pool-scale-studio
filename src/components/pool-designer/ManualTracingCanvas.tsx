@@ -4716,13 +4716,14 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       centerY = fabricCanvas.getHeight() / 2;
     }
     
-    const halfWidth = widthPixels / 2;
-    const halfLength = lengthPixels / 2;
+    // On canvas: length = horizontal (X), width = vertical (Y) — matches the preview
+    const halfHoriz = lengthPixels / 2;
+    const halfVert = widthPixels / 2;
     const poolPoints = [
-      { x: centerX - halfWidth, y: centerY - halfLength },
-      { x: centerX + halfWidth, y: centerY - halfLength },
-      { x: centerX + halfWidth, y: centerY + halfLength },
-      { x: centerX - halfWidth, y: centerY + halfLength },
+      { x: centerX - halfHoriz, y: centerY - halfVert },
+      { x: centerX + halfHoriz, y: centerY - halfVert },
+      { x: centerX + halfHoriz, y: centerY + halfVert },
+      { x: centerX - halfHoriz, y: centerY + halfVert },
     ];
     
     // Create pool shape using dialog values directly
@@ -4886,8 +4887,6 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         const pattern = new Pattern({
           source: patternCanvas,
           repeat: 'no-repeat',
-          offsetX: -minX,
-          offsetY: -minY,
         });
         polygon.set('fill', pattern);
         fabricCanvas.requestRenderAll();
