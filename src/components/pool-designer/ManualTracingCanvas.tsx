@@ -5850,6 +5850,9 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
   // Reset canvas
   const resetCanvas = () => {
     if (!fabricCanvas) return;
+
+    clearExactMeasurementPreview();
+    setShowExactMeasurement(false);
     
     // Remove all non-grid and non-north-indicator objects
     const objects = fabricCanvas.getObjects();
