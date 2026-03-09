@@ -6791,6 +6791,15 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         onPreviewChange={handleExactMeasurementPreview}
         pixelsPerMeter={scalePixelsPerMeterRef.current}
       />
+
+      {/* Add Pool Dialog */}
+      <AddPoolDialog
+        open={showAddPoolDialog}
+        onOpenChange={setShowAddPoolDialog}
+        presetPools={PRESET_POOLS}
+        onConfirm={handlePoolDialogConfirm}
+        onDrawCustom={() => startDrawingMode('pool')}
+      />
     </div>
   );
 };
