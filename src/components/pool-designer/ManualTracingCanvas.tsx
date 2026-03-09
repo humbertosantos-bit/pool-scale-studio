@@ -3194,12 +3194,12 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
   // Add sidewalk width labels on each side of the paver zone (between coping and paver outer edge)
   const addSidewalkWidthLabels = (
     canvas: FabricCanvas,
-    poolPoints: { x: number; y: number }[],
+    _poolPoints: { x: number; y: number }[],
     copingOuterPoints: { x: number; y: number }[],
     paverOuterPoints: { x: number; y: number }[],
     paverDims: { top: number; bottom: number; left: number; right: number },
     shapeId: string,
-    rotationAngle: number = 0
+    _rotationAngle: number = 0
   ) => {
     const formatDim = (feet: number) => {
       const wholeFeet = Math.floor(feet);
