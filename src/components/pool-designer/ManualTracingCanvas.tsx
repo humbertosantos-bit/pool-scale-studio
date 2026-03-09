@@ -6555,6 +6555,16 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
           <canvas ref={canvasRef} />
         </div>
       </div>
+
+      {/* Exact Measurement Dialog */}
+      <ExactMeasurementDialog
+        open={showExactMeasurement}
+        onOpenChange={setShowExactMeasurement}
+        currentAngleDeg={exactMeasurementAngle}
+        unit={unit}
+        onConfirm={handleExactMeasurementConfirm}
+        pixelsPerMeter={scalePixelsPerMeterRef.current}
+      />
     </div>
   );
 };
