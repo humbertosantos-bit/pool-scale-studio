@@ -5041,8 +5041,11 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     
     // No vertex markers for pools (removed corner circles)
     
-    // Note: Paver dimension labels are not added for polygon-based pools
-    // as they use uniform offset. The pool calculation shows the actual areas.
+    // Add sidewalk width labels
+    if (hasPavers) {
+      const paverOuterPoints = offsetPolygon(points, (maxPaverFeet / METERS_TO_FEET) * currentScale);
+      addSidewalkWidthLabels(fabricCanvas, points, copingOuterPoints, paverOuterPoints, paverDims, shapeId);
+    }
     
     // Add pool name label
     addPoolNameLabel(fabricCanvas, points, shapeId, name, 0, widthFeet, lengthFeet);
