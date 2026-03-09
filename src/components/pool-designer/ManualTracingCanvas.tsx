@@ -498,7 +498,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       }
       ctx.restore();
 
-      // Overlay 25% opacity water caustics texture
+      // Overlay 40% opacity water caustics texture
       const waterImg = document.createElement('img');
       waterImg.onload = () => {
         ctx.globalAlpha = 0.25;
