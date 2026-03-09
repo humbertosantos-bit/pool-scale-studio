@@ -624,7 +624,54 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     return result;
   };
 
-  // Create coping polygon that follows the pool perimeter exactly
+  // Create per-side paver outer points for rectangular pools
+  // Pool points order: TL(0), TR(1), BR(2), BL(3) — before rotation
+  // paverDims in pixels: { top, bottom, left, right }
+  const createPerSidePaverPoints = (
+    poolPoints: { x: number; y: number }[],
+    paverDimsPixels: { top: number; bottom: number; left: number; right: number },
+    rotationAngle: number = 0
+  ): { x: number; y: number }[] => {
+    if (poolPoints.length !== 4) {
+      // Fallback to uniform offset for non-rectangular pools
+      const maxPixels = Math.max(paverDimsPixels.top, paverDimsPixels.bottom, paverDimsPixels.left, paverDimsPixels.right);
+      return offsetPolygon(poolPoints, maxPixels);
+    }
+
+    const cx = poolPoints.reduce((s, p) => s + p.x, 0) / 4;
+    const cy = poolPoints.reduce((s, p) => s + p.y, 0) / 4;
+
+    // Un-rotate points to axis-aligned space
+    const cos = Math.cos(-rotationAngle);
+    const sin = Math.sin(-rotationAngle);
+    const unrotated = poolPoints.map(p => ({
+      x: cx + (p.x - cx) * cos - (p.y - cy) * sin,
+      y: cy + (p.x - cx) * sin + (p.y - cy) * cos,
+    }));
+
+    // Find bounds in un-rotated space
+    const minX = Math.min(...unrotated.map(p => p.x));
+    const maxX = Math.max(...unrotated.map(p => p.x));
+    const minY = Math.min(...unrotated.map(p => p.y));
+    const maxY = Math.max(...unrotated.map(p => p.y));
+
+    // Create outer rectangle with per-side offsets
+    const outerUnrotated = [
+      { x: minX - paverDimsPixels.left, y: minY - paverDimsPixels.top },     // TL
+      { x: maxX + paverDimsPixels.right, y: minY - paverDimsPixels.top },    // TR
+      { x: maxX + paverDimsPixels.right, y: maxY + paverDimsPixels.bottom }, // BR
+      { x: minX - paverDimsPixels.left, y: maxY + paverDimsPixels.bottom },  // BL
+    ];
+
+    // Rotate back
+    const cosR = Math.cos(rotationAngle);
+    const sinR = Math.sin(rotationAngle);
+    return outerUnrotated.map(p => ({
+      x: cx + (p.x - cx) * cosR - (p.y - cy) * sinR,
+      y: cy + (p.x - cx) * sinR + (p.y - cy) * cosR,
+    }));
+  };
+
   const createCopingPolygonPoints = (
     poolPoints: { x: number; y: number }[],
     copingSizePixels: number
