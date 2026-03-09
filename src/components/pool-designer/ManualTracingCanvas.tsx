@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 import { Undo2, Redo2, Grid3X3, Magnet, RotateCcw, Move, Trash2, ZoomIn, ZoomOut, Eye, EyeOff, Maximize, Waves, ChevronDown, Plus, Pencil, Ruler, Settings, Image, Lock, Unlock, Crosshair } from 'lucide-react';
 import { ExactMeasurementDialog } from './ExactMeasurementDialog';
 import { AddPoolDialog, PoolDialogResult } from './AddPoolDialog';
+import { EditPoolDialog, EditPoolResult } from './EditPoolDialog';
 
 interface ManualTracingCanvasProps {
   onStateChange?: (state: any) => void;
@@ -134,6 +135,8 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
   const [customPoolLength, setCustomPoolLength] = useState<string>('24');
   const [showCustomPoolInput, setShowCustomPoolInput] = useState(false);
   const [showAddPoolDialog, setShowAddPoolDialog] = useState(false);
+  const [showEditPoolDialog, setShowEditPoolDialog] = useState(false);
+  const [editingPoolForDialog, setEditingPoolForDialog] = useState<DrawnShape | null>(null);
   
   // Property input mode
   const [propertyInputMode, setPropertyInputMode] = useState<'draw' | 'measure'>('draw');
@@ -3906,6 +3909,24 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       }
     };
 
+    // Handle clicking on a pool to edit it (only in 'none' mode)
+    const handlePoolClickToEdit = (e: any) => {
+      if (drawingModeRef.current !== 'none') return;
+      if (spacePressedRef.current) return;
+      if (isDraggingVertexRef.current || isDraggingEdgeRef.current || isDraggingPaverRef.current) return;
+      
+      const pointer = fabricCanvas.getScenePoint(e.e);
+      
+      for (let i = poolShapesRef.current.length - 1; i >= 0; i--) {
+        const pool = poolShapesRef.current[i];
+        if (isPointInsidePolygon({ x: pointer.x, y: pointer.y }, pool.points)) {
+          setEditingPoolForDialog(pool);
+          setShowEditPoolDialog(true);
+          return;
+        }
+      }
+    };
+
     fabricCanvas.on('mouse:down', handleMouseDown);
     fabricCanvas.on('mouse:move', handleMouseMove);
     fabricCanvas.on('mouse:down', handleHouseMouseDown);
@@ -3930,6 +3951,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     fabricCanvas.on('mouse:down', handleEdgeMouseDown);
     fabricCanvas.on('mouse:move', handleEdgeMouseMove);
     fabricCanvas.on('mouse:up', handleEdgeMouseUp);
+    fabricCanvas.on('mouse:dblclick', handlePoolClickToEdit);
     
     // Capture center point BEFORE rotation starts (on mouse down on rotation control)
     const handleRotationMouseDown = (e: any) => {
@@ -4016,6 +4038,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       fabricCanvas.off('object:rotating', handleObjectRotating);
       fabricCanvas.off('object:modified', handleRotationEnd);
       fabricCanvas.off('mouse:dblclick', handleSelectionClick);
+      fabricCanvas.off('mouse:dblclick', handlePoolClickToEdit);
     };
   }, [fabricCanvas, completeShape, gridSnapping, vertexSnapping, isDraggingHouse, selectedHouseIndex, isDraggingPool, selectedPoolIndex, isRotatingPool, isPanning, isDraggingPaver, selectedPaverIndex]);
 
@@ -5145,6 +5168,21 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     setPaverLeftInches('0');
     setPaverRightFeet('0');
     setPaverRightInches('0');
+  };
+
+  // Handle edit pool dialog confirm (double-click edit)
+  const handleEditPoolConfirm = (result: EditPoolResult) => {
+    if (!editingPoolForDialog) return;
+    
+    const newPaverDims = {
+      top: (parseFloat(result.paverTop.feet) || 0) + (parseFloat(result.paverTop.inches) || 0) / 12,
+      bottom: (parseFloat(result.paverBottom.feet) || 0) + (parseFloat(result.paverBottom.inches) || 0) / 12,
+      left: (parseFloat(result.paverLeft.feet) || 0) + (parseFloat(result.paverLeft.inches) || 0) / 12,
+      right: (parseFloat(result.paverRight.feet) || 0) + (parseFloat(result.paverRight.inches) || 0) / 12,
+    };
+    
+    updatePoolPavers(editingPoolForDialog.id, result.copingSize, newPaverDims);
+    setEditingPoolForDialog(null);
   };
 
   // Delete last pool
@@ -6799,6 +6837,21 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         onConfirm={handlePoolDialogConfirm}
         onDrawCustom={() => startDrawingMode('pool')}
       />
+
+      {/* Edit Pool Dialog (double-click on pool) */}
+      {editingPoolForDialog && (
+        <EditPoolDialog
+          open={showEditPoolDialog}
+          onOpenChange={(open) => {
+            setShowEditPoolDialog(open);
+            if (!open) setEditingPoolForDialog(null);
+          }}
+          poolName={editingPoolForDialog.name || 'Pool'}
+          currentCopingSize={editingPoolForDialog.copingSize || 16}
+          currentPaverDimensions={editingPoolForDialog.paverDimensions || { top: 0, bottom: 0, left: 0, right: 0 }}
+          onConfirm={handleEditPoolConfirm}
+        />
+      )}
     </div>
   );
 };
