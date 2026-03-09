@@ -258,7 +258,7 @@ export const AddPoolDialog: React.FC<AddPoolDialogProps> = ({
                           width: `${displayW}px`,
                           height: `${displayH}px`,
                           background: 'linear-gradient(135deg, #0EA5E9, #38BDF8, #7DD3FC, #BAE6FD)',
-                          transform: rotated ? 'rotate(90deg)' : 'none',
+                          transform: `rotate(${rotationAngle}deg)`,
                         }}
                       />
                     );
