@@ -6980,12 +6980,26 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
           Reset
         </Button>
 
-        {/* Delete Selected Item Button */}
+        {/* Selected Item Actions */}
         {selectedItemId && (
-          <Button size="sm" variant="destructive" onClick={deleteSelectedItem} className="bg-red-600 hover:bg-red-700">
-            <Trash2 className="h-4 w-4 mr-1" />
-            Delete {selectedItemType}
-          </Button>
+          <div className="flex items-center gap-2">
+            {selectedItemType === 'pool' && (
+              <Button size="sm" variant="outline" onClick={() => {
+                const pool = poolShapesRef.current.find(p => p.id === selectedItemId);
+                if (pool) {
+                  setEditingPoolForDialog(pool);
+                  setShowEditPoolDialog(true);
+                }
+              }} className="bg-blue-50 hover:bg-blue-100 border-blue-200 text-blue-700">
+                <Settings className="h-4 w-4 mr-1" />
+                Edit Pavers
+              </Button>
+            )}
+            <Button size="sm" variant="destructive" onClick={deleteSelectedItem} className="bg-red-600 hover:bg-red-700">
+              <Trash2 className="h-4 w-4 mr-1" />
+              Delete {selectedItemType}
+            </Button>
+          </div>
         )}
 
         {drawingMode !== 'none' && drawingMode !== 'move-house' && drawingMode !== 'move-pool' && drawingMode !== 'rotate-pool' && currentPoints.length >= 3 && (
