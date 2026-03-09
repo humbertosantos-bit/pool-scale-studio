@@ -4625,6 +4625,93 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     exitMode();
   };
 
+  // Handle pool dialog confirm - applies coping/paver settings from dialog before creating pool
+  const handlePoolDialogConfirm = (result: PoolDialogResult) => {
+    // Apply coping size from dialog
+    setCopingSize(result.copingSize);
+    
+    // Apply paver dimensions from dialog
+    setPaverTopFeet(result.paverTop.feet);
+    setPaverTopInches(result.paverTop.inches);
+    setPaverBottomFeet(result.paverBottom.feet);
+    setPaverBottomInches(result.paverBottom.inches);
+    setPaverLeftFeet(result.paverLeft.feet);
+    setPaverLeftInches(result.paverLeft.inches);
+    setPaverRightFeet(result.paverRight.feet);
+    setPaverRightInches(result.paverRight.inches);
+    
+    // We need to use the dialog values directly since setState is async
+    // Temporarily override the refs/values used by createPoolShape
+    const savedCoping = copingSize;
+    const savedPT = paverTopFeet, savedPTI = paverTopInches;
+    const savedPB = paverBottomFeet, savedPBI = paverBottomInches;
+    const savedPL = paverLeftFeet, savedPLI = paverLeftInches;
+    const savedPR = paverRightFeet, savedPRI = paverRightInches;
+    
+    // Use a microtask to ensure state is set before createPoolShape reads it
+    // Instead, we directly call addPresetPool/addCustomPool logic inline with the right values
+    
+    if (!fabricCanvas) return;
+    
+    let widthFeet: number, lengthFeet: number, name: string, isPreset: boolean;
+    
+    if (result.type === 'preset' && result.preset) {
+      widthFeet = result.preset.widthFeet + result.preset.widthInches / 12;
+      lengthFeet = result.preset.lengthFeet + result.preset.lengthInches / 12;
+      name = result.preset.displayName;
+      isPreset = true;
+    } else {
+      widthFeet = result.customWidthFeet || 12;
+      lengthFeet = result.customLengthFeet || 24;
+      name = `Custom ${widthFeet}'x${lengthFeet}'`;
+      isPreset = false;
+    }
+    
+    // Apply rotation
+    if (result.rotated) {
+      const temp = widthFeet;
+      widthFeet = lengthFeet;
+      lengthFeet = temp;
+    }
+    
+    // Convert to pixels
+    const METERS_TO_FEET_LOCAL = 3.28084;
+    const widthMeters = widthFeet / METERS_TO_FEET_LOCAL;
+    const lengthMeters = lengthFeet / METERS_TO_FEET_LOCAL;
+    const currentScale = scalePixelsPerMeterRef.current;
+    const widthPixels = widthMeters * currentScale;
+    const lengthPixels = lengthMeters * currentScale;
+    
+    // Find center
+    let centerX: number, centerY: number;
+    if (propertyShapeRef.current) {
+      const propPoints = propertyShapeRef.current.points;
+      centerX = propPoints.reduce((sum, p) => sum + p.x, 0) / propPoints.length;
+      centerY = propPoints.reduce((sum, p) => sum + p.y, 0) / propPoints.length;
+    } else {
+      centerX = fabricCanvas.getWidth() / 2;
+      centerY = fabricCanvas.getHeight() / 2;
+    }
+    
+    const halfWidth = widthPixels / 2;
+    const halfLength = lengthPixels / 2;
+    const poolPoints = [
+      { x: centerX - halfWidth, y: centerY - halfLength },
+      { x: centerX + halfWidth, y: centerY - halfLength },
+      { x: centerX + halfWidth, y: centerY + halfLength },
+      { x: centerX - halfWidth, y: centerY + halfLength },
+    ];
+    
+    // Create pool shape using dialog values directly
+    // We need to temporarily set the state values so createPoolShape picks them up
+    // Since createPoolShape reads from state variables directly, we use a setTimeout
+    setTimeout(() => {
+      createPoolShape(poolPoints, name, widthFeet, lengthFeet, isPreset);
+    }, 0);
+    
+    setShowAddPoolDialog(false);
+  };
+
   // Create pool shape helper with coping and pavers
   const createPoolShape = (points: { x: number; y: number }[], name: string, widthFeet: number, lengthFeet: number, isPreset: boolean = false) => {
     if (!fabricCanvas) return;
