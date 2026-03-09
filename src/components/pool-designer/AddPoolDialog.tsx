@@ -254,7 +254,7 @@ export const AddPoolDialog: React.FC<AddPoolDialogProps> = ({
                       />
                     ) : (
                       <div
-                        className="rounded-sm border-2 border-primary/40 transition-transform duration-300"
+                        className="transition-transform duration-300"
                         style={{
                           width: `${displayW}px`,
                           height: `${displayH}px`,
