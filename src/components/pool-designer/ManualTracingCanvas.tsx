@@ -275,6 +275,10 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
   const [measurementLabel, setMeasurementLabel] = useState<Text | null>(null);
   const measurementLabelRef = useRef<Text | null>(null);
   
+  // Exact measurement dialog state
+  const [showExactMeasurement, setShowExactMeasurement] = useState(false);
+  const [exactMeasurementAngle, setExactMeasurementAngle] = useState(0);
+
   // Drawing helpers
   const [previewLine, setPreviewLine] = useState<Line | null>(null);
   const [vertexMarkers, setVertexMarkers] = useState<Circle[]>([]);
