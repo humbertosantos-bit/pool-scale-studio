@@ -4581,7 +4581,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         left: (paverDims.left / METERS_TO_FEET) * currentScale,
         right: (paverDims.right / METERS_TO_FEET) * currentScale,
       };
-      const paverOuterPoints = createPerSidePaverPoints(newPoints, paverDimsPixelsForLabels, rotationAngle);
+      const paverOuterPoints = createPerSidePaverPoints(newPoints, paverDimsPixelsForLabels, rotationAngle, copingSizePixels);
       addSidewalkWidthLabels(fabricCanvas, newPoints, copingOuterPoints, paverOuterPoints, paverDims, pool.id, rotationAngle);
     }
     
