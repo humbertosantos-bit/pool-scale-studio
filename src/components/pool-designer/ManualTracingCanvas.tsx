@@ -50,6 +50,8 @@ interface DrawnShape {
   copingSize?: number; // inches (12 or 16)
   paverDimensions?: PaverDimensions;
   isPreset?: boolean; // true for predefined pools, false for custom
+  imageUrl?: string | null;
+  imageRotation?: number;
 }
 
 interface StandalonePaver {
