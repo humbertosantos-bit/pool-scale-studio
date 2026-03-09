@@ -4351,10 +4351,10 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     (copingPolygon as any).isCoping = true;
     fabricCanvas.add(copingPolygon);
     
-    // Create new pool polygon and re-apply catalog texture (if any)
+    // Create new pool polygon — use transparent fill if image will be applied (prevents gradient flash)
     const fabricPoints = newPoints.map(p => new Point(p.x, p.y));
     const polygon = new Polygon(fabricPoints, {
-      fill: createWaterGradient(newPoints),
+      fill: pool.imageUrl ? 'transparent' : createWaterGradient(newPoints),
       stroke: '#000000',
       strokeWidth: 0.5,
       selectable: false,
