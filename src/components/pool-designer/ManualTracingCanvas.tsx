@@ -6893,7 +6893,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       {/* Main content area - Canvas only */}
       <div className="flex-1 flex overflow-hidden">
         {/* Canvas */}
-        <div ref={containerRef} className="flex-1 overflow-hidden">
+        <div ref={containerRef} className="flex-1 overflow-hidden" onContextMenu={(e) => e.preventDefault()}>
           <canvas ref={canvasRef} />
         </div>
       </div>
