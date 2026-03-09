@@ -523,14 +523,6 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       };
       waterImg.src = waterTextureImg;
       return; // pattern is applied inside waterImg.onload
-
-      const pattern = new Pattern({
-        source: patternCanvas,
-        repeat: 'no-repeat',
-      });
-
-      polygon.set('fill', pattern);
-      fabricCanvas?.requestRenderAll();
     };
 
     img.onerror = () => {
