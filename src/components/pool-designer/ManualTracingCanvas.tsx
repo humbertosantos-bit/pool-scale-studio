@@ -4850,7 +4850,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
 
     // If pool has a catalog image, load and overlay it on the pool area
     if (imageUrl) {
-      const img = new Image();
+      const img = document.createElement('img');
       img.crossOrigin = 'anonymous';
       img.onload = () => {
         const fabricImg = new FabricImage(img, {
