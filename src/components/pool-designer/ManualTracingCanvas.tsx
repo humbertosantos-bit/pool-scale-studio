@@ -4492,13 +4492,16 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     const rotatedOffsetX = baseOffsetX * cos - baseOffsetY * sin;
     const rotatedOffsetY = baseOffsetX * sin + baseOffsetY * cos;
     
-    // Create paver zone polygon (outermost) - light gray
-    // For all pool types, use uniform offset with max paver dimension
+    // Create paver zone polygon (outermost) - per-side offsets
     const hasPavers = paverDims.top > 0 || paverDims.bottom > 0 || paverDims.left > 0 || paverDims.right > 0;
     if (hasPavers) {
-      const maxPaverFeet = Math.max(paverDims.top, paverDims.bottom, paverDims.left, paverDims.right);
-      const maxPaverPixels = (maxPaverFeet / METERS_TO_FEET) * currentScale;
-      const paverOuterPoints = offsetPolygon(newPoints, maxPaverPixels);
+      const paverDimsPixels = {
+        top: (paverDims.top / METERS_TO_FEET) * currentScale,
+        bottom: (paverDims.bottom / METERS_TO_FEET) * currentScale,
+        left: (paverDims.left / METERS_TO_FEET) * currentScale,
+        right: (paverDims.right / METERS_TO_FEET) * currentScale,
+      };
+      const paverOuterPoints = createPerSidePaverPoints(newPoints, paverDimsPixels, rotationAngle);
       const paverFabricPoints = paverOuterPoints.map(p => new Point(p.x, p.y));
       const paverPolygon = new Polygon(paverFabricPoints, {
         fill: '#d4d4d4',
