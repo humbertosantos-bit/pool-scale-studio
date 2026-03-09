@@ -73,6 +73,8 @@ export const AddPoolDialog: React.FC<AddPoolDialogProps> = ({
   useEffect(() => {
     if (open) {
       fetchCatalog();
+    } else {
+      setLoadingCatalog(false);
     }
   }, [open]);
 
