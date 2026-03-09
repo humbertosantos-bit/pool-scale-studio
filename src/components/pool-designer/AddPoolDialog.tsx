@@ -231,28 +231,35 @@ export const AddPoolDialog: React.FC<AddPoolDialogProps> = ({
               </div>
               <div className="flex items-center justify-center p-4 bg-muted/20 rounded-md border min-h-[120px]">
                 <div className="relative">
-                  {selectedPool?.image_url ? (
-                    <img
-                      src={selectedPool.image_url}
-                      alt={selectedPool.display_name}
-                      className="border-2 border-primary/40 rounded-sm"
-                      style={{
-                        width: `${Math.min(200, dims.width * 8)}px`,
-                        height: `${Math.min(200, dims.length * 8)}px`,
-                        objectFit: 'contain',
-                        transform: rotated ? 'rotate(90deg)' : 'none',
-                      }}
-                    />
-                  ) : (
-                    <div
-                      className="rounded-sm border-2 border-primary/40"
-                      style={{
-                        width: `${Math.min(200, dims.width * 8)}px`,
-                        height: `${Math.min(200, dims.length * 8)}px`,
-                        background: 'linear-gradient(135deg, #0EA5E9, #38BDF8, #7DD3FC, #BAE6FD)',
-                      }}
-                    />
-                  )}
+                  {/* Pool images are imported horizontally (length is the long side).
+                      Default: show horizontal (length as display width, width as display height).
+                      Rotated: swap so it becomes vertical. */}
+                  {(() => {
+                    // Display dimensions: default horizontal, rotated vertical
+                    const displayW = rotated ? Math.min(200, dims.width * 8) : Math.min(200, dims.length * 8);
+                    const displayH = rotated ? Math.min(200, dims.length * 8) : Math.min(200, dims.width * 8);
+                    return selectedPool?.image_url ? (
+                      <img
+                        src={selectedPool.image_url}
+                        alt={selectedPool.display_name}
+                        className="border-2 border-primary/40 rounded-sm"
+                        style={{
+                          width: `${displayW}px`,
+                          height: `${displayH}px`,
+                          objectFit: 'fill',
+                        }}
+                      />
+                    ) : (
+                      <div
+                        className="rounded-sm border-2 border-primary/40"
+                        style={{
+                          width: `${displayW}px`,
+                          height: `${displayH}px`,
+                          background: 'linear-gradient(135deg, #0EA5E9, #38BDF8, #7DD3FC, #BAE6FD)',
+                        }}
+                      />
+                    );
+                  })()}
                   <div className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-[10px] text-muted-foreground whitespace-nowrap">
                     {dims.width.toFixed(1)}' × {dims.length.toFixed(1)}'
                   </div>
