@@ -57,7 +57,7 @@ export const AddPoolDialog: React.FC<AddPoolDialogProps> = ({
   const [customWidth, setCustomWidth] = useState('12');
   const [customLength, setCustomLength] = useState('24');
   const [copingSize, setCopingSize] = useState(16);
-  const [rotated, setRotated] = useState(false);
+  const [rotationAngle, setRotationAngle] = useState(0);
 
   // Sidewalk dimensions per side
   const [paverTopFt, setPaverTopFt] = useState('4');
