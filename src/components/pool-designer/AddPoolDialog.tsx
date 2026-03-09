@@ -73,57 +73,52 @@ export const AddPoolDialog: React.FC<AddPoolDialogProps> = ({
   useEffect(() => {
     if (open) {
       fetchCatalog();
+    } else {
+      setLoadingCatalog(false);
     }
   }, [open]);
 
   const fetchCatalog = async () => {
     setLoadingCatalog(true);
+
     try {
-      const queryPromise = supabase
-        .from('pool_models')
-        .select('*')
-        .order('display_name');
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) throw sessionError;
 
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error('Pool catalog request timed out')), 10000);
-      });
+      const token = sessionData.session?.access_token;
+      if (!token) {
+        setCatalogPools([]);
+        return;
+      }
 
-      const { data, error } = (await Promise.race([
-        queryPromise,
-        timeoutPromise,
-      ])) as Awaited<typeof queryPromise>;
-
-      if (error) throw error;
-      setCatalogPools((data as unknown as CatalogPool[]) || []);
-    } catch (err) {
-      console.error('[AddPoolDialog] Catalog fetch failed, trying fallback:', err);
+      const controller = new AbortController();
+      const timeoutId = window.setTimeout(() => controller.abort(), 8000);
 
       try {
-        const { data: authData } = await supabase.auth.getSession();
-        const token = authData.session?.access_token;
-
-        if (!token) throw new Error('No active session');
-
         const response = await fetch(
           `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/pool_models?select=*&order=display_name.asc`,
           {
+            method: 'GET',
             headers: {
               apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
               Authorization: `Bearer ${token}`,
             },
+            signal: controller.signal,
           }
         );
 
         if (!response.ok) {
-          throw new Error(`Fallback request failed: ${response.status}`);
+          throw new Error(`Catalog request failed: ${response.status}`);
         }
 
         const rows = (await response.json()) as CatalogPool[];
-        setCatalogPools(rows || []);
-      } catch (fallbackErr) {
-        console.error('[AddPoolDialog] Fallback fetch failed:', fallbackErr);
-        setCatalogPools([]);
+        setCatalogPools(Array.isArray(rows) ? rows : []);
+      } finally {
+        window.clearTimeout(timeoutId);
       }
+    } catch (err) {
+      console.error('[AddPoolDialog] Failed to load pool catalog:', err);
+      setCatalogPools([]);
     } finally {
       setLoadingCatalog(false);
     }
