@@ -4263,7 +4263,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     // Remove all related objects (coping, pavers, labels, markers)
     const objects = fabricCanvas.getObjects();
     objects.forEach(obj => {
-      if ((obj as any).shapeId === pool.id) {
+      if ((obj as any).shapeId === pool.id || (obj as any).poolId === pool.id) {
         fabricCanvas.remove(obj);
       }
       if ((obj as any).parentPolygon === pool.fabricObject) {
