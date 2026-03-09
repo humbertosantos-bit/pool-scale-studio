@@ -635,10 +635,12 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
   // Create per-side paver outer points for rectangular pools
   // Pool points order: TL(0), TR(1), BR(2), BL(3) — before rotation
   // paverDims in pixels: { top, bottom, left, right }
+  // copingSizePixels: when a side is 0, use coping as minimum so adjacent sides connect to coping edge
   const createPerSidePaverPoints = (
     poolPoints: { x: number; y: number }[],
     paverDimsPixels: { top: number; bottom: number; left: number; right: number },
-    rotationAngle: number = 0
+    rotationAngle: number = 0,
+    copingSizePixels: number = 0
   ): { x: number; y: number }[] => {
     if (poolPoints.length !== 4) {
       // Fallback to uniform offset for non-rectangular pools
@@ -663,12 +665,18 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     const minY = Math.min(...unrotated.map(p => p.y));
     const maxY = Math.max(...unrotated.map(p => p.y));
 
+    // When a side has 0 sidewalk, use coping size as minimum so adjacent sides connect to coping edge
+    const effectiveTop = paverDimsPixels.top > 0 ? paverDimsPixels.top : copingSizePixels;
+    const effectiveBottom = paverDimsPixels.bottom > 0 ? paverDimsPixels.bottom : copingSizePixels;
+    const effectiveLeft = paverDimsPixels.left > 0 ? paverDimsPixels.left : copingSizePixels;
+    const effectiveRight = paverDimsPixels.right > 0 ? paverDimsPixels.right : copingSizePixels;
+
     // Create outer rectangle with per-side offsets
     const outerUnrotated = [
-      { x: minX - paverDimsPixels.left, y: minY - paverDimsPixels.top },     // TL
-      { x: maxX + paverDimsPixels.right, y: minY - paverDimsPixels.top },    // TR
-      { x: maxX + paverDimsPixels.right, y: maxY + paverDimsPixels.bottom }, // BR
-      { x: minX - paverDimsPixels.left, y: maxY + paverDimsPixels.bottom },  // BL
+      { x: minX - effectiveLeft, y: minY - effectiveTop },     // TL
+      { x: maxX + effectiveRight, y: minY - effectiveTop },    // TR
+      { x: maxX + effectiveRight, y: maxY + effectiveBottom }, // BR
+      { x: minX - effectiveLeft, y: maxY + effectiveBottom },  // BL
     ];
 
     // Rotate back
@@ -2560,7 +2568,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       // Add paver zone if any paver dimensions are set
       const hasPavers = paverDims.top > 0 || paverDims.bottom > 0 || paverDims.left > 0 || paverDims.right > 0;
       if (hasPavers) {
-        const paverOuterPoints = createPerSidePaverPoints(points, paverDimsPixels);
+        const paverOuterPoints = createPerSidePaverPoints(points, paverDimsPixels, 0, copingSizePixels);
         const paverFabricPoints = paverOuterPoints.map(p => new Point(p.x, p.y));
         const paverId = `paver-zone-${shapeId}`;
         const paverPolygon = new Polygon(paverFabricPoints, {
@@ -2649,7 +2657,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       
       // Add sidewalk width labels
       if (hasPavers) {
-        const paverOuterPts = createPerSidePaverPoints(points, paverDimsPixels);
+        const paverOuterPts = createPerSidePaverPoints(points, paverDimsPixels, 0, copingSizePixels);
         addSidewalkWidthLabels(fabricCanvas, points, copingOuterPoints, paverOuterPts, paverDims, shapeId);
       }
       
@@ -4502,7 +4510,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         left: (paverDims.left / METERS_TO_FEET) * currentScale,
         right: (paverDims.right / METERS_TO_FEET) * currentScale,
       };
-      const paverOuterPoints = createPerSidePaverPoints(newPoints, paverDimsPixels, rotationAngle);
+      const paverOuterPoints = createPerSidePaverPoints(newPoints, paverDimsPixels, rotationAngle, copingSizePixels);
       const paverFabricPoints = paverOuterPoints.map(p => new Point(p.x, p.y));
       const paverPolygon = new Polygon(paverFabricPoints, {
         fill: '#d4d4d4',
@@ -4573,7 +4581,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         left: (paverDims.left / METERS_TO_FEET) * currentScale,
         right: (paverDims.right / METERS_TO_FEET) * currentScale,
       };
-      const paverOuterPoints = createPerSidePaverPoints(newPoints, paverDimsPixelsForLabels, rotationAngle);
+      const paverOuterPoints = createPerSidePaverPoints(newPoints, paverDimsPixelsForLabels, rotationAngle, copingSizePixels);
       addSidewalkWidthLabels(fabricCanvas, newPoints, copingOuterPoints, paverOuterPoints, paverDims, pool.id, rotationAngle);
     }
     
@@ -5041,7 +5049,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     };
     const hasPavers = paverDims.top > 0 || paverDims.bottom > 0 || paverDims.left > 0 || paverDims.right > 0;
     if (hasPavers) {
-      const paverOuterPoints = createPerSidePaverPoints(points, paverDimsPixels);
+      const paverOuterPoints = createPerSidePaverPoints(points, paverDimsPixels, 0, copingSizePixels);
       const paverFabricPoints = paverOuterPoints.map(p => new Point(p.x, p.y));
       const paverId = `paver-zone-${shapeId}`;
       const paverPolygon = new Polygon(paverFabricPoints, {
@@ -5130,7 +5138,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     
     // Add sidewalk width labels
     if (hasPavers) {
-      const paverOuterPts = createPerSidePaverPoints(points, paverDimsPixels);
+      const paverOuterPts = createPerSidePaverPoints(points, paverDimsPixels, 0, copingSizePixels);
       addSidewalkWidthLabels(fabricCanvas, points, copingOuterPoints, paverOuterPts, paverDims, shapeId);
     }
     
@@ -5342,7 +5350,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
             right: (paverDims.right / METERS_TO_FEET) * currentScale,
           };
           const rotAngle = poolRotationsRef.current[pool.id] || 0;
-          const paverOuterPoints = createPerSidePaverPoints(pool.points, paverDimsPixels, rotAngle);
+          const paverOuterPoints = createPerSidePaverPoints(pool.points, paverDimsPixels, rotAngle, copingSizePixels);
           const paverOuterArea = calculatePolygonAreaSqFt(paverOuterPoints);
           paverNetSqFt = paverOuterArea - copingOuterArea;
         } else {
