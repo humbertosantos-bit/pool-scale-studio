@@ -498,25 +498,31 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       }
       ctx.restore();
 
-      // Overlay 25% opacity water gradient
-      const gradCanvas = document.createElement('canvas');
-      gradCanvas.width = poolWidth;
-      gradCanvas.height = poolHeight;
-      const gCtx = gradCanvas.getContext('2d');
-      if (gCtx) {
-        const grad = gCtx.createLinearGradient(0, 0, poolWidth, poolHeight);
-        grad.addColorStop(0, '#0EA5E9');
-        grad.addColorStop(0.3, '#38BDF8');
-        grad.addColorStop(0.6, '#7DD3FC');
-        grad.addColorStop(0.85, '#BAE6FD');
-        grad.addColorStop(1, '#FFFFFF');
-        gCtx.fillStyle = grad;
-        gCtx.fillRect(0, 0, poolWidth, poolHeight);
-
+      // Overlay 25% opacity water caustics texture
+      const waterImg = document.createElement('img');
+      waterImg.onload = () => {
         ctx.globalAlpha = 0.25;
-        ctx.drawImage(gradCanvas, 0, 0);
+        ctx.drawImage(waterImg, 0, 0, poolWidth, poolHeight);
         ctx.globalAlpha = 1.0;
-      }
+
+        const pattern = new Pattern({
+          source: patternCanvas,
+          repeat: 'no-repeat',
+        });
+        polygon.set('fill', pattern);
+        fabricCanvas?.requestRenderAll();
+      };
+      waterImg.onerror = () => {
+        // Still apply the pool image without water overlay
+        const pattern = new Pattern({
+          source: patternCanvas,
+          repeat: 'no-repeat',
+        });
+        polygon.set('fill', pattern);
+        fabricCanvas?.requestRenderAll();
+      };
+      waterImg.src = waterTextureImg;
+      return; // pattern is applied inside waterImg.onload
 
       const pattern = new Pattern({
         source: patternCanvas,
