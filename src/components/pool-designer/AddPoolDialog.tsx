@@ -81,19 +81,20 @@ export const AddPoolDialog: React.FC<AddPoolDialogProps> = ({
   const fetchCatalog = async () => {
     setLoadingCatalog(true);
 
-    // Hard stop so spinner can never run forever
+    // Some backends can take >8s on cold start; keep a hard stop, but less aggressive.
     const hardStopId = window.setTimeout(() => {
       setLoadingCatalog(false);
-    }, 12000);
+    }, 30000);
 
     try {
       const queryPromise = supabase
         .from('pool_models')
-        .select('*')
-        .order('display_name');
+        .select('id,name,display_name,width_feet,width_inches,length_feet,length_inches,image_url')
+        .order('display_name', { ascending: true })
+        .limit(200);
 
       const timeoutPromise = new Promise<never>((_, reject) => {
-        window.setTimeout(() => reject(new Error('Pool catalog request timed out')), 8000);
+        window.setTimeout(() => reject(new Error('Pool catalog request timed out')), 20000);
       });
 
       const { data, error } = (await Promise.race([
