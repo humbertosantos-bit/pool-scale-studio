@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { toast } from 'sonner';
 import { Undo2, Redo2, Grid3X3, Magnet, RotateCcw, Move, Trash2, ZoomIn, ZoomOut, Eye, EyeOff, Maximize, Waves, ChevronDown, Plus, Pencil, Ruler, Settings, Image, Lock, Unlock, Crosshair } from 'lucide-react';
+import { ExactMeasurementDialog } from './ExactMeasurementDialog';
 
 interface ManualTracingCanvasProps {
   onStateChange?: (state: any) => void;
