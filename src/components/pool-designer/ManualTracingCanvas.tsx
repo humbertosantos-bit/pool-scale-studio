@@ -5123,8 +5123,8 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     
     // Add sidewalk width labels
     if (hasPavers) {
-      const paverOuterPoints = offsetPolygon(points, (maxPaverFeet / METERS_TO_FEET) * currentScale);
-      addSidewalkWidthLabels(fabricCanvas, points, copingOuterPoints, paverOuterPoints, paverDims, shapeId);
+      const paverOuterPts = createPerSidePaverPoints(points, paverDimsPixels);
+      addSidewalkWidthLabels(fabricCanvas, points, copingOuterPoints, paverOuterPts, paverDims, shapeId);
     }
     
     // Add pool name label
