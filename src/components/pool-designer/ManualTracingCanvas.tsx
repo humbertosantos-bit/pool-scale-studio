@@ -2084,6 +2084,133 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     }
   };
 
+  const getThemeColor = (token: string, fallback: string): string => {
+    const tokenValue = getComputedStyle(document.documentElement).getPropertyValue(token).trim();
+    return tokenValue ? `hsl(${tokenValue})` : fallback;
+  };
+
+  const clearExactMeasurementPreview = () => {
+    if (!fabricCanvas) return;
+
+    if (exactPreviewLineRef.current) {
+      fabricCanvas.remove(exactPreviewLineRef.current);
+      exactPreviewLineRef.current = null;
+    }
+
+    if (exactPreviewMarkerRef.current) {
+      fabricCanvas.remove(exactPreviewMarkerRef.current);
+      exactPreviewMarkerRef.current = null;
+    }
+
+    if (exactPreviewLabelRef.current) {
+      fabricCanvas.remove(exactPreviewLabelRef.current);
+      exactPreviewLabelRef.current = null;
+    }
+
+    fabricCanvas.renderAll();
+  };
+
+  const handleExactMeasurementPreview = (lengthPixels: number, angleDeg: number) => {
+    if (!fabricCanvas || currentPointsRef.current.length < 1 || lengthPixels <= 0) {
+      clearExactMeasurementPreview();
+      return;
+    }
+
+    const lastPoint = currentPointsRef.current[currentPointsRef.current.length - 1];
+    const angleRad = (angleDeg * Math.PI) / 180;
+    const previewPoint = {
+      x: lastPoint.x + Math.cos(angleRad) * lengthPixels,
+      y: lastPoint.y + Math.sin(angleRad) * lengthPixels,
+    };
+
+    const previewColor = getThemeColor('--primary', 'hsl(197 71% 45%)');
+    const previewTextColor = getThemeColor('--foreground', 'hsl(213 27% 8%)');
+    const previewContrastColor = getThemeColor('--background', 'hsl(210 20% 98%)');
+
+    if (exactPreviewLineRef.current) {
+      exactPreviewLineRef.current.set({
+        x1: lastPoint.x,
+        y1: lastPoint.y,
+        x2: previewPoint.x,
+        y2: previewPoint.y,
+      });
+    } else {
+      const line = new Line([lastPoint.x, lastPoint.y, previewPoint.x, previewPoint.y], {
+        stroke: previewColor,
+        strokeWidth: 1,
+        strokeDashArray: [7, 4],
+        selectable: false,
+        evented: false,
+        opacity: 0.85,
+      });
+      fabricCanvas.add(line);
+      exactPreviewLineRef.current = line;
+    }
+
+    if (exactPreviewMarkerRef.current) {
+      exactPreviewMarkerRef.current.set({
+        left: previewPoint.x,
+        top: previewPoint.y,
+      });
+    } else {
+      const marker = new Circle({
+        left: previewPoint.x,
+        top: previewPoint.y,
+        radius: 2.2,
+        fill: previewColor,
+        stroke: previewContrastColor,
+        strokeWidth: 0.6,
+        originX: 'center',
+        originY: 'center',
+        selectable: false,
+        evented: false,
+      });
+      fabricCanvas.add(marker);
+      exactPreviewMarkerRef.current = marker;
+    }
+
+    const midX = (lastPoint.x + previewPoint.x) / 2;
+    const midY = (lastPoint.y + previewPoint.y) / 2;
+    const labelText = `${formatMeasurement(lengthPixels)} @ ${angleDeg.toFixed(1)}°`;
+
+    if (exactPreviewLabelRef.current) {
+      exactPreviewLabelRef.current.set({
+        left: midX,
+        top: midY - 10,
+        text: labelText,
+      });
+    } else {
+      const label = new Text(labelText, {
+        left: midX,
+        top: midY - 10,
+        fontSize: 7,
+        fill: previewTextColor,
+        fontWeight: 'bold',
+        fontFamily: 'Poppins, sans-serif',
+        backgroundColor: 'hsl(0 0% 100% / 0.92)',
+        originX: 'center',
+        originY: 'center',
+        selectable: false,
+        evented: false,
+      });
+      fabricCanvas.add(label);
+      exactPreviewLabelRef.current = label;
+    }
+
+    if (exactPreviewLineRef.current) fabricCanvas.bringObjectToFront(exactPreviewLineRef.current);
+    if (exactPreviewMarkerRef.current) fabricCanvas.bringObjectToFront(exactPreviewMarkerRef.current);
+    if (exactPreviewLabelRef.current) fabricCanvas.bringObjectToFront(exactPreviewLabelRef.current);
+
+    fabricCanvas.renderAll();
+  };
+
+  const handleExactMeasurementDialogOpenChange = (open: boolean) => {
+    setShowExactMeasurement(open);
+    if (!open) {
+      clearExactMeasurementPreview();
+    }
+  };
+
   // Start drawing mode
   const startDrawingMode = (mode: DrawingMode) => {
     if (!fabricCanvas) return;
