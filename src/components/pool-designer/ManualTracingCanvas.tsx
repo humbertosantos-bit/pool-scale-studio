@@ -133,6 +133,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
   const [customPoolWidth, setCustomPoolWidth] = useState<string>('12');
   const [customPoolLength, setCustomPoolLength] = useState<string>('24');
   const [showCustomPoolInput, setShowCustomPoolInput] = useState(false);
+  const [showAddPoolDialog, setShowAddPoolDialog] = useState(false);
   
   // Property input mode
   const [propertyInputMode, setPropertyInputMode] = useState<'draw' | 'measure'>('draw');
