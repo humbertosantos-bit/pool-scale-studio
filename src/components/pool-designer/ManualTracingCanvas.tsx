@@ -3120,8 +3120,10 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     if (!fabricCanvas) return;
 
     const handleMouseDown = (e: any) => {
-      // Handle panning with space key
-      if (spacePressedRef.current) {
+      // Handle panning with space key, middle mouse button, or right click
+      const nativeEvent = e.e as MouseEvent;
+      if (spacePressedRef.current || nativeEvent.button === 1 || nativeEvent.button === 2) {
+        if (nativeEvent.button === 2) nativeEvent.preventDefault();
         setIsPanning(true);
         isPanningRef.current = true;
         const pointer = fabricCanvas.getViewportPoint(e.e);
@@ -6891,7 +6893,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       {/* Main content area - Canvas only */}
       <div className="flex-1 flex overflow-hidden">
         {/* Canvas */}
-        <div ref={containerRef} className="flex-1 overflow-hidden">
+        <div ref={containerRef} className="flex-1 overflow-hidden" onContextMenu={(e) => e.preventDefault()}>
           <canvas ref={canvasRef} />
         </div>
       </div>
