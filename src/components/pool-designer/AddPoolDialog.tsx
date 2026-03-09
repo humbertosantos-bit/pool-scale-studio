@@ -137,7 +137,7 @@ export const AddPoolDialog: React.FC<AddPoolDialogProps> = ({
   const resetState = () => {
     setSelectedPool(null);
     setIsCustom(false);
-    setRotated(false);
+    setRotationAngle(0);
   };
 
   const formatDim = (feet: number, inches: number) => {
