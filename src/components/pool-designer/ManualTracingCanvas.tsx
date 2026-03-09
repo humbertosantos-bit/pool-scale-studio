@@ -6196,68 +6196,10 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
 
         {/* Pool Section */}
         <div className="flex items-center gap-2 border-r pr-3">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button size="sm" variant="outline" disabled={!propertyShape} className="gap-1">
-                <Waves className="h-4 w-4" />
-                Add Pool
-                <ChevronDown className="h-3 w-3" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-56 bg-white z-50">
-              <DropdownMenuLabel>Preset Pools</DropdownMenuLabel>
-              {PRESET_POOLS.map((preset) => (
-                <DropdownMenuItem key={preset.name} onClick={() => addPresetPool(preset)}>
-                  <span className="flex-1">{preset.displayName}</span>
-                  <span className="text-xs text-muted-foreground">
-                    ({preset.widthFeet}'{preset.widthInches > 0 ? `${preset.widthInches}"` : ''} × {preset.lengthFeet}'{preset.lengthInches > 0 ? `${preset.lengthInches}"` : ''})
-                  </span>
-                </DropdownMenuItem>
-              ))}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => setShowCustomPoolInput(true)}>
-                <Plus className="h-4 w-4 mr-2" />
-                Custom Dimensions
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => startDrawingMode('pool')}>
-                <Pencil className="h-4 w-4 mr-2" />
-                Draw Custom Shape
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          
-          {showCustomPoolInput && (
-            <div className="flex items-center gap-2 bg-slate-50 p-2 rounded border">
-              <div className="flex items-center gap-1">
-                <Label className="text-xs">W:</Label>
-                <Input
-                  type="number"
-                  value={customPoolWidth}
-                  onChange={(e) => setCustomPoolWidth(e.target.value)}
-                  className="w-14 h-7 text-xs"
-                  placeholder="12"
-                />
-                <span className="text-xs">ft</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <Label className="text-xs">L:</Label>
-                <Input
-                  type="number"
-                  value={customPoolLength}
-                  onChange={(e) => setCustomPoolLength(e.target.value)}
-                  className="w-14 h-7 text-xs"
-                  placeholder="24"
-                />
-                <span className="text-xs">ft</span>
-              </div>
-              <Button size="sm" className="h-7 text-xs" onClick={addCustomPool}>
-                Add
-              </Button>
-              <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setShowCustomPoolInput(false)}>
-                ✕
-              </Button>
-            </div>
-          )}
+          <Button size="sm" variant="outline" disabled={!propertyShape} className="gap-1" onClick={() => setShowAddPoolDialog(true)}>
+            <Waves className="h-4 w-4" />
+            Add Pool
+          </Button>
           
           <Button
             size="sm"
