@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { toast } from 'sonner';
 import { Undo2, Redo2, Grid3X3, Magnet, RotateCcw, Move, Trash2, ZoomIn, ZoomOut, Eye, EyeOff, Maximize, Waves, ChevronDown, Plus, Pencil, Ruler, Settings, Image, Lock, Unlock, Crosshair } from 'lucide-react';
+import { ExactMeasurementDialog } from './ExactMeasurementDialog';
 
 interface ManualTracingCanvasProps {
   onStateChange?: (state: any) => void;
@@ -274,6 +275,10 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
   const [measurementLabel, setMeasurementLabel] = useState<Text | null>(null);
   const measurementLabelRef = useRef<Text | null>(null);
   
+  // Exact measurement dialog state
+  const [showExactMeasurement, setShowExactMeasurement] = useState(false);
+  const [exactMeasurementAngle, setExactMeasurementAngle] = useState(0);
+
   // Drawing helpers
   const [previewLine, setPreviewLine] = useState<Line | null>(null);
   const [vertexMarkers, setVertexMarkers] = useState<Circle[]>([]);
@@ -580,6 +585,25 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         if (fabricCanvas) {
           fabricCanvas.defaultCursor = 'default';
           fabricCanvas.hoverCursor = 'move';
+        }
+      }
+      // Enter key to open exact measurement dialog during tracing
+      if (e.key === 'Enter') {
+        const mode = drawingModeRef.current;
+        if ((mode === 'property' || mode === 'house' || mode === 'paver') && currentPointsRef.current.length >= 1) {
+          e.preventDefault();
+          // Calculate current angle from last point to mouse position (use preview line if available)
+          let angleDeg = 0;
+          if (previewLineRef.current) {
+            const x1 = previewLineRef.current.x1!;
+            const y1 = previewLineRef.current.y1!;
+            const x2 = previewLineRef.current.x2!;
+            const y2 = previewLineRef.current.y2!;
+            angleDeg = Math.atan2(y2 - y1, x2 - x1) * (180 / Math.PI);
+            angleDeg = ((angleDeg % 360) + 360) % 360;
+          }
+          setExactMeasurementAngle(angleDeg);
+          setShowExactMeasurement(true);
         }
       }
     };
@@ -5733,6 +5757,74 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     toast.success('Canvas reset');
   };
 
+  // Handle exact measurement confirmation - place point at given distance and angle from last point
+  const handleExactMeasurementConfirm = (lengthPixels: number, angleDeg: number) => {
+    if (!fabricCanvas || currentPointsRef.current.length < 1) return;
+    
+    const lastPoint = currentPointsRef.current[currentPointsRef.current.length - 1];
+    const angleRad = (angleDeg * Math.PI) / 180;
+    const newPoint = {
+      x: lastPoint.x + Math.cos(angleRad) * lengthPixels,
+      y: lastPoint.y + Math.sin(angleRad) * lengthPixels,
+    };
+
+    // Add the new point (same logic as handleMouseDown for shape drawing)
+    const newPoints = [...currentPointsRef.current, newPoint];
+    currentPointsRef.current = newPoints;
+    setCurrentPoints(newPoints);
+
+    // Add vertex marker
+    const markerColor = drawingModeRef.current === 'property' ? '#22c55e' : drawingModeRef.current === 'pool' ? '#0EA5E9' : '#3b82f6';
+    const marker = new Circle({
+      left: newPoint.x,
+      top: newPoint.y,
+      radius: 1,
+      fill: markerColor,
+      stroke: '#ffffff',
+      strokeWidth: 0.25,
+      originX: 'center',
+      originY: 'center',
+      selectable: false,
+      evented: false,
+    });
+    fabricCanvas.add(marker);
+    vertexMarkersRef.current = [...vertexMarkersRef.current, marker];
+    setVertexMarkers(prev => [...prev, marker]);
+
+    // Add line from previous point
+    const lineColor = drawingModeRef.current === 'property' ? '#22c55e' : drawingModeRef.current === 'pool' ? '#0EA5E9' : '#3b82f6';
+    const line = new Line([lastPoint.x, lastPoint.y, newPoint.x, newPoint.y], {
+      stroke: lineColor,
+      strokeWidth: 1,
+      strokeDashArray: drawingModeRef.current === 'property' ? [8, 4] : undefined,
+      selectable: false,
+      evented: false,
+    });
+    fabricCanvas.add(line);
+    drawnLinesRef.current = [...drawnLinesRef.current, line];
+    setDrawnLines(prev => [...prev, line]);
+
+    // Remove preview line and measurement label
+    if (previewLineRef.current) {
+      fabricCanvas.remove(previewLineRef.current);
+      previewLineRef.current = null;
+      setPreviewLine(null);
+    }
+    if (measurementLabelRef.current) {
+      fabricCanvas.remove(measurementLabelRef.current);
+      measurementLabelRef.current = null;
+      setMeasurementLabel(null);
+    }
+
+    fabricCanvas.renderAll();
+
+    // Push to undo stack
+    setUndoStack(prev => [...prev, { type: 'add_point', data: newPoint }]);
+    setRedoStack([]);
+
+    toast.success(`Point placed: ${formatMeasurement(lengthPixels)} at ${angleDeg.toFixed(1)}°`);
+  };
+
   return (
     <div className="h-full flex flex-col">
       {/* Toolbar */}
@@ -6463,6 +6555,16 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
           <canvas ref={canvasRef} />
         </div>
       </div>
+
+      {/* Exact Measurement Dialog */}
+      <ExactMeasurementDialog
+        open={showExactMeasurement}
+        onOpenChange={setShowExactMeasurement}
+        currentAngleDeg={exactMeasurementAngle}
+        unit={unit}
+        onConfirm={handleExactMeasurementConfirm}
+        pixelsPerMeter={scalePixelsPerMeterRef.current}
+      />
     </div>
   );
 };
