@@ -247,8 +247,8 @@ export const AddPoolDialog: React.FC<AddPoolDialogProps> = ({
                         style={{
                           width: `${displayW}px`,
                           height: `${displayH}px`,
-                          objectFit: 'fill',
-                          transform: rotated ? 'rotate(90deg)' : 'none',
+                          objectFit: 'contain',
+                          transform: `rotate(${rotationAngle}deg)`,
                         }}
                       />
                     ) : (
