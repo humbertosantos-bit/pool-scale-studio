@@ -497,29 +497,18 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
       }
       ctx.restore();
 
-      // Overlay the water texture image at 30% opacity — no filters, just the image
-      const waterImg = document.createElement('img');
-      waterImg.onload = () => {
-        ctx.globalAlpha = 0.30;
-        ctx.drawImage(waterImg, 0, 0, poolWidth, poolHeight);
-        ctx.globalAlpha = 1.0;
+      // Overlay light blue color at 50% opacity
+      ctx.globalAlpha = 0.50;
+      ctx.fillStyle = '#87CEEB';
+      ctx.fillRect(0, 0, poolWidth, poolHeight);
+      ctx.globalAlpha = 1.0;
 
-        const pattern = new Pattern({
-          source: patternCanvas,
-          repeat: 'no-repeat',
-        });
-        polygon.set('fill', pattern);
-        fabricCanvas?.requestRenderAll();
-      };
-      waterImg.onerror = () => {
-        const pattern = new Pattern({
-          source: patternCanvas,
-          repeat: 'no-repeat',
-        });
-        polygon.set('fill', pattern);
-        fabricCanvas?.requestRenderAll();
-      };
-      waterImg.src = waterTextureImg;
+      const pattern = new Pattern({
+        source: patternCanvas,
+        repeat: 'no-repeat',
+      });
+      polygon.set('fill', pattern);
+      fabricCanvas?.requestRenderAll();
       return;
     };
 
