@@ -14,6 +14,7 @@ import {
 import { toast } from 'sonner';
 import { Undo2, Redo2, Grid3X3, Magnet, RotateCcw, Move, Trash2, ZoomIn, ZoomOut, Eye, EyeOff, Maximize, Waves, ChevronDown, Plus, Pencil, Ruler, Settings, Image, Lock, Unlock, Crosshair } from 'lucide-react';
 import { ExactMeasurementDialog } from './ExactMeasurementDialog';
+import { AddPoolDialog, PoolDialogResult } from './AddPoolDialog';
 
 interface ManualTracingCanvasProps {
   onStateChange?: (state: any) => void;
@@ -132,6 +133,7 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
   const [customPoolWidth, setCustomPoolWidth] = useState<string>('12');
   const [customPoolLength, setCustomPoolLength] = useState<string>('24');
   const [showCustomPoolInput, setShowCustomPoolInput] = useState(false);
+  const [showAddPoolDialog, setShowAddPoolDialog] = useState(false);
   
   // Property input mode
   const [propertyInputMode, setPropertyInputMode] = useState<'draw' | 'measure'>('draw');
@@ -4623,6 +4625,93 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
     exitMode();
   };
 
+  // Handle pool dialog confirm - applies coping/paver settings from dialog before creating pool
+  const handlePoolDialogConfirm = (result: PoolDialogResult) => {
+    // Apply coping size from dialog
+    setCopingSize(result.copingSize);
+    
+    // Apply paver dimensions from dialog
+    setPaverTopFeet(result.paverTop.feet);
+    setPaverTopInches(result.paverTop.inches);
+    setPaverBottomFeet(result.paverBottom.feet);
+    setPaverBottomInches(result.paverBottom.inches);
+    setPaverLeftFeet(result.paverLeft.feet);
+    setPaverLeftInches(result.paverLeft.inches);
+    setPaverRightFeet(result.paverRight.feet);
+    setPaverRightInches(result.paverRight.inches);
+    
+    // We need to use the dialog values directly since setState is async
+    // Temporarily override the refs/values used by createPoolShape
+    const savedCoping = copingSize;
+    const savedPT = paverTopFeet, savedPTI = paverTopInches;
+    const savedPB = paverBottomFeet, savedPBI = paverBottomInches;
+    const savedPL = paverLeftFeet, savedPLI = paverLeftInches;
+    const savedPR = paverRightFeet, savedPRI = paverRightInches;
+    
+    // Use a microtask to ensure state is set before createPoolShape reads it
+    // Instead, we directly call addPresetPool/addCustomPool logic inline with the right values
+    
+    if (!fabricCanvas) return;
+    
+    let widthFeet: number, lengthFeet: number, name: string, isPreset: boolean;
+    
+    if (result.type === 'preset' && result.preset) {
+      widthFeet = result.preset.widthFeet + result.preset.widthInches / 12;
+      lengthFeet = result.preset.lengthFeet + result.preset.lengthInches / 12;
+      name = result.preset.displayName;
+      isPreset = true;
+    } else {
+      widthFeet = result.customWidthFeet || 12;
+      lengthFeet = result.customLengthFeet || 24;
+      name = `Custom ${widthFeet}'x${lengthFeet}'`;
+      isPreset = false;
+    }
+    
+    // Apply rotation
+    if (result.rotated) {
+      const temp = widthFeet;
+      widthFeet = lengthFeet;
+      lengthFeet = temp;
+    }
+    
+    // Convert to pixels
+    const METERS_TO_FEET_LOCAL = 3.28084;
+    const widthMeters = widthFeet / METERS_TO_FEET_LOCAL;
+    const lengthMeters = lengthFeet / METERS_TO_FEET_LOCAL;
+    const currentScale = scalePixelsPerMeterRef.current;
+    const widthPixels = widthMeters * currentScale;
+    const lengthPixels = lengthMeters * currentScale;
+    
+    // Find center
+    let centerX: number, centerY: number;
+    if (propertyShapeRef.current) {
+      const propPoints = propertyShapeRef.current.points;
+      centerX = propPoints.reduce((sum, p) => sum + p.x, 0) / propPoints.length;
+      centerY = propPoints.reduce((sum, p) => sum + p.y, 0) / propPoints.length;
+    } else {
+      centerX = fabricCanvas.getWidth() / 2;
+      centerY = fabricCanvas.getHeight() / 2;
+    }
+    
+    const halfWidth = widthPixels / 2;
+    const halfLength = lengthPixels / 2;
+    const poolPoints = [
+      { x: centerX - halfWidth, y: centerY - halfLength },
+      { x: centerX + halfWidth, y: centerY - halfLength },
+      { x: centerX + halfWidth, y: centerY + halfLength },
+      { x: centerX - halfWidth, y: centerY + halfLength },
+    ];
+    
+    // Create pool shape using dialog values directly
+    // We need to temporarily set the state values so createPoolShape picks them up
+    // Since createPoolShape reads from state variables directly, we use a setTimeout
+    setTimeout(() => {
+      createPoolShape(poolPoints, name, widthFeet, lengthFeet, isPreset);
+    }, 0);
+    
+    setShowAddPoolDialog(false);
+  };
+
   // Create pool shape helper with coping and pavers
   const createPoolShape = (points: { x: number; y: number }[], name: string, widthFeet: number, lengthFeet: number, isPreset: boolean = false) => {
     if (!fabricCanvas) return;
@@ -6107,68 +6196,10 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
 
         {/* Pool Section */}
         <div className="flex items-center gap-2 border-r pr-3">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button size="sm" variant="outline" disabled={!propertyShape} className="gap-1">
-                <Waves className="h-4 w-4" />
-                Add Pool
-                <ChevronDown className="h-3 w-3" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-56 bg-white z-50">
-              <DropdownMenuLabel>Preset Pools</DropdownMenuLabel>
-              {PRESET_POOLS.map((preset) => (
-                <DropdownMenuItem key={preset.name} onClick={() => addPresetPool(preset)}>
-                  <span className="flex-1">{preset.displayName}</span>
-                  <span className="text-xs text-muted-foreground">
-                    ({preset.widthFeet}'{preset.widthInches > 0 ? `${preset.widthInches}"` : ''} × {preset.lengthFeet}'{preset.lengthInches > 0 ? `${preset.lengthInches}"` : ''})
-                  </span>
-                </DropdownMenuItem>
-              ))}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => setShowCustomPoolInput(true)}>
-                <Plus className="h-4 w-4 mr-2" />
-                Custom Dimensions
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => startDrawingMode('pool')}>
-                <Pencil className="h-4 w-4 mr-2" />
-                Draw Custom Shape
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          
-          {showCustomPoolInput && (
-            <div className="flex items-center gap-2 bg-slate-50 p-2 rounded border">
-              <div className="flex items-center gap-1">
-                <Label className="text-xs">W:</Label>
-                <Input
-                  type="number"
-                  value={customPoolWidth}
-                  onChange={(e) => setCustomPoolWidth(e.target.value)}
-                  className="w-14 h-7 text-xs"
-                  placeholder="12"
-                />
-                <span className="text-xs">ft</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <Label className="text-xs">L:</Label>
-                <Input
-                  type="number"
-                  value={customPoolLength}
-                  onChange={(e) => setCustomPoolLength(e.target.value)}
-                  className="w-14 h-7 text-xs"
-                  placeholder="24"
-                />
-                <span className="text-xs">ft</span>
-              </div>
-              <Button size="sm" className="h-7 text-xs" onClick={addCustomPool}>
-                Add
-              </Button>
-              <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setShowCustomPoolInput(false)}>
-                ✕
-              </Button>
-            </div>
-          )}
+          <Button size="sm" variant="outline" disabled={!propertyShape} className="gap-1" onClick={() => setShowAddPoolDialog(true)}>
+            <Waves className="h-4 w-4" />
+            Add Pool
+          </Button>
           
           <Button
             size="sm"
@@ -6759,6 +6790,15 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         onConfirm={handleExactMeasurementConfirm}
         onPreviewChange={handleExactMeasurementPreview}
         pixelsPerMeter={scalePixelsPerMeterRef.current}
+      />
+
+      {/* Add Pool Dialog */}
+      <AddPoolDialog
+        open={showAddPoolDialog}
+        onOpenChange={setShowAddPoolDialog}
+        presetPools={PRESET_POOLS}
+        onConfirm={handlePoolDialogConfirm}
+        onDrawCustom={() => startDrawingMode('pool')}
       />
     </div>
   );
