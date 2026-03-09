@@ -6837,6 +6837,21 @@ export const ManualTracingCanvas: React.FC<ManualTracingCanvasProps> = ({ onStat
         onConfirm={handlePoolDialogConfirm}
         onDrawCustom={() => startDrawingMode('pool')}
       />
+
+      {/* Edit Pool Dialog (double-click on pool) */}
+      {editingPoolForDialog && (
+        <EditPoolDialog
+          open={showEditPoolDialog}
+          onOpenChange={(open) => {
+            setShowEditPoolDialog(open);
+            if (!open) setEditingPoolForDialog(null);
+          }}
+          poolName={editingPoolForDialog.name || 'Pool'}
+          currentCopingSize={editingPoolForDialog.copingSize || 16}
+          currentPaverDimensions={editingPoolForDialog.paverDimensions || { top: 0, bottom: 0, left: 0, right: 0 }}
+          onConfirm={handleEditPoolConfirm}
+        />
+      )}
     </div>
   );
 };
